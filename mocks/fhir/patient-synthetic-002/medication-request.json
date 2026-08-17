@@ -1,0 +1,31 @@
+{
+  "resourceType": "MedicationRequest",
+  "id": "medicationrequest-synthetic-002",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://eir.local/tags",
+        "code": "synthetic",
+        "display": "SYNTHETIC — not real patient data"
+      }
+    ]
+  },
+  "status": "active",
+  "intent": "order",
+  "medicationCodeableConcept": {
+    "text": "Ibuprofen 400 mg (synthetic example)"
+  },
+  "subject": {
+    "reference": "Patient/patient-synthetic-002",
+    "display": "Jordan Lee (synthetic)"
+  },
+  "encounter": {
+    "reference": "Encounter/encounter-synthetic-002"
+  },
+  "authoredOn": "2026-08-09",
+  "dosageInstruction": [
+    {
+      "text": "SYNTHETIC: one tablet by mouth every 6 hours as needed"
+    }
+  ]
+}

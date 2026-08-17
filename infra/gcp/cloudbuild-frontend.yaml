@@ -1,0 +1,13 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_IMAGE}
+      - --build-arg
+      - NEXT_PUBLIC_API_URL=${_API_URL}
+      - -f
+      - infra/docker/frontend/Dockerfile
+      - .
+images:
+  - ${_IMAGE}

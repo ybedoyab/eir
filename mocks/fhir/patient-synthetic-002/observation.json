@@ -1,6 +1,6 @@
 {
   "resourceType": "Observation",
-  "id": "observation-synthetic-001",
+  "id": "observation-synthetic-002",
   "meta": {
     "tag": [
       {
@@ -9,10 +9,6 @@
         "display": "SYNTHETIC — not real patient data"
       }
     ]
-  },
-  "text": {
-    "status": "generated",
-    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">SYNTHETIC pain score observation for Patient/patient-synthetic-001.</div>"
   },
   "status": "final",
   "category": [
@@ -30,12 +26,18 @@
     "text": "SYNTHETIC self-reported pain score (0-10)"
   },
   "subject": {
-    "reference": "Patient/patient-synthetic-001",
-    "display": "Alex Rivera (synthetic)"
+    "reference": "Patient/patient-synthetic-002",
+    "display": "Jordan Lee (synthetic)"
   },
   "encounter": {
-    "reference": "Encounter/encounter-synthetic-001"
+    "reference": "Encounter/encounter-synthetic-002"
   },
-  "effectiveDateTime": "2026-08-11T16:00:00Z",
-  "valueInteger": 2
+  "effectiveDateTime": "2026-08-12T09:00:00Z",
+  "valueInteger": 8,
+  "extension": [
+    {
+      "url": "https://eir.local/extensions/reported-issue",
+      "valueBoolean": true
+    }
+  ]
 }

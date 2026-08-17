@@ -1,4 +1,4 @@
-"""Deploy EIR API and Pub/Sub worker to Cloud Run (project eir-ata)."""
+"""Deploy EIR API, worker, and frontend to Cloud Run (project eir-ata)."""
 
 from __future__ import annotations
 
@@ -10,17 +10,19 @@ from pathlib import Path
 PROJECT = "eir-ata"
 REGION = "us-central1"
 REPOSITORY = "eir"
-IMAGE = f"{REGION}-docker.pkg.dev/{PROJECT}/{REPOSITORY}/backend:latest"
+BACKEND_IMAGE = f"{REGION}-docker.pkg.dev/{PROJECT}/{REPOSITORY}/backend:latest"
+FRONTEND_IMAGE = f"{REGION}-docker.pkg.dev/{PROJECT}/{REPOSITORY}/frontend:latest"
 API_SERVICE = "eir-api"
 WORKER_SERVICE = "eir-worker"
+UI_SERVICE = "eir-ui"
 RUNTIME_SA = f"eir-runtime@{PROJECT}.iam.gserviceaccount.com"
 
-SHARED_ENV = [
+BASE_ENV = [
     "GOOGLE_CLOUD_PROJECT=eir-ata",
     "GOOGLE_CLOUD_LOCATION=us-central1",
     "EPISODE_STORE=firestore",
     "FHIR_MODE=gcp",
-    "FHIR_FALLBACK=true",
+    "FHIR_FALLBACK=false",
     "FHIR_PROJECT=eir-ata",
     "FHIR_LOCATION=us-central1",
     "FHIR_DATASET=eir",
@@ -55,6 +57,42 @@ def _run(args: list[str], *, ok_codes: set[int] | None = None) -> int:
         print(f"command failed with {completed.returncode}", file=sys.stderr)
         return completed.returncode
     return 0
+
+
+def _gcloud_output(args: list[str]) -> str:
+    if args and args[0] == "gcloud":
+        args = [_gcloud(), *args[1:]]
+    completed = subprocess.run(args, capture_output=True, text=True, check=False)
+    if completed.returncode != 0:
+        return ""
+    return completed.stdout.strip()
+
+
+def _project_number() -> str:
+    number = _gcloud_output(
+        ["gcloud", "projects", "describe", PROJECT, "--format=value(projectNumber)"]
+    )
+    return number or "658898892127"
+
+
+def _service_url(service: str, project_number: str) -> str:
+    return f"https://{service}-{project_number}.{REGION}.run.app"
+
+
+def _shared_env(project_number: str) -> list[str]:
+    ui_url = _service_url(UI_SERVICE, project_number)
+    return [
+        *BASE_ENV,
+        f"CORS_ORIGINS=http://localhost:3000,{ui_url}",
+    ]
+
+
+def _write_env_file(env: list[str], name: str) -> Path:
+    path = Path(".cursor") / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [f"{key}: '{value}'" for key, value in (item.split("=", 1) for item in env)]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
 
 
 def _ensure_artifact_registry() -> int:
@@ -186,7 +224,7 @@ def _ensure_secret() -> int:
     return 0
 
 
-def _build_image() -> int:
+def _build_backend_image() -> int:
     return _run(
         [
             "gcloud",
@@ -194,21 +232,36 @@ def _build_image() -> int:
             "submit",
             ".",
             "--config=infra/gcp/cloudbuild.yaml",
-            f"--substitutions=_IMAGE={IMAGE}",
+            f"--substitutions=_IMAGE={BACKEND_IMAGE}",
             f"--project={PROJECT}",
         ]
     )
 
 
-def _deploy_api() -> int:
-    env = [*SHARED_ENV, "WORKFLOW_SUBSCRIBER=pubsub", "PUBSUB_HANDLE=false"]
+def _build_frontend_image(api_url: str) -> int:
+    return _run(
+        [
+            "gcloud",
+            "builds",
+            "submit",
+            ".",
+            "--config=infra/gcp/cloudbuild-frontend.yaml",
+            f"--substitutions=_IMAGE={FRONTEND_IMAGE},_API_URL={api_url}",
+            f"--project={PROJECT}",
+        ]
+    )
+
+
+def _deploy_api(shared_env: list[str]) -> int:
+    env = [*shared_env, "WORKFLOW_SUBSCRIBER=pubsub", "PUBSUB_HANDLE=false"]
+    env_file = _write_env_file(env, "cloudrun-api-env.yaml")
     return _run(
         [
             "gcloud",
             "run",
             "deploy",
             API_SERVICE,
-            f"--image={IMAGE}",
+            f"--image={BACKEND_IMAGE}",
             f"--region={REGION}",
             f"--project={PROJECT}",
             f"--service-account={RUNTIME_SA}",
@@ -218,23 +271,23 @@ def _deploy_api() -> int:
             "--timeout=300",
             "--min-instances=0",
             "--max-instances=3",
-            "--set-env-vars",
-            ",".join(env),
+            f"--env-vars-file={env_file}",
             "--set-secrets",
             "GOOGLE_API_KEY=eir-gemini-api-key:latest",
         ]
     )
 
 
-def _deploy_worker() -> int:
-    env = [*SHARED_ENV, "WORKFLOW_SUBSCRIBER=pubsub", "PUBSUB_HANDLE=true"]
+def _deploy_worker(shared_env: list[str]) -> int:
+    env = [*shared_env, "WORKFLOW_SUBSCRIBER=pubsub", "PUBSUB_HANDLE=true"]
+    env_file = _write_env_file(env, "cloudrun-worker-env.yaml")
     return _run(
         [
             "gcloud",
             "run",
             "deploy",
             WORKER_SERVICE,
-            f"--image={IMAGE}",
+            f"--image={BACKEND_IMAGE}",
             f"--region={REGION}",
             f"--project={PROJECT}",
             f"--service-account={RUNTIME_SA}",
@@ -247,38 +300,54 @@ def _deploy_worker() -> int:
             "--min-instances=1",
             "--max-instances=1",
             "--no-cpu-throttling",
-            "--set-env-vars",
-            ",".join(env),
+            f"--env-vars-file={env_file}",
             "--set-secrets",
             "GOOGLE_API_KEY=eir-gemini-api-key:latest",
         ]
     )
 
 
+def _deploy_frontend() -> int:
+    return _run(
+        [
+            "gcloud",
+            "run",
+            "deploy",
+            UI_SERVICE,
+            f"--image={FRONTEND_IMAGE}",
+            f"--region={REGION}",
+            f"--project={PROJECT}",
+            "--allow-unauthenticated",
+            "--port=8080",
+            "--memory=512Mi",
+            "--timeout=300",
+            "--min-instances=0",
+            "--max-instances=2",
+        ]
+    )
+
+
 def main() -> int:
+    project_number = _project_number()
+    api_url = _service_url(API_SERVICE, project_number)
+    shared_env = _shared_env(project_number)
+
     for step in (
         _ensure_artifact_registry,
         _ensure_runtime_service_account,
         _ensure_secret,
-        _build_image,
-        _deploy_api,
-        _deploy_worker,
+        _build_backend_image,
+        lambda: _deploy_api(shared_env),
+        lambda: _deploy_worker(shared_env),
+        lambda: _build_frontend_image(api_url),
+        _deploy_frontend,
     ):
         if step() != 0:
             return 1
+
     print("deploy finished")
-    _run(
-        [
-            "gcloud",
-            "run",
-            "services",
-            "describe",
-            API_SERVICE,
-            f"--region={REGION}",
-            f"--project={PROJECT}",
-            "--format=value(status.url)",
-        ]
-    )
+    print(f"API: {api_url}")
+    print(f"UI:  {_service_url(UI_SERVICE, project_number)}")
     return 0
 
 

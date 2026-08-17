@@ -17,6 +17,15 @@ def test_outreach_uses_synthetic_care_plan() -> None:
     assert "llm_summary" in responded.payload
 
 
+def test_outreach_reads_jordan_risk_from_fhir() -> None:
+    event = FollowUpDue(episode_id="ep-2")
+    result = asyncio.run(handle_follow_up(event, patient_id="patient-synthetic-002"))
+    responded = result.next_events[0]
+    assert isinstance(responded, PatientResponded)
+    assert responded.payload["reported_issue"] is True
+    assert responded.payload["pain_score"] == 8
+
+
 def test_risk_escalates_on_reported_issue() -> None:
     event = PatientResponded(
         episode_id="ep-1",

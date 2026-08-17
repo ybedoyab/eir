@@ -25,13 +25,16 @@ _SEED_ORDER = (
 
 def _load_resources(mocks: Path) -> list[dict[str, Any]]:
     resources: list[dict[str, Any]] = []
-    for name in _SEED_ORDER:
-        path = mocks / name
-        if not path.is_file():
+    for patient_dir in sorted(mocks.iterdir()):
+        if not patient_dir.is_dir():
             continue
-        resource = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(resource, dict) and resource.get("resourceType"):
-            resources.append(resource)
+        for name in _SEED_ORDER:
+            path = patient_dir / name
+            if not path.is_file():
+                continue
+            resource = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(resource, dict) and resource.get("resourceType"):
+                resources.append(resource)
     return resources
 
 

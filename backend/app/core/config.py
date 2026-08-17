@@ -1,5 +1,8 @@
+from typing import Annotated
+
 from eir_shared.env import repo_root
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 _ENV_FILE = repo_root() / ".env"
 
@@ -12,7 +15,7 @@ class Settings(BaseSettings):
     )
 
     environment: str = "development"
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
     google_cloud_project: str = "eir-ata"
     google_cloud_location: str = "us-central1"
     gemini_model: str = "gemini-2.5-flash"
@@ -32,6 +35,18 @@ class Settings(BaseSettings):
     workflow_subscriber: str = "local"
     pubsub_handle: bool = False
     data_dir: str = "data"
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: object) -> list[str]:
+        if isinstance(value, str):
+            parts: list[str] = []
+            for chunk in value.replace(";", ",").split(","):
+                item = chunk.strip()
+                if item:
+                    parts.append(item)
+            return parts
+        return value  # type: ignore[return-value]
 
 
 settings = Settings()

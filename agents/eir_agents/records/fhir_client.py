@@ -1,7 +1,8 @@
 """FHIR access protocol.
 
-Local implementation reads synthetic fixtures. Google Cloud Healthcare API
-lives in backend.integrations.fhir and falls back to this client.
+Local implementation reads synthetic fixtures under mocks/fhir/{patient_id}/.
+Google Cloud Healthcare API lives in backend.integrations.fhir and falls back
+to this client.
 """
 
 from __future__ import annotations
@@ -35,12 +36,31 @@ def _default_mocks_dir() -> Path:
 
 
 class LocalFhirClient:
+    _FILES = {
+        "patient": "patient.json",
+        "encounter": "encounter.json",
+        "medication": "medication-request.json",
+        "observation": "observation.json",
+        "care_plan": "care-plan.json",
+    }
+
     def __init__(self, mocks_dir: Path | None = None) -> None:
         self.mocks_dir = mocks_dir or _default_mocks_dir()
         self._appended: list[dict[str, Any]] = []
 
-    def _load(self, filename: str) -> dict[str, Any]:
-        path = self.mocks_dir / filename
+    def _patient_dir(self, patient_id: str) -> Path | None:
+        candidate = self.mocks_dir / patient_id
+        if candidate.is_dir():
+            return candidate
+        return None
+
+    def _load(self, patient_id: str, filename: str) -> dict[str, Any] | None:
+        patient_dir = self._patient_dir(patient_id)
+        if patient_dir is None:
+            return None
+        path = patient_dir / filename
+        if not path.is_file():
+            return None
         return json.loads(path.read_text(encoding="utf-8"))
 
     def _matches_patient(self, resource: dict[str, Any], patient_id: str) -> bool:
@@ -50,33 +70,37 @@ class LocalFhirClient:
         return patient_id in subject
 
     def get_patient(self, patient_id: str) -> dict[str, Any] | None:
-        resource = self._load("patient.json")
-        if resource.get("id") == patient_id:
-            return resource
-        return None
+        resource = self._load(patient_id, self._FILES["patient"])
+        if resource is None:
+            return None
+        return resource if self._matches_patient(resource, patient_id) else None
 
     def get_encounters(self, patient_id: str) -> list[dict[str, Any]]:
-        resource = self._load("encounter.json")
-        subject = (resource.get("subject") or {}).get("reference", "")
-        if patient_id in subject or resource.get("subject", {}).get("id") == patient_id:
+        resource = self._load(patient_id, self._FILES["encounter"])
+        if resource is None:
+            return []
+        if self._matches_patient(resource, patient_id):
             return [resource]
         return []
 
     def get_medications(self, patient_id: str) -> list[dict[str, Any]]:
-        resource = self._load("medication-request.json")
-        subject = (resource.get("subject") or {}).get("reference", "")
-        if patient_id in subject:
+        resource = self._load(patient_id, self._FILES["medication"])
+        if resource is None:
+            return []
+        if self._matches_patient(resource, patient_id):
             return [resource]
         return []
 
     def get_care_plan(self, patient_id: str) -> dict[str, Any] | None:
-        resource = self._load("care-plan.json")
-        if self._matches_patient(resource, patient_id):
-            return resource
-        return None
+        resource = self._load(patient_id, self._FILES["care_plan"])
+        if resource is None:
+            return None
+        return resource if self._matches_patient(resource, patient_id) else None
 
     def get_observations(self, patient_id: str) -> list[dict[str, Any]]:
-        resource = self._load("observation.json")
+        resource = self._load(patient_id, self._FILES["observation"])
+        if resource is None:
+            return []
         if self._matches_patient(resource, patient_id):
             return [resource]
         return []

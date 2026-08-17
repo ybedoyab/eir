@@ -65,8 +65,16 @@ uv run python infra/gcp/deploy.py
 
 Services:
 
-- `eir-api` — HTTP publisher (`WORKFLOW_SUBSCRIBER=pubsub`)
+- `eir-api` — HTTP publisher (`WORKFLOW_SUBSCRIBER=pubsub`, `FHIR_FALLBACK=false`)
 - `eir-worker` — Pub/Sub consumer (`PUBSUB_HANDLE=true`, `--handle`)
+- `eir-ui` — Next.js dashboard (`NEXT_PUBLIC_API_URL` baked at build time)
+
+Re-seed both synthetic patients before deploy when fixtures change:
+
+```bash
+uv run --package eir-backend --directory backend python -m app.seed_fhir
+uv run python infra/gcp/deploy.py
+```
 
 Local split E2E:
 

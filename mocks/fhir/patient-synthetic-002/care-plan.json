@@ -1,0 +1,35 @@
+{
+  "resourceType": "CarePlan",
+  "id": "careplan-synthetic-002",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://eir.local/tags",
+        "code": "synthetic",
+        "display": "SYNTHETIC — not real patient data"
+      }
+    ]
+  },
+  "status": "active",
+  "intent": "plan",
+  "title": "SYNTHETIC wound recovery plan",
+  "subject": {
+    "reference": "Patient/patient-synthetic-002",
+    "display": "Jordan Lee (synthetic)"
+  },
+  "encounter": {
+    "reference": "Encounter/encounter-synthetic-002"
+  },
+  "period": {
+    "start": "2026-08-09",
+    "end": "2026-08-23"
+  },
+  "activity": [
+    {
+      "detail": {
+        "status": "scheduled",
+        "description": "SYNTHETIC: monitor incision site and report increased pain"
+      }
+    }
+  ]
+}

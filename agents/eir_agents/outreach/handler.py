@@ -9,10 +9,10 @@ from eir_agents.common.types import HandlerResult
 from eir_agents.outreach.llm import FollowUpSummarizer, TemplateFollowUpSummarizer
 from eir_agents.outreach.voice import MockVoiceProvider, VoiceProvider
 from eir_agents.records.fhir_client import FhirClient, LocalFhirClient
-
-# Synthetic demo profiles. Not real patients.
-_ISSUE_PATIENTS = {"patient-synthetic-002"}
-
+from eir_agents.records.fhir_utils import (
+    pain_score_from_observation,
+    reported_issue_from_observation,
+)
 
 async def handle_follow_up(
     event: DomainEvent,
@@ -32,8 +32,8 @@ async def handle_follow_up(
     observations = fhir.get_observations(patient_id)
     observation = observations[0] if observations else {}
 
-    reported_issue = patient_id in _ISSUE_PATIENTS
-    pain_score = 8 if reported_issue else int(observation.get("valueInteger") or 2)
+    reported_issue = reported_issue_from_observation(observation)
+    pain_score = pain_score_from_observation(observation, default=2 if not reported_issue else 8)
     care_plan_title = (care_plan or {}).get("title") or "none"
 
     call_id = await voice.start_outbound_call(

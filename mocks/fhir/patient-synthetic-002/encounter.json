@@ -1,0 +1,32 @@
+{
+  "resourceType": "Encounter",
+  "id": "encounter-synthetic-002",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://eir.local/tags",
+        "code": "synthetic",
+        "display": "SYNTHETIC — not real patient data"
+      }
+    ]
+  },
+  "status": "finished",
+  "class": {
+    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+    "code": "AMB",
+    "display": "ambulatory"
+  },
+  "type": [
+    {
+      "text": "SYNTHETIC post-discharge check-in"
+    }
+  ],
+  "subject": {
+    "reference": "Patient/patient-synthetic-002",
+    "display": "Jordan Lee (synthetic)"
+  },
+  "period": {
+    "start": "2026-08-09T10:00:00Z",
+    "end": "2026-08-09T10:20:00Z"
+  }
+}

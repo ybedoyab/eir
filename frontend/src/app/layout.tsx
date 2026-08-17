@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { ApiStatus } from "@/components/ApiStatus";
 import { Nav } from "@/components/Nav";
 import "./globals.css";
 
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <Nav />
+        <ApiStatus />
         <main style={{ padding: "1.5rem" }}>{children}</main>
       </body>
     </html>

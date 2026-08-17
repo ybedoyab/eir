@@ -1,0 +1,48 @@
+{
+  "resourceType": "Patient",
+  "id": "patient-synthetic-002",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://eir.local/tags",
+        "code": "synthetic",
+        "display": "SYNTHETIC — not real patient data"
+      }
+    ]
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">SYNTHETIC — not real patient data. Jordan Lee, born 1975-11-03.</div>"
+  },
+  "identifier": [
+    {
+      "system": "https://eir.local/synthetic-patients",
+      "value": "patient-synthetic-002"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "use": "official",
+      "family": "Lee",
+      "given": ["Jordan"]
+    }
+  ],
+  "gender": "unknown",
+  "birthDate": "1975-11-03",
+  "communication": [
+    {
+      "language": {
+        "coding": [
+          {
+            "system": "urn:ietf:bcp:47",
+            "code": "en",
+            "display": "English"
+          }
+        ],
+        "text": "English"
+      },
+      "preferred": true
+    }
+  ]
+}
