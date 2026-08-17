@@ -45,7 +45,7 @@ eir/
 └── scripts/      Helper scripts
 ```
 
-Python packages are a uv workspace: `eir-shared`, `eir-backend`, `eir-agents`. Backend and agents never import each other.
+Python packages are a uv workspace: `eir-shared`, `eir-backend`, `eir-agents`. Agents do not import FastAPI. The backend imports agents only at the composition root (`backend/app/core/deps.py` and `integrations/agents`).
 
 ## Prerequisites
 
@@ -131,26 +131,23 @@ Or: `make lint`
 - Synthetic FHIR care plan/observations inform outreach; mock voice records the contact
 - Human-review queue for escalation; resolving resumes the episode (`ClinicianResolved`)
 - Operator UI lists patients, episodes, agents, traces, and pending reviews
-- Optional file persistence (`EPISODE_STORE=file` → gitignored `data/`)
+- Optional file or Firestore persistence (`EPISODE_STORE=file|firestore`)
 - Optional Pub/Sub mirror (`EVENT_BUS=pubsub`) while handlers still run in-process
-- Optional Healthcare API FHIR reads (`FHIR_MODE=gcp`) with local fixture fallback
+- Optional Healthcare API FHIR reads (`FHIR_MODE=gcp`) with explicit fixture fallback
 - Optional Gemini phrasing for outreach (`OUTREACH_LLM=true`); risk fields stay deterministic
+- Pub/Sub pull worker (`python -m app.worker`) for audit; `--handle` only if the API is not subscribed locally
 
 **Explicit stubs (adapters only)**
 
-- Pub/Sub subscribe worker (publish-only mirror today)
-- Agent Runtime + Memory Bank (file/`EpisodeStore` and in-memory `AgentMemory`)
 - Gemini Live / telephony (`MockVoiceProvider` only)
-- Model Armor, Agent Identity, Agent Gateway, Agent Observability (interfaces only)
+- Agent Runtime, Memory Bank, Model Armor, Agent Identity, Agent Gateway (interfaces only)
 - No medical diagnosis, no real EHR, no production credentials
 
 ## Roadmap for Google Cloud integrations
 
-1. Subscribe to Pub/Sub from a Cloud Run / Agent Runtime worker (publish mirror already exists).
-2. Persist Recovery Episodes in Firestore or Cloud SQL behind the existing repository / `EpisodeStore` protocols.
-3. Provision the Healthcare API FHIR store so `FHIR_MODE=gcp` stops falling back to fixtures.
-4. Map `AgentRegistry` to Gemini Enterprise Agent Registry; run agents on Agent Runtime with Memory Bank.
-5. Wire Agent Identity + Agent Gateway for capability authorization, Model Armor + the safety agent for high-risk actions, and Cloud Trace / Cloud Logging for the existing `WorkflowTrace` fields.
+1. Run the API with `WORKFLOW_SUBSCRIBER=pubsub` and the worker with `--handle` (split process).
+2. Map `AgentRegistry` to Gemini Enterprise Agent Registry; run agents on Agent Runtime with Memory Bank.
+3. Wire Agent Identity + Agent Gateway for capability authorization, Model Armor + the safety agent for high-risk actions, and Cloud Trace / Cloud Logging for the existing `WorkflowTrace` fields.
 
 ## License
 

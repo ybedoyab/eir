@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("install", "backend", "frontend", "test", "lint")]
+    [ValidateSet("install", "backend", "frontend", "test", "lint", "worker", "provision")]
     [string]$Command
 )
 
@@ -28,5 +28,12 @@ switch ($Command) {
         Set-Location frontend
         pnpm lint
         pnpm typecheck
+    }
+    "worker" {
+        Set-Location backend
+        uv run --package eir-backend python -m app.worker
+    }
+    "provision" {
+        uv run python infra/gcp/provision.py
     }
 }

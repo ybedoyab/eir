@@ -1,4 +1,4 @@
-.PHONY: install backend frontend test lint
+.PHONY: install backend frontend test lint provision worker seed-fhir
 
 install:
 	uv sync --all-packages --all-groups
@@ -9,6 +9,15 @@ backend:
 
 frontend:
 	cd frontend && pnpm dev
+
+worker:
+	uv run --package eir-backend --directory backend python -m app.worker
+
+provision:
+	uv run python infra/gcp/provision.py
+
+seed-fhir:
+	uv run --package eir-backend --directory backend python -m app.seed_fhir
 
 test:
 	uv run --package eir-backend --group dev pytest backend/tests

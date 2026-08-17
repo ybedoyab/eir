@@ -4,3 +4,5 @@
 #   .\scripts\dev.ps1 backend
 #   .\scripts\dev.ps1 frontend
 #   .\scripts\dev.ps1 test
+#   .\scripts\dev.ps1 worker
+#   .\scripts\dev.ps1 provision
