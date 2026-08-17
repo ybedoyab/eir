@@ -4,14 +4,16 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock ./
 COPY shared ./shared
 COPY backend ./backend
 COPY agents ./agents
 COPY mocks ./mocks
 
-RUN uv sync --package eir-backend --no-dev --all-packages
+RUN uv sync --all-packages --no-dev
 
-EXPOSE 8000
+ENV PORT=8080
 
-CMD ["uv", "run", "--package", "eir-backend", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--app-dir", "backend"]
+EXPOSE 8080
+
+CMD ["uv", "run", "--package", "eir-backend", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--app-dir", "backend"]

@@ -47,7 +47,7 @@ class FirestoreRecoveryEpisodeRepository:
     def append_event(self, episode_id: str, event: DomainEvent) -> DomainEvent:
         ref = self._col.document(episode_id)
         snapshot = ref.get()
-        data = snapshot.to_dict() or {} if snapshot.exists else {}
+        data = (snapshot.to_dict() or {}) if snapshot.exists else {}
         events = list(data.get("events") or [])
         events.append(event.model_dump(mode="json"))
         data["events"] = events
@@ -104,9 +104,9 @@ class FirestoreStructuredLogger(StructuredLogger):
     def __init__(self, name: str, client: Any, collection: str = "workflow_traces") -> None:
         super().__init__(name)
         self._col = client.collection(collection)
-        self.records = [
-            WorkflowTrace.model_validate(item.to_dict()) for item in self._col.stream()
-        ]
+
+    def list_records(self) -> list[WorkflowTrace]:
+        return [WorkflowTrace.model_validate(item.to_dict()) for item in self._col.stream()]
 
     def emit(self, trace: WorkflowTrace) -> None:
         super().emit(trace)

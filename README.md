@@ -136,6 +136,7 @@ Or: `make lint`
 - Optional Healthcare API FHIR reads (`FHIR_MODE=gcp`) with explicit fixture fallback
 - Optional Gemini phrasing for outreach (`OUTREACH_LLM=true`); risk fields stay deterministic
 - Pub/Sub pull worker (`python -m app.worker`) for audit; `--handle` only if the API is not subscribed locally
+- **Cloud Run (live):** https://eir-api-658898892127.us-central1.run.app — split API + worker on `eir-ata`
 
 **Explicit stubs (adapters only)**
 

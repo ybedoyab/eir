@@ -55,8 +55,27 @@ uv run --package eir-backend --directory backend python -m app.worker
 
 Do not pass `--handle` while the API still has `WORKFLOW_SUBSCRIBER=local`. That would process the same event twice.
 
+## Cloud Run deploy
+
+Requires `gcloud` auth and `GOOGLE_API_KEY` in local `.env` (seeded into Secret Manager once):
+
+```bash
+uv run python infra/gcp/deploy.py
+```
+
+Services:
+
+- `eir-api` — HTTP publisher (`WORKFLOW_SUBSCRIBER=pubsub`)
+- `eir-worker` — Pub/Sub consumer (`PUBSUB_HANDLE=true`, `--handle`)
+
+Local split E2E:
+
+```bash
+WORKFLOW_SUBSCRIBER=pubsub uv run --package eir-backend uvicorn app.main:app --app-dir backend --port 8000
+uv run --package eir-backend --directory backend python -m app.worker --handle
+E2E_SPLIT=1 uv run python scripts/e2e_check.py
+```
+
 ## Later
 
-- Cloud Run for the FastAPI API and the Pub/Sub worker
 - Gemini Enterprise: Agent Registry, Agent Runtime, Memory Bank, Agent Identity, Agent Gateway, Model Armor, Agent Observability
-- Secret Manager for any secrets that are not ADC

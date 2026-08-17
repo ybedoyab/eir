@@ -7,4 +7,9 @@ router = APIRouter()
 
 @router.get("")
 def list_traces() -> list[dict]:
-    return [item.model_dump(mode="json") for item in get_container().logger.records]
+    logger = get_container().logger
+    if hasattr(logger, "list_records"):
+        records = logger.list_records()
+    else:
+        records = logger.records
+    return [item.model_dump(mode="json") for item in records]

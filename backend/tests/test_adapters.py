@@ -131,6 +131,7 @@ def test_pytest_keeps_local_adapters_even_if_env_asks_for_gcp(monkeypatch) -> No
     monkeypatch.setattr(settings, "event_bus", "pubsub")
     monkeypatch.setattr(settings, "fhir_mode", "gcp")
     monkeypatch.setattr(settings, "outreach_llm", True)
+    monkeypatch.setattr(settings, "pubsub_handle", False)
     get_container.cache_clear()
     container = get_container()
     assert isinstance(container.episodes, InMemoryRecoveryEpisodeRepository)

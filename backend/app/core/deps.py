@@ -59,18 +59,42 @@ def _firestore_client() -> Any | None:
 
 class Container:
     def __init__(self) -> None:
+        testing = _in_pytest()
+        is_worker = settings.pubsub_handle and not testing
         local_bus = InMemoryEventBus()
         sink = None
-        if settings.event_bus == "pubsub" and not _in_pytest():
-            try:
-                sink = GooglePubSubEventBus(settings.google_cloud_project, settings.pubsub_topic)
-            except Exception:
-                logger.exception("Pub/Sub sink unavailable; using in-memory event bus")
-                sink = None
-        self.event_bus = CompositeEventBus(local_bus, sink) if sink else local_bus
-        self.pubsub_sink = sink is not None
 
-        testing = _in_pytest()
+        if is_worker:
+            self.event_bus = local_bus
+            self.pubsub_sink = False
+            bind_runtime = True
+        elif settings.workflow_subscriber == "pubsub" and not testing:
+            try:
+                self.event_bus = GooglePubSubEventBus(
+                    settings.google_cloud_project,
+                    settings.pubsub_topic,
+                )
+                self.pubsub_sink = True
+                bind_runtime = False
+            except Exception:
+                logger.exception("Pub/Sub publisher unavailable; falling back to in-memory bus")
+                self.event_bus = local_bus
+                self.pubsub_sink = False
+                bind_runtime = True
+        else:
+            if settings.event_bus == "pubsub" and not testing:
+                try:
+                    sink = GooglePubSubEventBus(
+                        settings.google_cloud_project,
+                        settings.pubsub_topic,
+                    )
+                except Exception:
+                    logger.exception("Pub/Sub sink unavailable; using in-memory event bus")
+                    sink = None
+            self.event_bus = CompositeEventBus(local_bus, sink) if sink else local_bus
+            self.pubsub_sink = sink is not None
+            bind_runtime = True
+
         store_mode = "memory" if testing else settings.episode_store
         data_dir = _data_dir()
         firestore_client = (
@@ -143,7 +167,8 @@ class Container:
             summarizer=summarizer,
         )
         self.workflow_subscriber = "local" if testing else settings.workflow_subscriber
-        if self.workflow_subscriber != "pubsub":
+        self.pubsub_handle = is_worker
+        if bind_runtime:
             self.runtime.bind()
 
     def adapter_status(self) -> dict[str, Any]:
@@ -154,6 +179,7 @@ class Container:
             "outreach_llm": self.outreach_llm,
             "workflow_subscriber": self.workflow_subscriber,
             "pubsub_sink": self.pubsub_sink,
+            "pubsub_handle": self.pubsub_handle,
         }
 
     def seed(self) -> None:

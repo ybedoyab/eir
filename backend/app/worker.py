@@ -13,7 +13,10 @@ import argparse
 import asyncio
 import json
 import logging
+import os
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from threading import Thread
 from typing import Any
 
 from eir_shared.env import load_root_env, repo_root
@@ -23,6 +26,23 @@ from app.core.deps import get_container
 from app.integrations.messaging.pubsub import decode_pubsub_payload
 
 logger = logging.getLogger("eir.worker")
+
+
+class _HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"ok")
+
+    def log_message(self, *_args: object) -> None:
+        return
+
+
+def _start_health_server() -> None:
+    port = int(os.getenv("PORT", "8080"))
+    server = HTTPServer(("", port), _HealthHandler)
+    Thread(target=server.serve_forever, daemon=True).start()
+    logger.info("health server on port %s", port)
 
 
 def _inbox_path() -> Path:
@@ -45,12 +65,13 @@ def run_worker(*, handle: bool) -> None:
 
     load_root_env()
     logging.basicConfig(level=logging.INFO)
+    _start_health_server()
     project = settings.google_cloud_project
     subscription = settings.pubsub_subscription
     subscriber = pubsub_v1.SubscriberClient()
     path = subscriber.subscription_path(project, subscription)
     if handle:
-        settings.workflow_subscriber = "pubsub"
+        settings.pubsub_handle = True
         get_container.cache_clear()
     container = get_container() if handle else None
 
