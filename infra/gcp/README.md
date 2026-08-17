@@ -66,8 +66,9 @@ uv run python infra/gcp/deploy.py
 CI on `main` redeploys automatically after tests pass (`deploy.py --services-only`).
 Add a GitHub Actions secret `GCP_SA_KEY` with a deploy service account JSON key.
 The account needs `roles/run.admin`, `roles/cloudbuild.builds.editor`,
-`roles/artifactregistry.admin`, `roles/storage.admin`, and
-`roles/iam.serviceAccountUser` on `eir-runtime@eir-ata.iam.gserviceaccount.com`.
+`roles/artifactregistry.admin`, `roles/storage.admin`, `roles/logging.viewer`,
+`roles/viewer`, and `roles/iam.serviceAccountUser` on
+`eir-runtime@eir-ata.iam.gserviceaccount.com`.
 
 Services:
 

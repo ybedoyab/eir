@@ -6,6 +6,7 @@ import argparse
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 PROJECT = "eir-ata"
@@ -225,31 +226,73 @@ def _ensure_secret() -> int:
     return 0
 
 
-def _build_backend_image() -> int:
-    return _run(
+def _wait_for_build(build_id: str) -> int:
+    terminal = {"SUCCESS", "FAILURE", "CANCELLED", "EXPIRED", "INTERNAL_ERROR", "TIMEOUT"}
+    while True:
+        completed = subprocess.run(
+            [
+                _gcloud(),
+                "builds",
+                "describe",
+                build_id,
+                f"--project={PROJECT}",
+                "--format=value(status)",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        status = completed.stdout.strip()
+        if status == "SUCCESS":
+            print(f"cloud build {build_id} succeeded")
+            return 0
+        if status in terminal:
+            print(f"cloud build {build_id} ended with {status}", file=sys.stderr)
+            if completed.stderr:
+                print(completed.stderr, file=sys.stderr)
+            return 1
+        time.sleep(5)
+
+
+def _cloud_build_submit(*, config: str, substitutions: str) -> int:
+    completed = subprocess.run(
         [
-            "gcloud",
+            _gcloud(),
             "builds",
             "submit",
             ".",
-            "--config=infra/gcp/cloudbuild.yaml",
-            f"--substitutions=_IMAGE={BACKEND_IMAGE}",
+            f"--config={config}",
+            f"--substitutions={substitutions}",
             f"--project={PROJECT}",
-        ]
+            "--async",
+            "--format=value(id)",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        print(completed.stderr or completed.stdout, file=sys.stderr)
+        return completed.returncode
+    build_id = completed.stdout.strip()
+    if not build_id:
+        print("cloud build did not return a build id", file=sys.stderr)
+        return 1
+    print(f"cloud build {build_id} started")
+    return _wait_for_build(build_id)
+
+
+def _build_backend_image() -> int:
+    return _cloud_build_submit(
+        config="infra/gcp/cloudbuild.yaml",
+        substitutions=f"_IMAGE={BACKEND_IMAGE}",
     )
 
 
 def _build_frontend_image(api_url: str) -> int:
-    return _run(
-        [
-            "gcloud",
-            "builds",
-            "submit",
-            ".",
-            "--config=infra/gcp/cloudbuild-frontend.yaml",
-            f"--substitutions=_IMAGE={FRONTEND_IMAGE},_API_URL={api_url}",
-            f"--project={PROJECT}",
-        ]
+    return _cloud_build_submit(
+        config="infra/gcp/cloudbuild-frontend.yaml",
+        substitutions=f"_IMAGE={FRONTEND_IMAGE},_API_URL={api_url}",
     )
 
 
