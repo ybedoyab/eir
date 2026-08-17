@@ -5,6 +5,7 @@ description = "Shared contracts, events, and protocols for EIR"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.9",
+    "python-dotenv>=1.0",
 ]
 
 [build-system]
