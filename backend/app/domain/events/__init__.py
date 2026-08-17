@@ -3,6 +3,7 @@
 from eir_shared.events import (
     AdherenceConcernDetected,
     AppointmentRequested,
+    ClinicianResolved,
     DomainEvent,
     FollowUpDue,
     HumanReviewRequested,
@@ -15,6 +16,7 @@ from eir_shared.events import (
 __all__ = [
     "AdherenceConcernDetected",
     "AppointmentRequested",
+    "ClinicianResolved",
     "DomainEvent",
     "FollowUpDue",
     "HumanReviewRequested",

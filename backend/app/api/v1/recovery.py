@@ -53,6 +53,27 @@ def get_recovery(episode_id: str) -> RecoveryEpisode:
     return episode
 
 
+@router.get("/{episode_id}/events")
+def list_recovery_events(episode_id: str) -> list[dict]:
+    if _service().get_episode(episode_id) is None:
+        raise HTTPException(status_code=404, detail="Recovery episode not found")
+    return [event.model_dump(mode="json") for event in _service().list_events(episode_id)]
+
+
+@router.post("/{episode_id}/follow-up")
+async def trigger_follow_up(episode_id: str) -> dict:
+    container = get_container()
+    event = _service().trigger_follow_up(episode_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="Recovery episode not found")
+    await container.event_bus.publish(event)
+    episode = _service().get_episode(episode_id)
+    return {
+        "event": event.model_dump(mode="json"),
+        "episode": episode.model_dump(mode="json") if episode else None,
+    }
+
+
 @router.post("/{episode_id}/events")
 async def append_recovery_event(episode_id: str, body: AppendEventRequest) -> dict:
     container = get_container()

@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from eir_shared.events import DomainEvent, RecoveryEpisodeStarted, parse_event
+from eir_shared.events import DomainEvent, FollowUpDue, RecoveryEpisodeStarted, parse_event
 
 from app.domain.recovery.models import RecoveryEpisode
 from app.repositories.recovery_repository import RecoveryEpisodeRepository
@@ -33,6 +33,16 @@ class RecoveryService:
         event = RecoveryEpisodeStarted(episode_id=episode.id, patient_id=patient_id)
         self._episodes.append_event(episode.id, event)
         return episode, event
+
+    def list_events(self, episode_id: str) -> list[DomainEvent]:
+        return self._episodes.list_events(episode_id)
+
+    def trigger_follow_up(self, episode_id: str) -> FollowUpDue | None:
+        if self._episodes.get(episode_id) is None:
+            return None
+        event = FollowUpDue(episode_id=episode_id)
+        self._episodes.append_event(episode_id, event)
+        return event
 
     def append_event(
         self,

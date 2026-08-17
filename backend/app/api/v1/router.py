@@ -1,7 +1,10 @@
 from fastapi import APIRouter
 
-from app.api.v1 import patients, recovery
+from app.api.v1 import agents, patients, recovery, reviews, traces
 
 router = APIRouter()
 router.include_router(patients.router, prefix="/patients", tags=["patients"])
 router.include_router(recovery.router, prefix="/recovery", tags=["recovery"])
+router.include_router(reviews.router, prefix="/reviews", tags=["reviews"])
+router.include_router(agents.router, prefix="/agents", tags=["agents"])
+router.include_router(traces.router, prefix="/traces", tags=["traces"])
