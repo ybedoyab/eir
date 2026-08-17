@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import shutil
 import subprocess
 import sys
@@ -328,20 +329,32 @@ def _deploy_frontend() -> int:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Deploy EIR to Cloud Run")
+    parser.add_argument(
+        "--services-only",
+        action="store_true",
+        help="Skip provision steps (artifact registry, IAM, secrets). Use in CI.",
+    )
+    args = parser.parse_args()
+
     project_number = _project_number()
     api_url = _service_url(API_SERVICE, project_number)
     shared_env = _shared_env(project_number)
 
-    for step in (
-        _ensure_artifact_registry,
-        _ensure_runtime_service_account,
-        _ensure_secret,
-        _build_backend_image,
-        lambda: _deploy_api(shared_env),
-        lambda: _deploy_worker(shared_env),
-        lambda: _build_frontend_image(api_url),
-        _deploy_frontend,
-    ):
+    steps = []
+    if not args.services_only:
+        steps.extend([_ensure_artifact_registry, _ensure_runtime_service_account, _ensure_secret])
+    steps.extend(
+        [
+            _build_backend_image,
+            lambda: _deploy_api(shared_env),
+            lambda: _deploy_worker(shared_env),
+            lambda: _build_frontend_image(api_url),
+            _deploy_frontend,
+        ]
+    )
+
+    for step in steps:
         if step() != 0:
             return 1
 

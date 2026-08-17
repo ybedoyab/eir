@@ -63,6 +63,12 @@ Requires `gcloud` auth and `GOOGLE_API_KEY` in local `.env` (seeded into Secret 
 uv run python infra/gcp/deploy.py
 ```
 
+CI on `main` redeploys automatically after tests pass (`deploy.py --services-only`).
+Add a GitHub Actions secret `GCP_SA_KEY` with a deploy service account JSON key.
+The account needs `roles/run.admin`, `roles/cloudbuild.builds.editor`,
+`roles/artifactregistry.admin`, `roles/storage.admin`, and
+`roles/iam.serviceAccountUser` on `eir-runtime@eir-ata.iam.gserviceaccount.com`.
+
 Services:
 
 - `eir-api` — HTTP publisher (`WORKFLOW_SUBSCRIBER=pubsub`, `FHIR_FALLBACK=false`)

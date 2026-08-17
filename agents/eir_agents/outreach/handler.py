@@ -14,6 +14,7 @@ from eir_agents.records.fhir_utils import (
     reported_issue_from_observation,
 )
 
+
 async def handle_follow_up(
     event: DomainEvent,
     *,
