@@ -66,6 +66,7 @@ class RecoveryOrchestrator:
             identity=_identity_from(descriptor),
             capability=capability,
             context={"episode_id": episode_id, "event_type": event.event_type},
+            agent_risk_level=descriptor.risk_level,
         )
         status = "delegated" if policy.allowed else "blocked"
         self._trace(episode_id, trace_id, event, descriptor.name, status)

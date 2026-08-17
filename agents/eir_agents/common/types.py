@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from eir_shared.events import DomainEvent
+from pydantic import BaseModel, Field
 
 
 class DelegationDecision(BaseModel):
@@ -9,3 +10,13 @@ class DelegationDecision(BaseModel):
     requires_human_approval: bool = False
     reason: str = ""
     event_type: str = ""
+
+
+class HandlerResult(BaseModel):
+    """Deterministic specialist output. No clinical diagnosis."""
+
+    summary: str = ""
+    episode_status: str | None = None
+    risk_level: str | None = None
+    review_reason: str | None = None
+    next_events: list[DomainEvent] = Field(default_factory=list)

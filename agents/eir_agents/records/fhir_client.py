@@ -21,6 +21,8 @@ class FhirClient(Protocol):
 
     def get_care_plan(self, patient_id: str) -> dict[str, Any] | None: ...
 
+    def get_observations(self, patient_id: str) -> list[dict[str, Any]]: ...
+
     def append_follow_up_observation(self, observation: dict[str, Any]) -> dict[str, Any]: ...
 
 
@@ -41,6 +43,12 @@ class LocalFhirClient:
     def _load(self, filename: str) -> dict[str, Any]:
         path = self.mocks_dir / filename
         return json.loads(path.read_text(encoding="utf-8"))
+
+    def _matches_patient(self, resource: dict[str, Any], patient_id: str) -> bool:
+        if resource.get("id") == patient_id:
+            return True
+        subject = (resource.get("subject") or {}).get("reference", "")
+        return patient_id in subject
 
     def get_patient(self, patient_id: str) -> dict[str, Any] | None:
         resource = self._load("patient.json")
@@ -64,10 +72,15 @@ class LocalFhirClient:
 
     def get_care_plan(self, patient_id: str) -> dict[str, Any] | None:
         resource = self._load("care-plan.json")
-        subject = (resource.get("subject") or {}).get("reference", "")
-        if patient_id in subject:
+        if self._matches_patient(resource, patient_id):
             return resource
         return None
+
+    def get_observations(self, patient_id: str) -> list[dict[str, Any]]:
+        resource = self._load("observation.json")
+        if self._matches_patient(resource, patient_id):
+            return [resource]
+        return []
 
     def append_follow_up_observation(self, observation: dict[str, Any]) -> dict[str, Any]:
         stored = dict(observation)

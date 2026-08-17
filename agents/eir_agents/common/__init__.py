@@ -1,3 +1,3 @@
-from eir_agents.common.types import DelegationDecision
+from eir_agents.common.types import DelegationDecision, HandlerResult
 
-__all__ = ["DelegationDecision"]
+__all__ = ["DelegationDecision", "HandlerResult"]
