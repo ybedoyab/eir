@@ -88,6 +88,13 @@ def parse_event(event_type: str, **kwargs: Any) -> DomainEvent:
     payload = dict(kwargs.get("payload") or {})
     merged = {**payload, **kwargs}
     if cls is None:
-        return DomainEvent(event_type=event_type, **kwargs)
+        data = {key: value for key, value in kwargs.items() if key != "event_type"}
+        return DomainEvent(event_type=event_type, **data)
     allowed = {key: value for key, value in merged.items() if key in cls.model_fields}
     return cls(**allowed)
+
+
+def parse_event_dict(raw: dict[str, Any]) -> DomainEvent:
+    data = dict(raw)
+    event_type = str(data.pop("event_type", "DomainEvent"))
+    return parse_event(event_type, **data)

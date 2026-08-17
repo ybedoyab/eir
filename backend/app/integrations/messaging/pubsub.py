@@ -1,25 +1,33 @@
-"""Google Pub/Sub event sink.
+"""Google Pub/Sub event sink and decode helpers.
 
 Local workflow still uses InMemoryEventBus so handlers run in-process.
 This adapter publishes the same DomainEvent JSON to Pub/Sub when enabled.
-
-TODO: subscribe from a Cloud Run / Agent Runtime worker.
+A separate worker may pull the subscription; it must not re-run handlers
+while the API process is already subscribed locally.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Protocol
 
 from eir_shared.event_bus import EventHandler, InMemoryEventBus
-from eir_shared.events import DomainEvent
+from eir_shared.events import DomainEvent, parse_event_dict
 
 logger = logging.getLogger("eir.pubsub")
 
 
 class EventSink(Protocol):
     async def publish(self, event: DomainEvent) -> None: ...
+
+
+def decode_pubsub_payload(data: bytes) -> DomainEvent:
+    raw = json.loads(data.decode("utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("Pub/Sub payload must be a JSON object")
+    return parse_event_dict(raw)
 
 
 class GooglePubSubEventBus:
@@ -43,7 +51,7 @@ class GooglePubSubEventBus:
             event_type=event.event_type,
             episode_id=event.episode_id,
         )
-        future.result(timeout=10)
+        await asyncio.to_thread(future.result, 10)
         logger.info("published %s to %s", event.event_type, self._topic)
 
 
@@ -58,6 +66,7 @@ class CompositeEventBus:
         self._local = local
         self._sink = sink
         self.published = local.published
+        self.sink_errors = 0
 
     def subscribe(self, event_type: str, handler: EventHandler) -> None:
         self._local.subscribe(event_type, handler)
@@ -69,4 +78,5 @@ class CompositeEventBus:
         try:
             await self._sink.publish(event)
         except Exception:
+            self.sink_errors += 1
             logger.exception("failed to mirror event %s to Pub/Sub", event.event_type)

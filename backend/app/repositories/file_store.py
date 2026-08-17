@@ -8,8 +8,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from eir_shared.events import DomainEvent, parse_event
+from eir_shared.events import DomainEvent, parse_event_dict
 from eir_shared.memory import InMemoryEpisodeStore
+from eir_shared.observability import StructuredLogger, WorkflowTrace
 
 from app.domain.recovery.models import RecoveryEpisode
 from app.repositories.recovery_repository import InMemoryRecoveryEpisodeRepository
@@ -47,9 +48,7 @@ class FileRecoveryEpisodeRepository(InMemoryRecoveryEpisodeRepository):
         for episode_id, events in raw.get("events", {}).items():
             loaded: list[DomainEvent] = []
             for event in events:
-                event_copy = dict(event)
-                event_type = event_copy.pop("event_type", "DomainEvent")
-                loaded.append(parse_event(event_type, **event_copy))
+                loaded.append(parse_event_dict(event))
             self._events[episode_id] = loaded
 
     def _flush(self) -> None:
@@ -92,3 +91,20 @@ class FileReviewRepository(InMemoryReviewRepository):
         result = super().save(review)
         self._flush()
         return result
+
+
+class FileStructuredLogger(StructuredLogger):
+    """Restart-safe traces. Cloud Trace remains a later adapter."""
+
+    def __init__(self, name: str, path: Path) -> None:
+        super().__init__(name)
+        self.path = path
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if self.path.exists():
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+            self.records = [WorkflowTrace.model_validate(item) for item in raw]
+
+    def emit(self, trace: WorkflowTrace) -> None:
+        super().emit(trace)
+        payload = [item.model_dump(mode="json") for item in self.records]
+        self.path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")

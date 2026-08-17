@@ -39,5 +39,10 @@ app.include_router(v1_router, prefix="/api/v1")
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict:
+    container = get_container()
+    return {
+        "status": "ok",
+        "project": settings.google_cloud_project,
+        "adapters": container.adapter_status(),
+    }

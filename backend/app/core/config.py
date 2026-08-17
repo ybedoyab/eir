@@ -22,11 +22,15 @@ class Settings(BaseSettings):
     fhir_dataset: str = "eir"
     fhir_store: str = "fhir-r4"
     pubsub_topic: str = "eir-recovery-events"
+    pubsub_subscription: str = "eir-recovery-events-worker"
     voice_provider: str = "mock"
     event_bus: str = "memory"
     episode_store: str = "memory"
     fhir_mode: str = "local"
+    fhir_fallback: bool = True
     outreach_llm: bool = False
+    workflow_subscriber: str = "local"
+    pubsub_handle: bool = False
     data_dir: str = "data"
 
 
