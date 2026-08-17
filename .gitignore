@@ -1,0 +1,87 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+.tox/
+.nox/
+pyrightconfig.json
+
+# uv / virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+uv.lock.bak
+
+# Node.js / Next.js / pnpm
+node_modules/
+.pnpm-store/
+.pnpm-debug.log
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+
+# Environment files (keep .env.example)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Cursor local state
+.cursor/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Logs
+*.log
+logs/
+
+# Google Cloud credentials
+*-service-account*.json
+service-account*.json
+gcloud-service-key.json
+application_default_credentials.json
+.gcloud/
+secrets/
+*.pem
+*.key
+!*.example.key
