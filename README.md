@@ -58,6 +58,8 @@ Python packages are a uv workspace: `eir-shared`, `eir-backend`, `eir-agents`. B
 
 ## Local setup
 
+There is **one** env file: `.env` at the repo root. Backend, agents, and frontend all read it. Do not add `.env` files inside `frontend/`, `backend/`, or `agents/`.
+
 ```bash
 cp .env.example .env
 uv sync --all-packages --all-groups
@@ -66,7 +68,7 @@ cd frontend && pnpm install && cd ..
 
 Or: `make install`
 
-Never put credentials in git. `.env` is ignored; `.env.example` is not.
+Gemini uses `GOOGLE_API_KEY` from local `.env` (no `gcloud login`). Never commit `.env` or the API key.
 
 ## How to run the frontend
 
@@ -123,16 +125,12 @@ Or: `make lint`
 
 **Functional now**
 
-- FastAPI health and patient/recovery CRUD over in-memory repositories
-- Recovery Episode creation publishes `RecoveryEpisodeStarted` and returns without running the full workflow
-- Domain events + `InMemoryEventBus`
-- Local `AgentRegistry` capability lookup
-- Orchestrator delegates by capability (not hardcoded agent classes)
-- Safety gate interface for high-risk actions
-- Local FHIR client reading synthetic fixtures
-- Mock voice provider
-- Placeholder Next.js routes
-- Structured workflow trace logger
+- FastAPI health, patients, recovery episodes, events, follow-up trigger, reviews, agents, traces
+- Creating an episode publishes `RecoveryEpisodeStarted` and returns; follow-up is a later event
+- Event bus subscriber (`WorkflowRuntime`) delegates by capability: outreach → risk → escalation
+- Synthetic FHIR care plan/observations inform outreach; mock voice records the contact
+- Human-review queue for escalation; resolving resumes the episode (`ClinicianResolved`)
+- Operator UI lists patients, episodes, agents, traces, and pending reviews
 
 **Explicit stubs (adapters only)**
 
