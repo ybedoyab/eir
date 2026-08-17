@@ -26,3 +26,41 @@ export interface RecoveryEpisode {
   risk_level: RiskLevel;
   assigned_agents: string[];
 }
+
+export interface DomainEvent {
+  event_id: string;
+  event_type: string;
+  episode_id: string;
+  occurred_at: string;
+  payload: Record<string, unknown>;
+}
+
+export interface HumanReview {
+  id: string;
+  episode_id: string;
+  reason: string;
+  capability: string;
+  agent_name: string;
+  status: "pending" | "resolved";
+  created_at: string;
+  resolved_at: string | null;
+  note: string;
+}
+
+export interface AgentDescriptor {
+  name: string;
+  version: string;
+  capabilities: string[];
+  risk_level: string;
+  description: string;
+}
+
+export interface WorkflowTrace {
+  workflow_id: string;
+  episode_id: string;
+  trace_id: string;
+  agent_name: string;
+  event_type: string;
+  timestamp: string;
+  status: string;
+}
