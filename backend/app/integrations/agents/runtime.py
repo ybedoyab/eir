@@ -2,8 +2,6 @@
 
 The HTTP layer only persists and publishes. This subscriber runs the
 capability-based workflow. Agents are not imported from API route files.
-
-TODO: replace with Agent Runtime / Agent Gateway.
 """
 
 from __future__ import annotations
@@ -19,7 +17,7 @@ from eir_agents.records.fhir_client import FhirClient, LocalFhirClient
 from eir_agents.runtime.adk_runner import AdkAgentRunner, InvocationContext
 from eir_shared.capabilities import BLOCKING_CAPABILITIES
 from eir_shared.event_bus import EventBus
-from eir_shared.events import EVENT_TYPE_MAP, DomainEvent
+from eir_shared.events import EVENT_TYPE_MAP, DomainEvent, parse_event
 from eir_shared.memory import AgentMemory, EpisodeStore
 from eir_shared.observability import StructuredLogger
 
@@ -115,6 +113,18 @@ class WorkflowRuntime:
         if not decision.allowed or not decision.capability:
             return
 
+        if decision.requires_human_approval:
+            self._open_pending_approval(episode, decision, event)
+            return
+
+        await self._execute_decision(episode, decision, event)
+
+    async def _execute_decision(
+        self,
+        episode: RecoveryEpisode,
+        decision: DelegationDecision,
+        event: DomainEvent,
+    ) -> None:
         result = await self._invoke(decision, event, episode)
         self._apply_result(episode, decision, result)
 
@@ -150,6 +160,26 @@ class WorkflowRuntime:
         )
         return await self.adk_runner.invoke(ctx)
 
+    def _open_pending_approval(
+        self,
+        episode: RecoveryEpisode,
+        decision: DelegationDecision,
+        event: DomainEvent,
+    ) -> None:
+        episode.status = EpisodeStatus.ESCALATED
+        self.episodes.save(episode)
+        self.reviews.save(
+            HumanReview(
+                episode_id=episode.id,
+                reason=decision.reason or "human approval required before action",
+                capability=decision.capability or "",
+                agent_name=decision.agent_name or "unknown",
+                pending_capability=decision.capability or "",
+                pending_event_type=event.event_type,
+                pending_event_payload=dict(event.payload),
+            )
+        )
+
     def _apply_result(
         self,
         episode: RecoveryEpisode,
@@ -182,17 +212,41 @@ class WorkflowRuntime:
         )
 
     async def _resume_after_review(self, episode: RecoveryEpisode, event: DomainEvent) -> None:
+        review_id = getattr(event, "review_id", "") or event.payload.get("review_id")
+        review = self.reviews.get(str(review_id)) if review_id else None
+        pending_capability = review.pending_capability if review else ""
+        pending_event_type = review.pending_event_type if review else ""
+        pending_payload = dict(review.pending_event_payload) if review else {}
+        pending_agent = review.agent_name if review else "unknown"
+
         episode.status = EpisodeStatus.ACTIVE
         self.episodes.save(episode)
-        review_id = getattr(event, "review_id", "") or event.payload.get("review_id")
-        if review_id:
-            review = self.reviews.get(str(review_id))
-            if review is not None:
-                review.status = ReviewStatus.RESOLVED
-                review.note = getattr(event, "note", "") or event.payload.get("note", "")
-                review.resolved_at = datetime.now(UTC)
-                self.reviews.save(review)
+        if review is not None:
+            review.status = ReviewStatus.RESOLVED
+            review.note = getattr(event, "note", "") or event.payload.get("note", "")
+            review.resolved_at = datetime.now(UTC)
+            review.pending_capability = ""
+            review.pending_event_type = ""
+            review.pending_event_payload = {}
+            self.reviews.save(review)
         await self._checkpoint(episode, event, None)
+
+        if pending_capability and pending_event_type:
+            pending_event = parse_event(
+                pending_event_type,
+                episode_id=episode.id,
+                payload=pending_payload,
+            )
+            decision = DelegationDecision(
+                episode_id=episode.id,
+                capability=pending_capability,
+                agent_name=pending_agent,
+                allowed=True,
+                requires_human_approval=False,
+                reason="clinician approved deferred action",
+                event_type=pending_event_type,
+            )
+            await self._execute_decision(episode, decision, pending_event)
 
     async def _checkpoint(
         self,

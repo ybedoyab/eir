@@ -1,6 +1,7 @@
 export type EpisodeStatus =
   | "ACTIVE"
   | "WAITING"
+  | "WAITING_FOR_NEXT_FOLLOWUP"
   | "ESCALATED"
   | "COMPLETED"
   | "CANCELLED";

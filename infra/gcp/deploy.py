@@ -37,7 +37,9 @@ BASE_ENV = [
     "GOOGLE_GENAI_USE_VERTEXAI=TRUE",
     "GOOGLE_GENAI_USE_ENTERPRISE=TRUE",
     "ADK_RUNNER_MODE=adk",
-    "VOICE_PROVIDER=gemini",
+    "ADK_ALLOW_DIRECT_FALLBACK=false",
+    "VOICE_PROVIDER=synthetic",
+    "SCHEDULER_SECRET=set-in-cloud-run-console",
     "ENVIRONMENT=production",
 ]
 

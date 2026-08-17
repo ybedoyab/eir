@@ -10,7 +10,6 @@ from typing import Any
 
 from eir_shared.capabilities import HIGH_RISK_CAPABILITIES
 from eir_shared.identity import AgentIdentity, AuthorizationPolicy, PolicyDecision
-from eir_shared.registry import AgentRiskLevel
 
 
 class SafetyGate:
@@ -29,6 +28,7 @@ class SafetyGate:
         context: dict | None = None,
         agent_risk_level: str | None = None,
     ) -> PolicyDecision:
+        del agent_risk_level
         context = context or {}
         if self._armor is not None:
             payload = context.get("payload") or {}
@@ -41,14 +41,10 @@ class SafetyGate:
         if not decision.allowed:
             return decision
 
-        high_risk = capability in HIGH_RISK_CAPABILITIES or agent_risk_level in {
-            AgentRiskLevel.HIGH,
-            AgentRiskLevel.CRITICAL,
-        }
-        if high_risk:
+        if capability in HIGH_RISK_CAPABILITIES:
             return PolicyDecision(
                 allowed=True,
                 requires_human_approval=True,
-                reason="safety gate: high-risk action requires human approval path",
+                reason="safety gate: capability requires clinician approval before execution",
             )
         return PolicyDecision(allowed=True, reason="safety gate: allowed")

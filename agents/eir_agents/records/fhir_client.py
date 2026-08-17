@@ -25,6 +25,14 @@ class FhirClient(Protocol):
 
     def append_follow_up_observation(self, observation: dict[str, Any]) -> dict[str, Any]: ...
 
+    def create_appointment(
+        self,
+        *,
+        patient_id: str,
+        episode_id: str,
+        reason: str,
+    ) -> dict[str, Any]: ...
+
 
 def _default_mocks_dir() -> Path:
     here = Path(__file__).resolve()
@@ -47,6 +55,7 @@ class LocalFhirClient:
     def __init__(self, mocks_dir: Path | None = None) -> None:
         self.mocks_dir = mocks_dir or _default_mocks_dir()
         self._appended: list[dict[str, Any]] = []
+        self._appointments: list[dict[str, Any]] = []
 
     def _patient_dir(self, patient_id: str) -> Path | None:
         candidate = self.mocks_dir / patient_id
@@ -110,3 +119,34 @@ class LocalFhirClient:
         stored.setdefault("id", f"synthetic-obs-{len(self._appended) + 1}")
         self._appended.append(stored)
         return stored
+
+    def create_appointment(
+        self,
+        *,
+        patient_id: str,
+        episode_id: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        from uuid import uuid4
+
+        appointment_id = f"synthetic-appt-{uuid4().hex[:8]}"
+        resource = {
+            "resourceType": "Appointment",
+            "id": appointment_id,
+            "status": "proposed",
+            "description": reason,
+            "participant": [
+                {
+                    "actor": {"reference": f"Patient/{patient_id}"},
+                    "status": "needs-action",
+                }
+            ],
+            "extension": [
+                {
+                    "url": "https://eir.local/recovery-episode",
+                    "valueString": episode_id,
+                }
+            ],
+        }
+        self._appointments.append(resource)
+        return resource

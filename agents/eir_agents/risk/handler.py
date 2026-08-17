@@ -27,7 +27,7 @@ def assess_response(event: DomainEvent) -> HandlerResult:
             summary += " Recovery uncertainty: synthetic or incomplete structured data."
         return HandlerResult(
             summary=summary,
-            episode_status="WAITING",
+            episode_status="WAITING_FOR_NEXT_FOLLOWUP",
             risk_level="LOW",
         )
 
@@ -41,7 +41,6 @@ def assess_response(event: DomainEvent) -> HandlerResult:
             + uncertainty_note
         ),
         risk_level="HIGH",
-        review_reason="escalation signal with recovery uncertainty" if uncertain else None,
         next_events=[
             RiskEscalated(
                 episode_id=event.episode_id,

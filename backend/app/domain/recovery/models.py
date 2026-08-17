@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 class EpisodeStatus(StrEnum):
     ACTIVE = "ACTIVE"
     WAITING = "WAITING"
+    WAITING_FOR_NEXT_FOLLOWUP = "WAITING_FOR_NEXT_FOLLOWUP"
     ESCALATED = "ESCALATED"
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"

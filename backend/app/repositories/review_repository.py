@@ -27,6 +27,9 @@ class HumanReview(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     resolved_at: datetime | None = None
     note: str = ""
+    pending_event_type: str = ""
+    pending_event_payload: dict = Field(default_factory=dict)
+    pending_capability: str = ""
 
 
 class InMemoryReviewRepository:

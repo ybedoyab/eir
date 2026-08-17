@@ -17,15 +17,16 @@ from eir_agents.safety.handler import SafetyGate
 from eir_shared.env import repo_root
 from eir_shared.event_bus import InMemoryEventBus
 from eir_shared.gemini_config import configure_genai_environment
-from eir_shared.memory import InMemoryAgentMemory, InMemoryEpisodeStore
+from eir_shared.memory import InMemoryEpisodeStore
 from eir_shared.observability import StructuredLogger
 
 from app.core.config import settings
 from app.integrations.agents.runtime import WorkflowRuntime
+from app.integrations.agents.runtime_verification import verify_runtime
 from app.integrations.enterprise.gateway import AgentGateway
-from app.integrations.enterprise.memory_bank import FirestoreAgentMemory
-from app.integrations.enterprise.model_armor import ModelArmor
 from app.integrations.enterprise.registry import EnterpriseAgentRegistry
+from app.integrations.enterprise.vertex_memory import build_agent_memory
+from app.integrations.enterprise.vertex_model_armor import build_content_guard
 from app.integrations.fhir.client import GoogleHealthcareFhirClient
 from app.integrations.messaging.pubsub import CompositeEventBus, GooglePubSubEventBus
 from app.integrations.voice.providers import voice_provider
@@ -146,11 +147,16 @@ class Container:
             self.logger = StructuredLogger("eir")
 
         self.store_mode = store_mode if not testing else "memory"
-        armor = ModelArmor()
-        if firestore_client is not None:
-            self.agent_memory = FirestoreAgentMemory(firestore_client)
-        else:
-            self.agent_memory = InMemoryAgentMemory()
+        prefer_managed = settings.environment == "production" and not testing
+        armor = build_content_guard(
+            project=settings.google_cloud_project,
+            location=settings.google_cloud_location,
+            prefer_vertex=prefer_managed and settings.google_genai_use_vertexai,
+        )
+        self.agent_memory = build_agent_memory(
+            firestore_client=firestore_client,
+            prefer_agent_engine=prefer_managed and settings.google_genai_use_enterprise,
+        )
         local_registry = default_registry()
         self.registry = EnterpriseAgentRegistry(local_registry)
         self.orchestrator = RecoveryOrchestrator(
@@ -174,6 +180,11 @@ class Container:
         if settings.outreach_llm and settings.google_api_key and not testing:
             summarizer = GeminiFollowUpSummarizer(settings.google_api_key, settings.gemini_model)
             self.outreach_llm = True
+        allow_fallback = settings.adk_allow_direct_fallback if not testing else True
+        self.adk_runner = AdkAgentRunner(
+            mode="direct" if testing else settings.adk_runner_mode,
+            allow_direct_fallback=allow_fallback,
+        )
         self.runtime = WorkflowRuntime(
             event_bus=self.event_bus,
             episodes=self.episodes,
@@ -184,28 +195,55 @@ class Container:
             logger=self.logger,
             fhir=fhir,
             summarizer=summarizer,
-            adk_runner=AdkAgentRunner(
-                mode="direct" if testing else settings.adk_runner_mode,
-            ),
+            adk_runner=self.adk_runner,
             gateway=AgentGateway(armor=armor),
             voice=voice_provider("mock" if testing else settings.voice_provider),
         )
         self.adk_runner_mode = "direct" if testing else settings.adk_runner_mode
+        self.adk_allow_direct_fallback = allow_fallback
+        self.runtime_verification = verify_runtime(
+            adk_runner_mode=self.adk_runner_mode,
+            adk_allow_direct_fallback=self.adk_allow_direct_fallback,
+            use_vertexai=settings.google_genai_use_vertexai,
+            use_enterprise=settings.google_genai_use_enterprise,
+            project=settings.google_cloud_project,
+            location=settings.google_cloud_location,
+            api_key=settings.google_api_key,
+            skip_probe=testing,
+        )
         self.workflow_subscriber = "local" if testing else settings.workflow_subscriber
         self.pubsub_handle = is_worker
         if bind_runtime:
             self.runtime.bind()
 
     def adapter_status(self) -> dict[str, Any]:
+        report = self.adk_runner.last_report
+        verification = self.runtime_verification
         return {
             "event_bus": "pubsub" if self.pubsub_sink else "memory",
             "episode_store": self.store_mode,
             "fhir_mode": self.fhir_mode,
             "outreach_llm": self.outreach_llm,
             "adk_runner_mode": self.adk_runner_mode,
+            "adk_allow_direct_fallback": self.adk_allow_direct_fallback,
             "workflow_subscriber": self.workflow_subscriber,
             "pubsub_sink": self.pubsub_sink,
             "pubsub_handle": self.pubsub_handle,
+            "agent_memory_adapter": getattr(self.agent_memory, "adapter_name", "unknown"),
+            "runtime_verification": {
+                "model": verification.model,
+                "adk_invocation_succeeded": verification.adk_invocation_succeeded,
+                "enterprise_endpoint_active": verification.enterprise_endpoint_active,
+                "probe_error": verification.probe_error,
+            },
+            "last_adk_run": {
+                "mode": report.mode,
+                "adk_invocation_succeeded": report.adk_invocation_succeeded,
+                "enterprise_endpoint_active": report.enterprise_endpoint_active,
+                "tools_invoked": report.tools_invoked,
+                "used_direct_fallback": report.used_direct_fallback,
+                "error": report.error,
+            },
         }
 
     def seed(self) -> None:

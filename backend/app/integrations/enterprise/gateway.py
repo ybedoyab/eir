@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from eir_shared.events import DomainEvent
 
-from app.integrations.enterprise.model_armor import ArmorDecision, ModelArmor
+from app.integrations.enterprise.model_armor import ArmorDecision
 
 
 @dataclass(frozen=True)
@@ -16,8 +17,8 @@ class GatewayDecision:
 
 
 class AgentGateway:
-    def __init__(self, armor: ModelArmor | None = None) -> None:
-        self.armor = armor or ModelArmor()
+    def __init__(self, armor: Any) -> None:
+        self.armor = armor
 
     def authorize_event(self, event: DomainEvent) -> GatewayDecision:
         payload_text = " ".join(str(value) for value in event.payload.values())

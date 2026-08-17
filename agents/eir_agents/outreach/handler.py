@@ -72,6 +72,6 @@ async def handle_follow_up(
     )
     return HandlerResult(
         summary=payload["llm_summary"],
-        episode_status="WAITING",
+        episode_status="WAITING_FOR_NEXT_FOLLOWUP",
         next_events=[responded],
     )

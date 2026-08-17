@@ -1,4 +1,4 @@
-"""Appointment scheduling with FHIR Appointment stub."""
+"""Appointment scheduling with FHIR Appointment creation."""
 
 from __future__ import annotations
 
@@ -17,14 +17,11 @@ def schedule_appointment(
     fhir: FhirClient | None = None,
 ) -> HandlerResult:
     fhir = fhir or LocalFhirClient()
-    appointment = {
-        "status": "proposed",
-        "description": reason,
-        "patient_id": patient_id,
-        "synthetic": True,
-    }
-    if patient_id:
-        appointment["participant"] = fhir.get_patient(patient_id)
+    appointment = fhir.create_appointment(
+        patient_id=patient_id or "unknown",
+        episode_id=episode_id,
+        reason=reason,
+    )
 
     review = HumanReviewRequested(
         episode_id=episode_id,
@@ -33,11 +30,7 @@ def schedule_appointment(
     )
     return HandlerResult(
         summary=f"Requested synthetic appointment: {reason}",
-        episode_status="WAITING",
+        episode_status="WAITING_FOR_NEXT_FOLLOWUP",
         review_reason=review.reason,
         next_events=[review],
     )
-
-
-def request_appointment(episode_id: str, reason: str) -> dict:
-    return {"episode_id": episode_id, "reason": reason, "status": "requested"}

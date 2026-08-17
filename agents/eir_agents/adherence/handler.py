@@ -27,7 +27,7 @@ def check_task_completion(
     if completed and missed_doses == 0:
         return HandlerResult(
             summary="Recovery medication tasks marked complete (synthetic).",
-            episode_status="WAITING",
+            episode_status="WAITING_FOR_NEXT_FOLLOWUP",
         )
 
     concern = AdherenceConcernDetected(

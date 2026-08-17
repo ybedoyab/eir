@@ -1,11 +1,9 @@
-"""Idempotent GCP bootstrap for project eir-ata.
-
-Enables APIs and creates Pub/Sub, optional Firestore, and optional FHIR store.
-Does not print or upload secrets.
-"""
+"""Idempotent GCP bootstrap for project eir-ata."""
 
 from __future__ import annotations
 
+import json
+import os
 import subprocess
 import sys
 
@@ -15,6 +13,9 @@ TOPIC = "eir-recovery-events"
 SUBSCRIPTION = "eir-recovery-events-worker"
 DATASET = "eir"
 FHIR_STORE = "fhir-r4"
+RUNTIME_SA = f"eir-runtime@{PROJECT}.iam.gserviceaccount.com"
+SCHEDULER_JOB = "eir-process-due-follow-ups"
+API_SERVICE = "eir-api"
 
 
 def _run(args: list[str], *, ok_codes: set[int] | None = None) -> int:
@@ -26,7 +27,21 @@ def _run(args: list[str], *, ok_codes: set[int] | None = None) -> int:
     return completed.returncode
 
 
-def main() -> int:
+def _gcloud_output(args: list[str]) -> str:
+    completed = subprocess.run(args, capture_output=True, text=True, check=False)
+    if completed.returncode != 0:
+        return ""
+    return completed.stdout.strip()
+
+
+def _service_url(service: str) -> str:
+    number = _gcloud_output(
+        ["gcloud", "projects", "describe", PROJECT, "--format=value(projectNumber)"]
+    )
+    return f"https://{service}-{number}.{LOCATION}.run.app"
+
+
+def _enable_apis() -> None:
     _run(
         [
             "gcloud",
@@ -35,9 +50,102 @@ def main() -> int:
             "pubsub.googleapis.com",
             "healthcare.googleapis.com",
             "firestore.googleapis.com",
+            "aiplatform.googleapis.com",
+            "cloudscheduler.googleapis.com",
+            "run.googleapis.com",
+            "iamcredentials.googleapis.com",
             f"--project={PROJECT}",
         ]
     )
+
+
+def _grant_runtime_roles() -> None:
+    for role in (
+        "roles/aiplatform.user",
+        "roles/datastore.user",
+        "roles/pubsub.subscriber",
+        "roles/pubsub.publisher",
+        "roles/healthcare.fhirResourceEditor",
+        "roles/logging.logWriter",
+    ):
+        _run(
+            [
+                "gcloud",
+                "projects",
+                "add-iam-policy-binding",
+                PROJECT,
+                f"--member=serviceAccount:{RUNTIME_SA}",
+                f"--role={role}",
+            ],
+            ok_codes={0, 1},
+        )
+
+
+def _verify_gemini_access() -> int:
+    script = """
+import os
+from google import genai
+from eir_shared.gemini_config import configure_genai_environment, resolve_gemini_model, genai_client_kwargs
+configure_genai_environment(use_vertexai=True, use_enterprise=True, project=os.environ['GOOGLE_CLOUD_PROJECT'], location=os.environ.get('GOOGLE_CLOUD_LOCATION', 'us-central1'))
+client = genai.Client(**genai_client_kwargs())
+model = resolve_gemini_model()
+response = client.models.generate_content(model=model, contents='Reply with exactly: ok')
+print(model, (response.text or '').strip())
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        check=False,
+        env={
+            "GOOGLE_CLOUD_PROJECT": PROJECT,
+            "GOOGLE_CLOUD_LOCATION": LOCATION,
+            "GOOGLE_GENAI_USE_VERTEXAI": "TRUE",
+            "GOOGLE_GENAI_USE_ENTERPRISE": "TRUE",
+            "GEMINI_MODEL": "gemini-3.5-flash",
+        },
+    )
+    return completed.returncode
+
+
+def _ensure_scheduler(api_url: str) -> None:
+    target = f"{api_url}/api/v1/recovery/process-due-follow-ups"
+    token = os.environ.get("SCHEDULER_SECRET", "change-me-in-cloud-run")
+    describe = _run(
+        [
+            "gcloud",
+            "scheduler",
+            "jobs",
+            "describe",
+            SCHEDULER_JOB,
+            f"--location={LOCATION}",
+            f"--project={PROJECT}",
+        ],
+        ok_codes={0, 1},
+    )
+    args = [
+        "gcloud",
+        "scheduler",
+        "jobs",
+        "update",
+        "http",
+        SCHEDULER_JOB,
+        f"--location={LOCATION}",
+        f"--schedule=*/15 * * * *",
+        f"--uri={target}",
+        "--http-method=POST",
+        f"--oidc-service-account-email={RUNTIME_SA}",
+        f"--oidc-token-audience={api_url}",
+        f"--headers=X-Scheduler-Token={token}",
+        f"--project={PROJECT}",
+    ]
+    if describe != 0:
+        args[4] = "create"
+        args.pop(5)
+    _run(args, ok_codes={0, 1})
+    print(json.dumps({"scheduler_job": SCHEDULER_JOB, "target": target}))
+
+
+def main() -> int:
+    _enable_apis()
     if _run(["gcloud", "pubsub", "topics", "describe", TOPIC, f"--project={PROJECT}"]) != 0:
         _run(["gcloud", "pubsub", "topics", "create", TOPIC, f"--project={PROJECT}"])
     if (
@@ -136,6 +244,13 @@ def main() -> int:
                 f"--project={PROJECT}",
             ]
         )
+    _grant_runtime_roles()
+    verify_code = _verify_gemini_access()
+    if verify_code != 0:
+        print("warning: gemini verification failed; check runtime service account permissions", file=sys.stderr)
+    api_url = _service_url(API_SERVICE)
+    print(json.dumps({"api_url": api_url}))
+    _ensure_scheduler(api_url)
     print("provision finished")
     return 0
 

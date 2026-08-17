@@ -209,3 +209,49 @@ class GoogleHealthcareFhirClient:
             self.reachable = False
             logger.warning("Healthcare API write failed; storing observation locally")
             return self._fallback.append_follow_up_observation(observation)
+
+    def create_appointment(
+        self,
+        *,
+        patient_id: str,
+        episode_id: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        from uuid import uuid4
+
+        patient = self._resolve_patient(patient_id)
+        if patient and patient.get("id"):
+            patient_ref = f"Patient/{patient['id']}"
+        else:
+            patient_ref = f"Patient/{patient_id}"
+        resource = {
+            "resourceType": "Appointment",
+            "id": f"appt-{uuid4().hex[:12]}",
+            "status": "proposed",
+            "description": reason,
+            "participant": [{"actor": {"reference": patient_ref}, "status": "needs-action"}],
+            "extension": [
+                {
+                    "url": "https://eir.local/recovery-episode",
+                    "valueString": episode_id,
+                }
+            ],
+        }
+        try:
+            response = httpx.post(
+                f"{self._base}/Appointment",
+                headers=self._headers(),
+                json=resource,
+                timeout=20,
+            )
+            response.raise_for_status()
+            self.reachable = True
+            return response.json()
+        except Exception:
+            self.reachable = False
+            logger.warning("Healthcare API appointment create failed; using local fallback")
+            return self._fallback.create_appointment(
+                patient_id=patient_id,
+                episode_id=episode_id,
+                reason=reason,
+            )

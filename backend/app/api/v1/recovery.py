@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
 from app.core.deps import get_container
 from app.domain.recovery.models import RecoveryEpisode
 from app.services.follow_up_scheduler import FollowUpScheduler
@@ -77,15 +78,21 @@ async def trigger_follow_up(episode_id: str) -> dict:
 
 
 @router.post("/process-due-follow-ups")
-async def process_due_follow_ups() -> dict:
+async def process_due_follow_ups(
+    scheduler_token: str | None = Header(default=None, alias="X-Scheduler-Token"),
+    idempotency_key: str | None = Header(default=None, alias="X-Idempotency-Key"),
+) -> dict:
+    if settings.scheduler_secret and scheduler_token != settings.scheduler_secret:
+        raise HTTPException(status_code=401, detail="Invalid scheduler token")
     container = get_container()
     scheduler = FollowUpScheduler(container.episodes)
-    events = scheduler.process_due()
+    events = scheduler.process_due(idempotency_key=idempotency_key)
     for event in events:
         await container.event_bus.publish(event)
     return {
         "processed": len(events),
         "episodes": [event.episode_id for event in events],
+        "idempotency_key": idempotency_key or "generated",
     }
 
 

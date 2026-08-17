@@ -88,13 +88,13 @@ The orchestrator requests the next **capability** from `AgentRegistry` (`find_by
 A Recovery Episode is durable workflow state:
 
 1. Day 0 — episode created (`RecoveryEpisodeStarted`)
-2. Day 3 — `FollowUpDue` → patient contacted
-3. Day 3 — patient reports an issue → human review
-4. Day 4 — clinician resolves → workflow resumes
-5. Day 7 — next follow-up
+2. Day 0/3 — `FollowUpDue` → clinician pre-approval → outreach tools run via ADK
+3. Day 3 — patient response assessed; high-risk paths escalate with additional reviews
+4. Day 4 — clinician resolves pending reviews → deferred tools execute
+5. Day 7 — episode in `WAITING_FOR_NEXT_FOLLOWUP`; Cloud Scheduler publishes the next `FollowUpDue`
 
-In-memory stores are local stand-ins for Agent Runtime, Memory Bank, Firestore, or Cloud SQL.
+Firestore/file stores and in-memory implementations are **fallback adapters**. Agent Engine Memory Bank is not claimed unless the Vertex memory adapter is active.
 
 ## Adapter rule
 
-External systems are reached only through interfaces: FHIR, voice, event bus, identity, observability. Local mocks exist so Google Cloud services can be swapped in later without rewriting domain logic.
+External systems are reached only through interfaces: FHIR, voice, event bus, identity, observability. Adapters are labeled **REAL** vs **fallback** in `docs/hackathon-compliance.md` (e.g. `FirestoreAgentMemoryFallback`, `RegexContentGuardFallback`, `SyntheticVoiceProvider`).

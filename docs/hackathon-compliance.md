@@ -1,50 +1,56 @@
 # Hackathon compliance matrix (Fortified Enterprise Fleet)
 
-EIR implements a recovery workflow platform with synthetic FHIR data only. This document maps hackathon requirements to code paths and notes what is fully managed vs local stand-in.
+EIR implements a recovery workflow platform with **synthetic FHIR data only**. This document maps requirements to code paths and clearly labels managed Google services vs local fallbacks.
 
-## Gemini model
+## Gemini / ADK runtime
 
 | Area | Value | Notes |
 |------|-------|-------|
 | Default model | `gemini-3.5-flash` | `shared/eir_shared/gemini_config.py` |
-| Production deploy | Vertex + Enterprise flags | `infra/gcp/deploy.py` |
+| Production ADK | `ADK_RUNNER_MODE=adk` | Specialists invoke **domain tools** via ADK (`agents/eir_agents/runtime/domain_tools.py`) |
+| Production fallback | `ADK_ALLOW_DIRECT_FALLBACK=false` | ADK failures surface as errors; no silent direct handler bypass |
+| Health proof | `/health` → `runtime_verification` | Reports model, ADK probe, enterprise endpoint flag |
 
 ## Enterprise Fleet adapters
 
-| Capability | Production adapter | Local / fallback |
-|------------|-------------------|------------------|
-| Agent Registry | `EnterpriseAgentRegistry` | In-memory descriptors with health/lifecycle/fallback |
-| Agent Runtime | `AdkAgentRunner` (`adk` mode) | Direct handler invocation in tests |
-| Memory Bank | `FirestoreAgentMemory` | `InMemoryAgentMemory` |
-| Agent Identity | `granted_capabilities` on descriptors | `AuthorizationPolicy` |
-| Agent Gateway | `AgentGateway` + Model Armor ingress | Always on in runtime |
-| Model Armor | `ModelArmor` deterministic patterns | Safety gate integration |
-| Observability | Firestore / file structured traces | `EnterpriseObservability` span helper |
+| Capability | Managed target | Current adapter |
+|------------|----------------|-----------------|
+| Agent Registry | Gemini Enterprise Agent Registry | `EnterpriseAgentRegistry` (local descriptors + health/fallback) |
+| Agent Runtime | Agent Engine / ADK | `AdkAgentRunner` with real domain tools |
+| Memory Bank | Agent Engine Memory Bank | `FirestoreAgentMemoryFallback` unless Agent Engine client is wired |
+| Model Armor | Vertex Model Armor | `VertexModelArmorAdapter` → `RegexContentGuardFallback` |
+| Agent Gateway | Enterprise Gateway | `AgentGateway` ingress checks |
+| Observability | Cloud Trace / Agent Observability | Firestore/file structured traces |
 
-## REAL vs synthetic
+## REAL vs fallback (explicit)
 
 | Feature | Status |
 |---------|--------|
-| FHIR on GCP Healthcare API | REAL when `FHIR_MODE=gcp` |
-| Firestore episode store | REAL in production |
-| Pub/Sub event bus | REAL in split deploy |
-| Patient outreach telephony | SYNTHETIC (`MockVoiceProvider` / `GeminiVoiceProvider` conversation stub) |
-| Clinical diagnosis | NOT performed; escalation uses structured signals only |
+| FHIR Healthcare API | **REAL** when `FHIR_MODE=gcp` |
+| Firestore episode store | **REAL** in production |
+| Pub/Sub event bus | **REAL** in split deploy |
+| Vertex Gemini (`gemini-3.5-flash`) | **REAL** in production (`GOOGLE_GENAI_USE_VERTEXAI=TRUE`) |
+| Agent memory | **Fallback**: Firestore (`FirestoreAgentMemoryFallback`) — not Agent Engine Memory Bank yet |
+| Content guard | **Fallback**: regex (`RegexContentGuardFallback`); Vertex adapter attempts managed client |
+| Voice outreach | **Synthetic**: `SyntheticVoiceProvider` — not Gemini Live |
+| Clinical diagnosis | **Never** performed |
 
-## Demo endpoints
+## Workflow guarantees
 
-- Manual follow-up: `POST /api/v1/recovery/{id}/follow-up`
-- Proactive scheduler (Cloud Scheduler target): `POST /api/v1/recovery/process-due-follow-ups`
+- **Pre-approval**: when `PolicyDecision.requires_human_approval=true`, the runtime creates a pending review and does **not** invoke domain tools until clinician approval.
+- **Longitudinal follow-ups**: episodes enter `WAITING_FOR_NEXT_FOLLOWUP`; Cloud Scheduler calls `POST /api/v1/recovery/process-due-follow-ups` with `X-Scheduler-Token`.
+- **Scheduling**: creates a synthetic FHIR R4 `Appointment` via `FhirClient.create_appointment`.
 
-## Eval scenarios (manual)
+## Demo / ops endpoints
 
-1. Prompt injection in event payload → blocked by Model Armor / gateway
-2. Jordan Lee (`patient-synthetic-002`) → pain 8 + issue → escalation
-3. Alex (`patient-synthetic-001`) → low risk, WAITING
-4. Clinician resolve → episode resumes ACTIVE
-5. Adherence miss → `AdherenceConcernDetected`
-6. Appointment request → human review path
-7. Split worker mode → API publishes, worker handles
-8. ADK runner mode → handler tool + agent session in production
-9. Recovery uncertainty → risk payload includes `uncertain` flags
-10. Registry fallback → outreach degrades to records agent
+- Manual follow-up: `POST /api/v1/recovery/{id}/follow-up` (creates approval gate for patient contact)
+- Scheduler (authenticated): `POST /api/v1/recovery/process-due-follow-ups`
+- Health: `GET /health`
+
+## Regression scenarios covered in tests
+
+1. ADK direct fallback disabled in production config (`test_adk_runner_disallows_silent_fallback`)
+2. `/health` runtime verification fields (`test_health_reports_runtime_verification`)
+3. Scheduler auth + idempotency header (`test_scheduler_endpoint_requires_token`)
+4. Outreach tool not invoked before approval (`test_outreach_tool_not_called_before_approval`)
+5. Day 0 → Day 7 second follow-up (`test_longitudinal_follow_up_day_0_and_day_7`)

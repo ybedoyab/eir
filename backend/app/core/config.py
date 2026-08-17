@@ -23,7 +23,9 @@ class Settings(BaseSettings):
     google_genai_use_vertexai: bool = False
     google_genai_use_enterprise: bool = False
     adk_runner_mode: str = "direct"
+    adk_allow_direct_fallback: bool = True
     google_api_key: str = ""
+    scheduler_secret: str = ""
     fhir_project: str = "eir-ata"
     fhir_location: str = "us-central1"
     fhir_dataset: str = "eir"

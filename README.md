@@ -125,30 +125,22 @@ Or: `make lint`
 
 **Functional now**
 
-- FastAPI health, patients, recovery episodes, events, follow-up trigger, reviews, agents, traces
-- Creating an episode publishes `RecoveryEpisodeStarted` and returns; follow-up is a later event
-- Event bus subscriber (`WorkflowRuntime`) delegates by capability: outreach → risk → escalation
-- Synthetic FHIR care plan/observations inform outreach; mock voice records the contact
-- Human-review queue for escalation; resolving resumes the episode (`ClinicianResolved`)
-- Operator UI lists patients, episodes, agents, traces, and pending reviews
-- Optional file or Firestore persistence (`EPISODE_STORE=file|firestore`)
-- Optional Pub/Sub mirror (`EVENT_BUS=pubsub`) while handlers still run in-process
-- Optional Healthcare API FHIR reads (`FHIR_MODE=gcp`) with explicit fixture fallback
-- Optional Gemini phrasing for outreach (`OUTREACH_LLM=true`); risk fields stay deterministic
-- Pub/Sub pull worker (`python -m app.worker`) for audit; `--handle` only if the API is not subscribed locally
-- **Cloud Run (live):** https://eir-api-658898892127.us-central1.run.app — split API + worker on `eir-ata`
+- FastAPI health (includes ADK/runtime verification), patients, recovery episodes, events, follow-up trigger, reviews, agents, traces
+- ADK runtime executes specialists via **domain tools** (`conduct_outreach`, FHIR reads/writes, scheduling, adherence, escalation)
+- Pre-approval gate: high-risk capabilities create a pending review **before** tools run; clinician resolve executes the deferred action
+- Episode state `WAITING_FOR_NEXT_FOLLOWUP` supports recurring scheduler-driven follow-ups
+- Cloud Scheduler target: authenticated `POST /api/v1/recovery/process-due-follow-ups`
+- Synthetic voice via `SyntheticVoiceProvider` (not Gemini Live)
+- Synthetic FHIR including Appointment creation on schedule requests
+- Optional Vertex Gemini (`gemini-3.5-flash`, `ADK_RUNNER_MODE=adk`, `ADK_ALLOW_DIRECT_FALLBACK=false` in production)
 
-**Explicit stubs (adapters only)**
+**Explicit fallbacks (labeled in code/docs)**
 
-- Gemini Live / telephony (`MockVoiceProvider` only)
-- Agent Runtime, Memory Bank, Model Armor, Agent Identity, Agent Gateway (interfaces only)
-- No medical diagnosis, no real EHR, no production credentials
+- Firestore agent memory (`FirestoreAgentMemoryFallback`) — not Agent Engine Memory Bank
+- Regex content guard (`RegexContentGuardFallback`) — Vertex Model Armor adapter attempts managed client first
+- Synthetic voice — not telephony / Gemini Live
 
-## Roadmap for Google Cloud integrations
-
-1. Run the API with `WORKFLOW_SUBSCRIBER=pubsub` and the worker with `--handle` (split process).
-2. Map `AgentRegistry` to Gemini Enterprise Agent Registry; run agents on Agent Runtime with Memory Bank.
-3. Wire Agent Identity + Agent Gateway for capability authorization, Model Armor + the safety agent for high-risk actions, and Cloud Trace / Cloud Logging for the existing `WorkflowTrace` fields.
+See [docs/hackathon-compliance.md](docs/hackathon-compliance.md) for the REAL vs fallback matrix.
 
 ## License
 

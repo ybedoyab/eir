@@ -56,12 +56,14 @@ class RecoveryOrchestrator:
             return None
 
         if event.event_type == "FollowUpDue":
-            if status in {"ESCALATED", "COMPLETED", "CANCELLED", "WAITING"}:
+            if status in {"ESCALATED", "COMPLETED", "CANCELLED"}:
                 return None
-            return Capability.PATIENT_CONTACT
+            if status in {"ACTIVE", "WAITING_FOR_NEXT_FOLLOWUP"}:
+                return Capability.PATIENT_CONTACT
+            return None
 
         if event.event_type == "PatientResponded":
-            if status == "ESCALATED":
+            if status in {"ESCALATED", "COMPLETED", "CANCELLED"}:
                 return None
             return Capability.RISK_ASSESS
 

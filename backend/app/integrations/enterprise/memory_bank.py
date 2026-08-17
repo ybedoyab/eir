@@ -1,12 +1,14 @@
-"""Firestore-backed agent memory (Memory Bank stand-in)."""
+"""Fallback Firestore agent memory — NOT Gemini Agent Engine Memory Bank."""
 
 from __future__ import annotations
 
 from typing import Any
 
 
-class FirestoreAgentMemory:
-    """Persists per-agent memory in Firestore under ``agent_memory/{episode_id}``."""
+class FirestoreAgentMemoryFallback:
+    """Persists per-agent memory in Firestore when Agent Engine Memory Bank is unavailable."""
+
+    adapter_name = "firestore_fallback"
 
     def __init__(self, client: Any) -> None:
         self._client = client

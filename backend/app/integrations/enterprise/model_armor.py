@@ -1,4 +1,4 @@
-"""Model Armor ingress/egress checks (deterministic stand-in)."""
+"""Fallback regex content guard — NOT Google Cloud Model Armor."""
 
 from __future__ import annotations
 
@@ -17,24 +17,38 @@ class ArmorDecision:
     allowed: bool
     reason: str = ""
     sanitized_text: str = ""
+    adapter: str = "regex_fallback"
 
 
-class ModelArmor:
-    """Blocks obvious prompt-injection patterns on workflow ingress/egress."""
+class RegexContentGuardFallback:
+    """Local deterministic guard. Use VertexModelArmorAdapter in production when available."""
+
+    adapter_name = "regex_fallback"
 
     def inspect_ingress(self, text: str) -> ArmorDecision:
         for pattern in _INJECTION_PATTERNS:
             if pattern.search(text):
                 return ArmorDecision(
                     allowed=False,
-                    reason=f"model armor blocked ingress pattern: {pattern.pattern}",
+                    reason=f"content guard blocked ingress pattern: {pattern.pattern}",
+                    adapter=self.adapter_name,
                 )
-        return ArmorDecision(allowed=True, sanitized_text=text.strip())
+        return ArmorDecision(
+            allowed=True,
+            sanitized_text=text.strip(),
+            adapter=self.adapter_name,
+        )
 
     def inspect_egress(self, text: str) -> ArmorDecision:
-        if "diagnosis:" in text.lower() or "you have " in text.lower() and "cancer" in text.lower():
+        lowered = text.lower()
+        if "diagnosis:" in lowered or ("you have " in lowered and "cancer" in lowered):
             return ArmorDecision(
                 allowed=False,
-                reason="model armor blocked clinical diagnosis phrasing in egress",
+                reason="content guard blocked clinical diagnosis phrasing in egress",
+                adapter=self.adapter_name,
             )
-        return ArmorDecision(allowed=True, sanitized_text=text.strip())
+        return ArmorDecision(
+            allowed=True,
+            sanitized_text=text.strip(),
+            adapter=self.adapter_name,
+        )

@@ -7,8 +7,8 @@ from typing import Any
 from eir_agents.outreach.voice import MockVoiceProvider
 
 
-class GeminiVoiceProvider(MockVoiceProvider):
-    """Gemini Live stand-in: structured synthetic conversation, no real telephony."""
+class SyntheticVoiceProvider(MockVoiceProvider):
+    """Structured synthetic conversation stub — NOT Gemini Live telephony."""
 
     async def start_outbound_call(
         self,
@@ -23,7 +23,7 @@ class GeminiVoiceProvider(MockVoiceProvider):
             metadata=metadata,
         )
         patient_id = to.removeprefix("synthetic:")
-        self.calls[call_id]["provider"] = "gemini-live"
+        self.calls[call_id]["provider"] = "synthetic-voice"
         self.calls[call_id]["conversation"] = _synthetic_conversation(patient_id)
         return call_id
 
@@ -40,7 +40,7 @@ def _synthetic_conversation(patient_id: str) -> list[dict[str, str]]:
     ]
 
 
-def voice_provider(name: str) -> MockVoiceProvider | GeminiVoiceProvider:
-    if name == "gemini":
-        return GeminiVoiceProvider()
+def voice_provider(name: str) -> MockVoiceProvider | SyntheticVoiceProvider:
+    if name in {"gemini", "synthetic"}:
+        return SyntheticVoiceProvider()
     return MockVoiceProvider()
