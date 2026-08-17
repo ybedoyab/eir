@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python packages
+        run: uv sync --all-packages --all-groups
+      - name: Test backend
+        run: uv run --package eir-backend --group dev pytest backend/tests
+      - name: Test agents
+        run: uv run --package eir-agents --group dev pytest agents/tests
+      - name: Lint Python
+        run: uv run ruff check shared backend agents
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install
+        working-directory: frontend
+        run: pnpm install
+      - name: Typecheck
+        working-directory: frontend
+        run: pnpm typecheck
+      - name: Lint
+        working-directory: frontend
+        run: pnpm lint
