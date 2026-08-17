@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eir.local/schemas/domain-event.json",
+  "title": "EIR Domain Event",
+  "type": "object",
+  "required": ["event_id", "event_type", "episode_id", "occurred_at"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "RecoveryEpisodeStarted",
+        "FollowUpDue",
+        "PatientResponded",
+        "AdherenceConcernDetected",
+        "RiskEscalated",
+        "AppointmentRequested",
+        "HumanReviewRequested",
+        "RecoveryEpisodeCompleted"
+      ]
+    },
+    "episode_id": { "type": "string" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  }
+}

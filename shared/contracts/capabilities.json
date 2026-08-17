@@ -1,0 +1,22 @@
+{
+  "capabilities": [
+    "patient.read",
+    "patient.contact",
+    "encounter.read",
+    "medication.read",
+    "care_plan.read",
+    "observation.write",
+    "appointment.read",
+    "appointment.schedule",
+    "adherence.check",
+    "risk.assess",
+    "escalation.request",
+    "recovery.orchestrate"
+  ],
+  "high_risk": [
+    "patient.contact",
+    "observation.write",
+    "appointment.schedule",
+    "escalation.request"
+  ]
+}

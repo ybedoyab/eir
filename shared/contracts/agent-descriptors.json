@@ -1,0 +1,45 @@
+{
+  "agents": [
+    {
+      "name": "recovery_orchestrator",
+      "capabilities": ["recovery.orchestrate"],
+      "risk_level": "LOW"
+    },
+    {
+      "name": "outreach",
+      "capabilities": ["patient.contact"],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "name": "adherence",
+      "capabilities": ["adherence.check"],
+      "risk_level": "LOW"
+    },
+    {
+      "name": "risk",
+      "capabilities": ["risk.assess"],
+      "risk_level": "HIGH"
+    },
+    {
+      "name": "scheduling",
+      "capabilities": ["appointment.read", "appointment.schedule"],
+      "risk_level": "LOW"
+    },
+    {
+      "name": "records",
+      "capabilities": [
+        "patient.read",
+        "encounter.read",
+        "medication.read",
+        "care_plan.read",
+        "observation.write"
+      ],
+      "risk_level": "MEDIUM"
+    },
+    {
+      "name": "escalation",
+      "capabilities": ["escalation.request"],
+      "risk_level": "HIGH"
+    }
+  ]
+}
