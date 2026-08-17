@@ -60,6 +60,12 @@ class HumanReviewRequested(DomainEvent):
     reason: str = ""
 
 
+class ClinicianResolved(DomainEvent):
+    event_type: Literal["ClinicianResolved"] = "ClinicianResolved"
+    review_id: str = ""
+    note: str = ""
+
+
 class RecoveryEpisodeCompleted(DomainEvent):
     event_type: Literal["RecoveryEpisodeCompleted"] = "RecoveryEpisodeCompleted"
 
@@ -72,6 +78,7 @@ EVENT_TYPE_MAP: dict[str, type[DomainEvent]] = {
     "RiskEscalated": RiskEscalated,
     "AppointmentRequested": AppointmentRequested,
     "HumanReviewRequested": HumanReviewRequested,
+    "ClinicianResolved": ClinicianResolved,
     "RecoveryEpisodeCompleted": RecoveryEpisodeCompleted,
 }
 

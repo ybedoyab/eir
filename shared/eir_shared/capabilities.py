@@ -31,3 +31,12 @@ HIGH_RISK_CAPABILITIES: frozenset[str] = frozenset(
         Capability.ESCALATION_REQUEST,
     }
 )
+
+# These pause the episode until a clinician resolves a review.
+BLOCKING_CAPABILITIES: frozenset[str] = frozenset(
+    {
+        Capability.ESCALATION_REQUEST,
+        Capability.APPOINTMENT_SCHEDULE,
+        Capability.OBSERVATION_WRITE,
+    }
+)

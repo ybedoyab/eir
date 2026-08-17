@@ -16,6 +16,7 @@
         "RiskEscalated",
         "AppointmentRequested",
         "HumanReviewRequested",
+        "ClinicianResolved",
         "RecoveryEpisodeCompleted"
       ]
     },

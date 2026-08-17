@@ -28,6 +28,7 @@ class WorkflowTrace(BaseModel):
 
 class StructuredLogger:
     def __init__(self, name: str = "eir") -> None:
+        self.records: list[WorkflowTrace] = []
         self._logger = logging.getLogger(name)
         if not self._logger.handlers:
             handler = logging.StreamHandler()
@@ -36,4 +37,5 @@ class StructuredLogger:
             self._logger.setLevel(logging.INFO)
 
     def emit(self, trace: WorkflowTrace) -> None:
+        self.records.append(trace)
         self._logger.info(json.dumps(trace.model_dump(mode="json"), default=str))
