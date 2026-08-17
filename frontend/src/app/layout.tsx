@@ -1,9 +1,15 @@
+import { Inter } from "next/font/google";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { ApiStatus } from "@/components/ApiStatus";
 import { Nav } from "@/components/Nav";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "EIR — Enterprise Intelligence for Recovery",
@@ -13,10 +19,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body className={`${inter.className} antialiased`}>
         <Nav />
         <ApiStatus />
-        <main style={{ padding: "1.5rem" }}>{children}</main>
+        <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">{children}</main>
       </body>
     </html>
   );
