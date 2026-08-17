@@ -10,7 +10,7 @@ Recovery lasts days or weeks. A single HTTP request must not run the whole workf
 
 ## Decision
 
-Model Recovery Episodes as persistent workflows driven by domain events (`RecoveryEpisodeStarted`, `FollowUpDue`, `PatientResponded`, and related types). Domain code depends on an `EventBus` protocol. The first implementation is `InMemoryEventBus`; `GooglePubSubEventBus` can be added without changing publishers.
+Model Recovery Episodes as persistent workflows driven by domain events (`RecoveryEpisodeStarted`, `FollowUpDue`, `PatientResponded`, and related types). Domain code depends on an `EventBus` protocol. Local runtime uses `InMemoryEventBus`. `GooglePubSubEventBus` is an optional publish-only sink behind `EVENT_BUS=pubsub`; a worker subscriber is still TODO.
 
 ## Consequences
 

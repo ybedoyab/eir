@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     fhir_store: str = "fhir-r4"
     pubsub_topic: str = "eir-recovery-events"
     voice_provider: str = "mock"
+    event_bus: str = "memory"
+    episode_store: str = "memory"
+    fhir_mode: str = "local"
+    outreach_llm: bool = False
+    data_dir: str = "data"
 
 
 settings = Settings()

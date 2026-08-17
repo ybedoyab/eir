@@ -6,6 +6,7 @@ from eir_shared.events import DomainEvent, PatientResponded
 from eir_shared.memory import AgentMemory, InMemoryAgentMemory
 
 from eir_agents.common.types import HandlerResult
+from eir_agents.outreach.llm import FollowUpSummarizer, TemplateFollowUpSummarizer
 from eir_agents.outreach.voice import MockVoiceProvider, VoiceProvider
 from eir_agents.records.fhir_client import FhirClient, LocalFhirClient
 
@@ -20,10 +21,12 @@ async def handle_follow_up(
     fhir: FhirClient | None = None,
     voice: VoiceProvider | None = None,
     memory: AgentMemory | None = None,
+    summarizer: FollowUpSummarizer | None = None,
 ) -> HandlerResult:
     fhir = fhir or LocalFhirClient()
     voice = voice or MockVoiceProvider()
     memory = memory or InMemoryAgentMemory()
+    summarizer = summarizer or TemplateFollowUpSummarizer()
 
     care_plan = fhir.get_care_plan(patient_id)
     observations = fhir.get_observations(patient_id)
@@ -47,6 +50,7 @@ async def handle_follow_up(
         "reported_issue": reported_issue,
         "synthetic": True,
     }
+    payload["llm_summary"] = summarizer.summarize(payload)
     await memory.set(event.episode_id, "outreach", "last_response", payload)
 
     responded = PatientResponded(
@@ -55,7 +59,7 @@ async def handle_follow_up(
         payload=payload,
     )
     return HandlerResult(
-        summary=f"Simulated follow-up for {patient_id}; pain_score={pain_score}",
+        summary=payload["llm_summary"],
         episode_status="WAITING",
         next_events=[responded],
     )

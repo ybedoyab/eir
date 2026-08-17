@@ -9,6 +9,7 @@ services:
       - .env
     volumes:
       - ./mocks:/app/mocks:ro
+      - ./data:/app/data
     environment:
       ENVIRONMENT: development
 

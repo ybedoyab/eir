@@ -1,9 +1,7 @@
 """Event bus protocol and local implementation.
 
-Domain logic depends only on EventBus. A GooglePubSubEventBus adapter can be
-added later without changing publishers or subscribers.
-
-TODO: implement GooglePubSubEventBus using Google Cloud Pub/Sub.
+Domain logic depends only on EventBus. Pub/Sub lives in the backend messaging
+adapter so this package stays free of GCP SDKs.
 """
 
 from __future__ import annotations
@@ -37,16 +35,3 @@ class InMemoryEventBus:
         self.published.append(event)
         for handler in list(self._handlers.get(event.event_type, [])):
             await handler(event)
-
-
-class GooglePubSubEventBus:
-    """Placeholder for the managed Pub/Sub adapter.
-
-    TODO: publish DomainEvent payloads to PUBSUB_TOPIC and subscribe via a
-    Cloud Run / Agent Runtime worker. Do not import this from domain modules.
-    """
-
-    def __init__(self) -> None:
-        raise NotImplementedError(
-            "GooglePubSubEventBus is not implemented. Use InMemoryEventBus locally."
-        )

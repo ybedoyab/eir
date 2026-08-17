@@ -15,8 +15,9 @@ from eir_agents.common.types import DelegationDecision, HandlerResult
 from eir_agents.escalation.handler import request_human_review
 from eir_agents.orchestrator.handler import RecoveryOrchestrator
 from eir_agents.outreach.handler import handle_follow_up
+from eir_agents.outreach.llm import FollowUpSummarizer, TemplateFollowUpSummarizer
 from eir_agents.outreach.voice import MockVoiceProvider
-from eir_agents.records.fhir_client import LocalFhirClient
+from eir_agents.records.fhir_client import FhirClient, LocalFhirClient
 from eir_agents.risk.handler import assess_response
 from eir_agents.scheduling.handler import request_appointment
 from eir_shared.capabilities import BLOCKING_CAPABILITIES, Capability
@@ -41,6 +42,8 @@ class WorkflowRuntime:
         reviews: InMemoryReviewRepository,
         orchestrator: RecoveryOrchestrator,
         logger: StructuredLogger,
+        fhir: FhirClient | None = None,
+        summarizer: FollowUpSummarizer | None = None,
     ) -> None:
         self.event_bus = event_bus
         self.episodes = episodes
@@ -49,7 +52,8 @@ class WorkflowRuntime:
         self.reviews = reviews
         self.orchestrator = orchestrator
         self.logger = logger
-        self.fhir = LocalFhirClient()
+        self.fhir = fhir or LocalFhirClient()
+        self.summarizer = summarizer or TemplateFollowUpSummarizer()
         self.voice = MockVoiceProvider()
         self._bound = False
         self._depth = 0
@@ -129,6 +133,7 @@ class WorkflowRuntime:
                 fhir=self.fhir,
                 voice=self.voice,
                 memory=self.agent_memory,
+                summarizer=self.summarizer,
             )
         if capability == Capability.RISK_ASSESS:
             return assess_response(event)

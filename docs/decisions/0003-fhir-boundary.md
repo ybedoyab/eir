@@ -10,7 +10,7 @@ EIR will read and append healthcare data via Google Cloud Healthcare API (FHIR R
 
 ## Decision
 
-The records agent owns a `FhirClient` protocol (`get_patient`, `get_encounters`, `get_medications`, `get_care_plan`, `append_follow_up_observation`). `LocalFhirClient` reads synthetic fixtures from `/mocks/fhir`. The backend `integrations/fhir` package is a placeholder only. All fixtures are labeled synthetic.
+The records agent owns a `FhirClient` protocol (`get_patient`, `get_encounters`, `get_medications`, `get_care_plan`, `append_follow_up_observation`). `LocalFhirClient` reads synthetic fixtures from `/mocks/fhir`. `GoogleHealthcareFhirClient` in `backend/integrations/fhir` calls Healthcare API and falls back to those fixtures. All fixtures are labeled synthetic.
 
 ## Consequences
 

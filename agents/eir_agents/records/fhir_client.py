@@ -1,8 +1,7 @@
 """FHIR access protocol.
 
-Local implementation reads synthetic fixtures. Do not connect to a real EHR yet.
-
-TODO: GoogleCloudHealthcareFhirClient using FHIR R4 Healthcare API.
+Local implementation reads synthetic fixtures. Google Cloud Healthcare API
+lives in backend.integrations.fhir and falls back to this client.
 """
 
 from __future__ import annotations

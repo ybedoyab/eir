@@ -13,6 +13,8 @@ def test_outreach_uses_synthetic_care_plan() -> None:
     assert isinstance(responded, PatientResponded)
     assert responded.payload["synthetic"] is True
     assert responded.payload["reported_issue"] is False
+    assert responded.payload["pain_score"] == 2
+    assert "llm_summary" in responded.payload
 
 
 def test_risk_escalates_on_reported_issue() -> None:

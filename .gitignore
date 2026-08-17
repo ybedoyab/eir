@@ -75,6 +75,9 @@ $RECYCLE.BIN/
 *.log
 logs/
 
+# Local workflow state
+data/
+
 # Google Cloud credentials
 *-service-account*.json
 service-account*.json
