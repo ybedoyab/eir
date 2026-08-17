@@ -1,0 +1,13 @@
+[
+  {
+    "event_type": "RecoveryEpisodeStarted",
+    "episode_id": "episode-synthetic-001",
+    "patient_id": "patient-synthetic-001",
+    "note": "SYNTHETIC — not real patient data"
+  },
+  {
+    "event_type": "FollowUpDue",
+    "episode_id": "episode-synthetic-001",
+    "note": "SYNTHETIC day-3 follow-up"
+  }
+]

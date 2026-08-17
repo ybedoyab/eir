@@ -1,0 +1,48 @@
+{
+  "resourceType": "Patient",
+  "id": "patient-synthetic-001",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://eir.local/tags",
+        "code": "synthetic",
+        "display": "SYNTHETIC — not real patient data"
+      }
+    ]
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">SYNTHETIC — not real patient data. Alex Rivera, born 1988-04-12.</div>"
+  },
+  "identifier": [
+    {
+      "system": "https://eir.local/synthetic-patients",
+      "value": "patient-synthetic-001"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "use": "official",
+      "family": "Rivera",
+      "given": ["Alex"]
+    }
+  ],
+  "gender": "unknown",
+  "birthDate": "1988-04-12",
+  "communication": [
+    {
+      "language": {
+        "coding": [
+          {
+            "system": "urn:ietf:bcp:47",
+            "code": "en",
+            "display": "English"
+          }
+        ],
+        "text": "English"
+      },
+      "preferred": true
+    }
+  ]
+}

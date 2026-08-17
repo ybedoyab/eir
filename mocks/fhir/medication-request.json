@@ -1,0 +1,42 @@
+{
+  "resourceType": "MedicationRequest",
+  "id": "medicationrequest-synthetic-001",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://eir.local/tags",
+        "code": "synthetic",
+        "display": "SYNTHETIC — not real patient data"
+      }
+    ]
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">SYNTHETIC acetaminophen request for Patient/patient-synthetic-001. Not a real prescription.</div>"
+  },
+  "status": "active",
+  "intent": "order",
+  "medicationCodeableConcept": {
+    "coding": [
+      {
+        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+        "code": "161",
+        "display": "Acetaminophen"
+      }
+    ],
+    "text": "Acetaminophen 500 mg (synthetic example)"
+  },
+  "subject": {
+    "reference": "Patient/patient-synthetic-001",
+    "display": "Alex Rivera (synthetic)"
+  },
+  "encounter": {
+    "reference": "Encounter/encounter-synthetic-001"
+  },
+  "authoredOn": "2026-08-10",
+  "dosageInstruction": [
+    {
+      "text": "SYNTHETIC: one tablet by mouth every 8 hours as needed for pain"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "resourceType": "CarePlan",
+  "id": "careplan-synthetic-001",
+  "meta": {
+    "tag": [
+      {
+        "system": "https://eir.local/tags",
+        "code": "synthetic",
+        "display": "SYNTHETIC — not real patient data"
+      }
+    ]
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">SYNTHETIC post-discharge recovery care plan for Patient/patient-synthetic-001.</div>"
+  },
+  "status": "active",
+  "intent": "plan",
+  "title": "SYNTHETIC post-discharge recovery plan",
+  "subject": {
+    "reference": "Patient/patient-synthetic-001",
+    "display": "Alex Rivera (synthetic)"
+  },
+  "encounter": {
+    "reference": "Encounter/encounter-synthetic-001"
+  },
+  "period": {
+    "start": "2026-08-10",
+    "end": "2026-08-24"
+  },
+  "activity": [
+    {
+      "detail": {
+        "status": "scheduled",
+        "description": "SYNTHETIC: complete daily walking goal and report pain score"
+      }
+    }
+  ]
+}

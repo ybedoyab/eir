@@ -1,0 +1,16 @@
+[
+  {
+    "id": "patient-synthetic-001",
+    "name": "Alex Rivera",
+    "date_of_birth": "1988-04-12",
+    "preferred_language": "en",
+    "preferred_contact_channel": "voice"
+  },
+  {
+    "id": "patient-synthetic-002",
+    "name": "Jordan Lee",
+    "date_of_birth": "1975-11-03",
+    "preferred_language": "en",
+    "preferred_contact_channel": "sms"
+  }
+]
