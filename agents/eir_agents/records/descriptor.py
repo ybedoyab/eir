@@ -11,6 +11,11 @@ DESCRIPTOR = AgentDescriptor(
         Capability.CARE_PLAN_READ,
         Capability.OBSERVATION_WRITE,
     ],
+    granted_capabilities=[
+        Capability.PATIENT_READ,
+        Capability.CARE_PLAN_READ,
+        Capability.OBSERVATION_WRITE,
+    ],
     risk_level=AgentRiskLevel.MEDIUM,
     description="FHIR R4 records interface for recovery follow-up.",
 )

@@ -9,18 +9,15 @@ TODO: replace with Agent Runtime / Agent Gateway.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
-from eir_agents.adherence.handler import check_task_completion
 from eir_agents.common.types import DelegationDecision, HandlerResult
-from eir_agents.escalation.handler import request_human_review
 from eir_agents.orchestrator.handler import RecoveryOrchestrator
-from eir_agents.outreach.handler import handle_follow_up
 from eir_agents.outreach.llm import FollowUpSummarizer, TemplateFollowUpSummarizer
-from eir_agents.outreach.voice import MockVoiceProvider
+from eir_agents.outreach.voice import MockVoiceProvider, VoiceProvider
 from eir_agents.records.fhir_client import FhirClient, LocalFhirClient
-from eir_agents.risk.handler import assess_response
-from eir_agents.scheduling.handler import request_appointment
-from eir_shared.capabilities import BLOCKING_CAPABILITIES, Capability
+from eir_agents.runtime.adk_runner import AdkAgentRunner, InvocationContext
+from eir_shared.capabilities import BLOCKING_CAPABILITIES
 from eir_shared.event_bus import EventBus
 from eir_shared.events import EVENT_TYPE_MAP, DomainEvent
 from eir_shared.memory import AgentMemory, EpisodeStore
@@ -44,6 +41,9 @@ class WorkflowRuntime:
         logger: StructuredLogger,
         fhir: FhirClient | None = None,
         summarizer: FollowUpSummarizer | None = None,
+        adk_runner: AdkAgentRunner | None = None,
+        voice: VoiceProvider | None = None,
+        gateway: Any | None = None,
     ) -> None:
         self.event_bus = event_bus
         self.episodes = episodes
@@ -54,7 +54,9 @@ class WorkflowRuntime:
         self.logger = logger
         self.fhir = fhir or LocalFhirClient()
         self.summarizer = summarizer or TemplateFollowUpSummarizer()
-        self.voice = MockVoiceProvider()
+        self.voice = voice or MockVoiceProvider()
+        self.adk_runner = adk_runner or AdkAgentRunner(mode="direct")
+        self.gateway = gateway
         self._bound = False
         self._depth = 0
 
@@ -100,7 +102,15 @@ class WorkflowRuntime:
             await self._checkpoint(episode, event, None)
             return
 
-        decision = self.orchestrator.delegate(event.episode_id, event)
+        gateway = getattr(self, "gateway", None)
+        if gateway is not None:
+            gateway_decision = gateway.authorize_event(event)
+            if not gateway_decision.allowed:
+                await self._checkpoint(episode, event, None)
+                return
+
+        episode_snapshot = episode.model_dump(mode="json")
+        decision = self.orchestrator.delegate(event.episode_id, event, episode_snapshot)
         await self._checkpoint(episode, event, decision)
         if not decision.allowed or not decision.capability:
             return
@@ -126,25 +136,19 @@ class WorkflowRuntime:
         episode: RecoveryEpisode,
     ) -> HandlerResult:
         capability = decision.capability
-        if capability == Capability.PATIENT_CONTACT:
-            return await handle_follow_up(
-                event,
-                patient_id=episode.patient_id,
-                fhir=self.fhir,
-                voice=self.voice,
-                memory=self.agent_memory,
-                summarizer=self.summarizer,
-            )
-        if capability == Capability.RISK_ASSESS:
-            return assess_response(event)
-        if capability == Capability.ESCALATION_REQUEST:
-            return request_human_review(event)
-        if capability == Capability.ADHERENCE_CHECK:
-            return check_task_completion(event)
-        if capability == Capability.APPOINTMENT_SCHEDULE:
-            stub = request_appointment(episode.id, "synthetic follow-up visit")
-            return HandlerResult(summary=str(stub), episode_status="WAITING")
-        return HandlerResult(summary=f"no handler for {capability}")
+        if capability is None:
+            return HandlerResult(summary="no capability delegated")
+        ctx = InvocationContext(
+            capability=capability,
+            event=event,
+            patient_id=episode.patient_id,
+            episode_id=episode.id,
+            fhir=self.fhir,
+            voice=self.voice,
+            memory=self.agent_memory,
+            summarizer=self.summarizer,
+        )
+        return await self.adk_runner.invoke(ctx)
 
     def _apply_result(
         self,

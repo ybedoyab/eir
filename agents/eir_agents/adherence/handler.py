@@ -1,15 +1,42 @@
-"""Adherence stubs. No medical reasoning."""
+"""Adherence checks against synthetic medication tasks."""
 
-from eir_shared.events import DomainEvent
+from __future__ import annotations
+
+from eir_shared.events import AdherenceConcernDetected, DomainEvent
 
 from eir_agents.common.types import HandlerResult
+from eir_agents.records.fhir_client import FhirClient, LocalFhirClient
 
 
-def check_task_completion(event: DomainEvent) -> HandlerResult:
-    completed = bool((event.payload or {}).get("completed", True))
+def check_task_completion(
+    event: DomainEvent,
+    *,
+    patient_id: str | None = None,
+    fhir: FhirClient | None = None,
+) -> HandlerResult:
+    fhir = fhir or LocalFhirClient()
+    payload = event.payload or {}
+    completed = bool(payload.get("completed", True))
+    missed_doses = int(payload.get("missed_doses", 0))
+
+    if patient_id:
+        medications = fhir.get_medications(patient_id)
+        if medications and not completed:
+            missed_doses = max(missed_doses, 1)
+
+    if completed and missed_doses == 0:
+        return HandlerResult(
+            summary="Recovery medication tasks marked complete (synthetic).",
+            episode_status="WAITING",
+        )
+
+    concern = AdherenceConcernDetected(
+        episode_id=event.episode_id,
+        payload={"missed_doses": missed_doses, "synthetic": True},
+    )
     return HandlerResult(
-        summary="Recovery task completion recorded (synthetic).",
-        episode_status="WAITING",
-        next_events=[],
-        risk_level=None if completed else "MEDIUM",
+        summary=f"Adherence concern: {missed_doses} missed dose(s) (synthetic).",
+        episode_status="ACTIVE",
+        risk_level="MEDIUM",
+        next_events=[concern],
     )

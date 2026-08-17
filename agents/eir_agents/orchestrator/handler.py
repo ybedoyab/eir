@@ -3,6 +3,9 @@
 Does not implement outreach, risk, FHIR, or scheduling itself.
 """
 
+from __future__ import annotations
+
+from typing import Any, Protocol
 from uuid import uuid4
 
 from eir_shared.capabilities import Capability
@@ -12,7 +15,6 @@ from eir_shared.observability import StructuredLogger, WorkflowTrace
 from eir_shared.registry import AgentDescriptor
 
 from eir_agents.common.types import DelegationDecision
-from eir_agents.registry.service import AgentRegistry
 from eir_agents.safety.handler import SafetyGate
 
 EVENT_TO_CAPABILITY: dict[str, str] = {
@@ -24,10 +26,16 @@ EVENT_TO_CAPABILITY: dict[str, str] = {
 }
 
 
+class CapabilityRegistry(Protocol):
+    def find_by_capability(self, capability: str) -> AgentDescriptor | None: ...
+
+    def list_agents(self) -> list[AgentDescriptor]: ...
+
+
 class RecoveryOrchestrator:
     def __init__(
         self,
-        registry: AgentRegistry,
+        registry: CapabilityRegistry,
         safety: SafetyGate | None = None,
         logger: StructuredLogger | None = None,
     ) -> None:
@@ -35,19 +43,60 @@ class RecoveryOrchestrator:
         self.safety = safety or SafetyGate()
         self.logger = logger or StructuredLogger("eir.orchestrator")
 
-    def next_capability(self, event: DomainEvent) -> str | None:
-        return EVENT_TO_CAPABILITY.get(event.event_type)
+    def plan_capability(
+        self,
+        event: DomainEvent,
+        episode: dict[str, Any] | None = None,
+    ) -> str | None:
+        episode = episode or {}
+        status = str(episode.get("status", "ACTIVE"))
+        risk_level = str(episode.get("risk_level", "LOW"))
+        base = EVENT_TO_CAPABILITY.get(event.event_type)
+        if base is None:
+            return None
 
-    def delegate(self, episode_id: str, event: DomainEvent) -> DelegationDecision:
+        if event.event_type == "FollowUpDue":
+            if status in {"ESCALATED", "COMPLETED", "CANCELLED", "WAITING"}:
+                return None
+            return Capability.PATIENT_CONTACT
+
+        if event.event_type == "PatientResponded":
+            if status == "ESCALATED":
+                return None
+            return Capability.RISK_ASSESS
+
+        if event.event_type == "RiskEscalated":
+            if risk_level in {"HIGH", "CRITICAL"}:
+                return Capability.ESCALATION_REQUEST
+            return None
+
+        if event.event_type == "AdherenceConcernDetected" and status != "ACTIVE":
+            return None
+
+        return base
+
+    def next_capability(
+        self,
+        event: DomainEvent,
+        episode: dict[str, Any] | None = None,
+    ) -> str | None:
+        return self.plan_capability(event, episode)
+
+    def delegate(
+        self,
+        episode_id: str,
+        event: DomainEvent,
+        episode: dict[str, Any] | None = None,
+    ) -> DelegationDecision:
         trace_id = str(uuid4())
-        capability = self.next_capability(event)
+        capability = self.plan_capability(event, episode)
         if capability is None:
             decision = DelegationDecision(
                 episode_id=episode_id,
                 capability=None,
                 allowed=False,
                 event_type=event.event_type,
-                reason=f"no capability mapping for {event.event_type}",
+                reason=f"planner: no capability for {event.event_type} in current episode state",
             )
             self._trace(episode_id, trace_id, event, "recovery_orchestrator", "ok")
             return decision
@@ -65,7 +114,12 @@ class RecoveryOrchestrator:
         policy = self.safety.authorize(
             identity=_identity_from(descriptor),
             capability=capability,
-            context={"episode_id": episode_id, "event_type": event.event_type},
+            context={
+                "episode_id": episode_id,
+                "event_type": event.event_type,
+                "payload": event.payload,
+                "episode_status": (episode or {}).get("status"),
+            },
             agent_risk_level=descriptor.risk_level,
         )
         status = "delegated" if policy.allowed else "blocked"
@@ -104,5 +158,5 @@ def _identity_from(descriptor: AgentDescriptor) -> AgentIdentity:
     return AgentIdentity(
         name=descriptor.name,
         version=descriptor.version,
-        granted_capabilities=list(descriptor.capabilities),
+        granted_capabilities=descriptor.effective_grants(),
     )

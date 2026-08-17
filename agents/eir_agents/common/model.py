@@ -1,8 +1,5 @@
-import os
-
-from eir_shared.env import load_root_env
+from eir_shared.gemini_config import resolve_gemini_model
 
 
 def gemini_model() -> str:
-    load_root_env()
-    return os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
+    return resolve_gemini_model()

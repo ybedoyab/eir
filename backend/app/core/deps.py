@@ -12,16 +12,23 @@ from eir_agents.orchestrator.handler import RecoveryOrchestrator
 from eir_agents.outreach.llm import GeminiFollowUpSummarizer, TemplateFollowUpSummarizer
 from eir_agents.records.fhir_client import LocalFhirClient
 from eir_agents.registry.bootstrap import default_registry
+from eir_agents.runtime.adk_runner import AdkAgentRunner
 from eir_agents.safety.handler import SafetyGate
 from eir_shared.env import repo_root
 from eir_shared.event_bus import InMemoryEventBus
+from eir_shared.gemini_config import configure_genai_environment
 from eir_shared.memory import InMemoryAgentMemory, InMemoryEpisodeStore
 from eir_shared.observability import StructuredLogger
 
 from app.core.config import settings
 from app.integrations.agents.runtime import WorkflowRuntime
+from app.integrations.enterprise.gateway import AgentGateway
+from app.integrations.enterprise.memory_bank import FirestoreAgentMemory
+from app.integrations.enterprise.model_armor import ModelArmor
+from app.integrations.enterprise.registry import EnterpriseAgentRegistry
 from app.integrations.fhir.client import GoogleHealthcareFhirClient
 from app.integrations.messaging.pubsub import CompositeEventBus, GooglePubSubEventBus
+from app.integrations.voice.providers import voice_provider
 from app.repositories.file_store import (
     FileRecoveryEpisodeRepository,
     FileReviewRepository,
@@ -59,6 +66,13 @@ def _firestore_client() -> Any | None:
 
 class Container:
     def __init__(self) -> None:
+        configure_genai_environment(
+            use_vertexai=settings.google_genai_use_vertexai,
+            use_enterprise=settings.google_genai_use_enterprise,
+            project=settings.google_cloud_project,
+            location=settings.google_cloud_location,
+            api_key=settings.google_api_key or None,
+        )
         testing = _in_pytest()
         is_worker = settings.pubsub_handle and not testing
         local_bus = InMemoryEventBus()
@@ -132,11 +146,16 @@ class Container:
             self.logger = StructuredLogger("eir")
 
         self.store_mode = store_mode if not testing else "memory"
-        self.agent_memory = InMemoryAgentMemory()
-        self.registry = default_registry()
+        armor = ModelArmor()
+        if firestore_client is not None:
+            self.agent_memory = FirestoreAgentMemory(firestore_client)
+        else:
+            self.agent_memory = InMemoryAgentMemory()
+        local_registry = default_registry()
+        self.registry = EnterpriseAgentRegistry(local_registry)
         self.orchestrator = RecoveryOrchestrator(
             registry=self.registry,
-            safety=SafetyGate(),
+            safety=SafetyGate(armor=armor),
             logger=self.logger,
         )
         fhir = LocalFhirClient()
@@ -165,7 +184,13 @@ class Container:
             logger=self.logger,
             fhir=fhir,
             summarizer=summarizer,
+            adk_runner=AdkAgentRunner(
+                mode="direct" if testing else settings.adk_runner_mode,
+            ),
+            gateway=AgentGateway(armor=armor),
+            voice=voice_provider("mock" if testing else settings.voice_provider),
         )
+        self.adk_runner_mode = "direct" if testing else settings.adk_runner_mode
         self.workflow_subscriber = "local" if testing else settings.workflow_subscriber
         self.pubsub_handle = is_worker
         if bind_runtime:
@@ -177,6 +202,7 @@ class Container:
             "episode_store": self.store_mode,
             "fhir_mode": self.fhir_mode,
             "outreach_llm": self.outreach_llm,
+            "adk_runner_mode": self.adk_runner_mode,
             "workflow_subscriber": self.workflow_subscriber,
             "pubsub_sink": self.pubsub_sink,
             "pubsub_handle": self.pubsub_handle,

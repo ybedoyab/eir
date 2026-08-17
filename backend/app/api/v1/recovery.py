@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.core.deps import get_container
 from app.domain.recovery.models import RecoveryEpisode
+from app.services.follow_up_scheduler import FollowUpScheduler
 from app.services.recovery_service import RecoveryService
 
 router = APIRouter()
@@ -35,6 +36,7 @@ async def create_recovery(body: CreateRecoveryRequest) -> RecoveryEpisode:
         next_follow_up_at=body.next_follow_up_at,
         assigned_agents=body.assigned_agents,
     )
+    FollowUpScheduler(container.episodes).ensure_schedule(episode)
     # Publish and return. Do not run the multi-day workflow in this request.
     await container.event_bus.publish(event)
     return episode
@@ -71,6 +73,19 @@ async def trigger_follow_up(episode_id: str) -> dict:
     return {
         "event": event.model_dump(mode="json"),
         "episode": episode.model_dump(mode="json") if episode else None,
+    }
+
+
+@router.post("/process-due-follow-ups")
+async def process_due_follow_ups() -> dict:
+    container = get_container()
+    scheduler = FollowUpScheduler(container.episodes)
+    events = scheduler.process_due()
+    for event in events:
+        await container.event_bus.publish(event)
+    return {
+        "processed": len(events),
+        "episodes": [event.episode_id for event in events],
     }
 
 

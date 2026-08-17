@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from eir_shared.env import repo_root
+from eir_shared.gemini_config import DEFAULT_GEMINI_MODEL
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
@@ -18,7 +19,10 @@ class Settings(BaseSettings):
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
     google_cloud_project: str = "eir-ata"
     google_cloud_location: str = "us-central1"
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = DEFAULT_GEMINI_MODEL
+    google_genai_use_vertexai: bool = False
+    google_genai_use_enterprise: bool = False
+    adk_runner_mode: str = "direct"
     google_api_key: str = ""
     fhir_project: str = "eir-ata"
     fhir_location: str = "us-central1"

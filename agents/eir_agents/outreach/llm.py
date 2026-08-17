@@ -25,9 +25,11 @@ class GeminiFollowUpSummarizer:
     def summarize(self, payload: dict[str, Any]) -> str:
         fallback = TemplateFollowUpSummarizer().summarize(payload)
         try:
+            from eir_shared.gemini_config import configure_genai_environment, genai_client_kwargs
             from google import genai
 
-            client = genai.Client(api_key=self.api_key)
+            configure_genai_environment()
+            client = genai.Client(**genai_client_kwargs(api_key=self.api_key or None))
             prompt = (
                 "Write one short clinician-facing sentence summarizing a synthetic "
                 "recovery follow-up. Do not diagnose. Do not give medical advice. "

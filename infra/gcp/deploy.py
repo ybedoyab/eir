@@ -33,7 +33,11 @@ BASE_ENV = [
     "PUBSUB_TOPIC=eir-recovery-events",
     "PUBSUB_SUBSCRIPTION=eir-recovery-events-worker",
     "OUTREACH_LLM=true",
-    "GEMINI_MODEL=gemini-2.0-flash",
+    "GEMINI_MODEL=gemini-3.5-flash",
+    "GOOGLE_GENAI_USE_VERTEXAI=TRUE",
+    "GOOGLE_GENAI_USE_ENTERPRISE=TRUE",
+    "ADK_RUNNER_MODE=adk",
+    "VOICE_PROVIDER=gemini",
     "ENVIRONMENT=production",
 ]
 
