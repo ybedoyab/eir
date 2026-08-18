@@ -34,6 +34,7 @@ def test_managed_tools_do_not_import_appointment_service() -> None:
     assert "AppointmentService" not in source
     assert "FhirClient" not in source
     assert "/api/v1/agent-runtime/" in source
+    assert "X-Agent-Authorization" in source
     assert "demo-alex" not in source
     assert "SESSION_SECRET" not in source
     assert "BEGIN PRIVATE KEY" not in source
@@ -85,3 +86,19 @@ def test_deploy_script_requests_agent_identity_without_secrets() -> None:
     assert "SESSION_SECRET" not in source
     assert "BEGIN PRIVATE KEY" not in source
     assert "memory_bank_config" in source
+    assert "locations/global" in source
+
+
+def test_smoke_uses_registry_api_not_local_catalog() -> None:
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "infra"
+        / "gcp"
+        / "agent_platform"
+        / "smoke_managed_platform.py"
+    ).read_text(encoding="utf-8")
+    assert "agentregistry.googleapis.com" in source
+    assert "EnterpriseAgentRegistry" not in source
+    assert "async_search_memory" not in source or "memories.retrieve" in source

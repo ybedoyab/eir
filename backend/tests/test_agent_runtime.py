@@ -1,4 +1,12 @@
-from app.api.deps.agent_identity import normalize_principal, principals_from_claims
+import inspect
+
+from app.api.deps.agent_identity import (
+    AGENT_IDENTITY_ISSUER,
+    _verify_agent_identity_sts,
+    normalize_principal,
+    principals_from_claims,
+    require_agent_runtime_principal,
+)
 from app.main import app
 from fastapi.testclient import TestClient
 
@@ -52,3 +60,25 @@ def test_agent_identity_principal_normalization() -> None:
     principals = principals_from_claims(claims)
     assert "agent@example.com" in principals
     assert normalize_principal(raw) in principals
+
+
+def test_agent_runtime_accepts_agent_authorization_header() -> None:
+    source = inspect.getsource(require_agent_runtime_principal)
+    assert "X-Agent-Authorization" in source
+    assert "Authorization" in source
+
+
+def test_spiffe_agent_identity_normalizes_to_principal() -> None:
+    raw = (
+        "spiffe://agents.global.proj-658898892127.system.id.goog/resources/"
+        "aiplatform/projects/1/locations/us-central1/reasoningEngines/2"
+    )
+    assert normalize_principal(raw) == (
+        "principal://agents.global.proj-658898892127.system.id.goog/resources/"
+        "aiplatform/projects/1/locations/us-central1/reasoningEngines/2"
+    )
+    assert "sts.googleapis.com" in AGENT_IDENTITY_ISSUER
+    assert "agents.global.proj-658898892127.system.id.goog" in AGENT_IDENTITY_ISSUER
+    source = inspect.getsource(_verify_agent_identity_sts)
+    assert "audience=None" in source
+    assert "audience mismatch" in source

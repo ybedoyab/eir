@@ -24,18 +24,54 @@ def _audience() -> str:
     return os.environ.get("EIR_API_AUDIENCE", _api_base())
 
 
+def _metadata_identity_token(audience: str) -> str:
+    import urllib.parse
+    import urllib.request
+
+    params = urllib.parse.urlencode({"audience": audience, "format": "full"})
+    request = urllib.request.Request(
+        f"http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?{params}",
+        headers={"Metadata-Flavor": "Google"},
+    )
+    with urllib.request.urlopen(request, timeout=5) as response:
+        token = response.read().decode("utf-8").strip()
+    if not token:
+        raise RuntimeError("metadata identity token unavailable")
+    return token
+
+
 def _identity_token() -> str:
     from google.auth.transport.requests import Request
     from google.oauth2 import id_token
 
     audience = _audience()
+    errors: list[str] = []
+    try:
+        from google.auth.compute_engine import IDTokenCredentials
+
+        creds = IDTokenCredentials(
+            Request(),
+            target_audience=audience,
+            use_metadata_identity_endpoint=True,
+        )
+        creds.refresh(Request())
+        token = getattr(creds, "token", None)
+        if token:
+            return str(token)
+    except Exception as exc:
+        errors.append(type(exc).__name__)
+    try:
+        return _metadata_identity_token(audience)
+    except Exception as exc:
+        errors.append(type(exc).__name__)
     try:
         return id_token.fetch_id_token(Request(), audience)
-    except Exception:
+    except Exception as exc:
+        errors.append(type(exc).__name__)
         allowed = os.environ.get("EIR_ALLOW_IMPERSONATE_TOOL_SA", "").strip().lower()
         if allowed in {"1", "true", "yes"}:
             return _impersonated_identity_token(audience)
-        raise
+        raise RuntimeError(f"identity token unavailable ({', '.join(errors)})") from exc
 
 
 def _impersonated_identity_token(audience: str) -> str:
@@ -64,11 +100,32 @@ def _impersonated_identity_token(audience: str) -> str:
     return str(token)
 
 
-def _headers() -> dict[str, str]:
+def _headers(token: str) -> dict[str, str]:
+    # Cloud Run intercepts Authorization / X-Serverless-Authorization. Agent Identity
+    # ID tokens are verified by eir-api; do not send them as Cloud Run IAM bearers.
     return {
-        "Authorization": f"Bearer {_identity_token()}",
+        "X-Agent-Authorization": f"Bearer {token}",
         "Accept": "application/json",
         "Content-Type": "application/json",
+    }
+
+
+def _jwt_debug(token: str) -> dict[str, Any]:
+    import base64
+    import json
+
+    parts = token.split(".")
+    if len(parts) < 2:
+        return {"jwt": False}
+    padded = parts[1] + "=" * (-len(parts[1]) % 4)
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(padded))
+    except Exception:
+        return {"jwt": False}
+    return {
+        key: payload.get(key)
+        for key in ("iss", "aud", "sub", "email", "azp")
+        if payload.get(key)
     }
 
 
@@ -95,9 +152,19 @@ def _request(
     params: dict | None = None,
 ) -> Any:
     url = f"{_api_base()}{path}"
+    token = _identity_token()
     with httpx.Client(timeout=_TIMEOUT) as client:
-        response = client.request(method, url, headers=_headers(), json=json, params=params)
-        response.raise_for_status()
+        response = client.request(
+            method, url, headers=_headers(token), json=json, params=params
+        )
+        if response.is_error:
+            body = (response.text or "")[:500]
+            return {
+                "error": f"HTTP {response.status_code}",
+                "path": path,
+                "detail": body,
+                "token_claims": _jwt_debug(token),
+            }
         if not response.content:
             return {}
         return response.json()
@@ -111,7 +178,11 @@ def get_upcoming_appointments(tool_context: Any | None = None) -> list[dict[str,
         "/api/v1/agent-runtime/appointments",
         params={"synthetic_user_id": user_id},
     )
-    return payload if isinstance(payload, list) else payload.get("items", [])
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict) and payload.get("error"):
+        return payload
+    return payload.get("items", []) if isinstance(payload, dict) else []
 
 
 def search_appointment_availability(
@@ -134,7 +205,11 @@ def search_appointment_availability(
             "limit": str(limit),
         },
     )
-    return payload if isinstance(payload, list) else payload.get("items", [])
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict) and payload.get("error"):
+        return payload
+    return payload.get("items", []) if isinstance(payload, dict) else []
 
 
 def reschedule_appointment(

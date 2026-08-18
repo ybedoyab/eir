@@ -43,6 +43,9 @@ def _engine(client):
         resource = getattr(engine, "api_resource", engine)
         display = getattr(resource, "display_name", "") or getattr(engine, "display_name", "")
         if display == RUNTIME_DISPLAY_NAME:
+            name = getattr(resource, "name", None)
+            if name:
+                return client.agent_engines.get(name=name)
             return engine
     raise RuntimeError("eir-patient-access reasoningEngine not found")
 
@@ -83,26 +86,30 @@ def _write_verification(payload: dict) -> None:
 
 
 def _list_registry() -> list[dict]:
-    completed = subprocess.run(
-        [
-            _gcloud(),
-            "agent-registry",
-            "agents",
-            "list",
-            f"--project={PROJECT}",
-            f"--location={LOCATION}",
-            "--format=json",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
+    import urllib.request
+
+    import google.auth
+    import google.auth.transport.requests
+
+    creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+    creds.refresh(google.auth.transport.requests.Request())
+    url = (
+        "https://agentregistry.googleapis.com/v1/"
+        f"projects/{PROJECT}/locations/{LOCATION}/agents"
     )
-    if completed.returncode != 0:
-        return []
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {creds.token}",
+            "Accept": "application/json",
+        },
+    )
     try:
-        return json.loads(completed.stdout or "[]")
-    except json.JSONDecodeError:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8") or "{}")
+    except Exception:
         return []
+    return list(payload.get("agents") or [])
 
 
 def _observability_hit() -> dict[str, bool]:
@@ -180,6 +187,20 @@ async def _run() -> dict:
     )
     loaded_a = await agent.async_get_session(user_id=SYNTHETIC_USER_ID, session_id=session_a_id)
     await agent.async_add_session_to_memory(session=loaded_a)
+    session_name = f"{resource_name}/sessions/{session_a_id}"
+    client.agent_engines.memories.generate(
+        name=resource_name,
+        vertex_session_source={"session": session_name},
+        scope={"user_id": SYNTHETIC_USER_ID},
+    )
+    listed = list(client.agent_engines.memories.list(name=resource_name))
+    retrieved = list(
+        client.agent_engines.memories.retrieve(
+            name=resource_name,
+            scope={"user_id": SYNTHETIC_USER_ID},
+            similarity_search_params={"search_query": "preferred clinic afternoon Main Clinic"},
+        )
+    )
 
     session_b = await agent.async_create_session(user_id=SYNTHETIC_USER_ID)
     session_b_id = getattr(session_b, "id", None) or session_b.get("id")
@@ -191,13 +212,9 @@ async def _run() -> dict:
         session_id=session_b_id,
         message="I need to move my cardiology appointment. What times should I consider?",
     )
-    memory = await agent.async_search_memory(
-        user_id=SYNTHETIC_USER_ID,
-        query="preferred clinic afternoon Main Clinic",
-    )
-    memory_text = _memory_text(memory)
+    memory_text = _memory_text({"listed": listed, "retrieved": retrieved})
     ranking_ok = "main clinic" in ranking.lower() and "afternoon" in ranking.lower()
-    memory_ok = "main clinic" in memory_text or "afternoon" in memory_text
+    memory_ok = "main clinic" in memory_text and "afternoon" in memory_text
     if not (ranking_ok and memory_ok):
         raise RuntimeError("Memory Bank Session B did not retrieve Main Clinic/afternoon")
 

@@ -6,7 +6,6 @@ import json
 import os
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 
 from eir_agents.access.constants import DEFAULT_API_BASE_URL, GEMINI_MODEL, RUNTIME_DISPLAY_NAME
@@ -27,9 +26,7 @@ SHARED_ROOT = REPO_ROOT / "shared"
 REQUIREMENTS_FILE = Path(__file__).resolve().parent / "requirements-runtime.txt"
 COLLECTION = "eir_platform_verification"
 DOC_ID = "managed"
-MEMORY_MODEL = (
-    f"projects/{PROJECT}/locations/{LOCATION}/publishers/google/models/{GEMINI_MODEL}"
-)
+MEMORY_MODEL = f"projects/{PROJECT}/locations/global/publishers/google/models/{GEMINI_MODEL}"
 EMBEDDING_MODEL = (
     f"projects/{PROJECT}/locations/{LOCATION}/publishers/google/models/text-embedding-005"
 )
@@ -54,11 +51,24 @@ def _requirements() -> list[str]:
 
 
 def _stage_source() -> Path:
-    dest = Path(tempfile.mkdtemp(prefix="eir-patient-access-src-"))
+    dest = Path(__file__).resolve().parent / ".runtime_src"
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True)
     ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache", "tests")
     shutil.copytree(AGENTS_ROOT / "eir_agents", dest / "eir_agents", ignore=ignore)
     shutil.copytree(SHARED_ROOT / "eir_shared", dest / "eir_shared", ignore=ignore)
-    shutil.copy2(REQUIREMENTS_FILE, dest / "requirements.txt")
+    (dest / "setup.py").write_text(
+        "from setuptools import find_packages, setup\n\n"
+        "setup(\n"
+        "    name='eir-patient-access-runtime',\n"
+        "    version='0.1.0',\n"
+        "    packages=find_packages(),\n"
+        ")\n",
+        encoding="utf-8",
+    )
+    requirements = REQUIREMENTS_FILE.read_text(encoding="utf-8").rstrip() + "\n.\n"
+    (dest / "requirements.txt").write_text(requirements, encoding="utf-8")
     return dest
 
 
@@ -96,11 +106,11 @@ def _env_vars() -> dict[str, str]:
     return {
         "EIR_API_BASE_URL": os.environ.get("EIR_API_BASE_URL", DEFAULT_API_BASE_URL),
         "EIR_API_AUDIENCE": os.environ.get("EIR_API_AUDIENCE", DEFAULT_API_BASE_URL),
-        "GOOGLE_CLOUD_PROJECT": PROJECT,
-        "GOOGLE_CLOUD_LOCATION": LOCATION,
         "GEMINI_MODEL": GEMINI_MODEL,
         "GOOGLE_GENAI_USE_VERTEXAI": "TRUE",
         "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS": "false",
+        # Required to inject Agent Identity tokens into application headers.
+        "GOOGLE_API_PREVENT_AGENT_TOKEN_SHARING_FOR_GCP_SERVICES": "false",
     }
 
 
@@ -131,13 +141,27 @@ def _has_agent_code(engine) -> bool:
     return bool(pickle_uri or source)
 
 
-def _find_existing(client) -> object | None:
+def _delete_engine(client, engine) -> None:
+    name = _resource_name(engine)
+    try:
+        client.agent_engines.delete(name=name, force=True)
+    except TypeError:
+        client.agent_engines.delete(name=name)
+
+
+def _find_all(client) -> list:
+    found = []
     for engine in client.agent_engines.list():
         resource = getattr(engine, "api_resource", engine)
         display = getattr(resource, "display_name", "") or getattr(engine, "display_name", "")
         if display == RUNTIME_DISPLAY_NAME:
-            return engine
-    return None
+            found.append(engine)
+    return found
+
+
+def _find_existing(client) -> object | None:
+    items = _find_all(client)
+    return items[0] if items else None
 
 
 def _gcloud() -> str:
@@ -187,15 +211,20 @@ def deploy(*, force_update: bool = False) -> dict:
     from vertexai import types
 
     client = _client()
-    existing = _find_existing(client)
-    if existing is not None and _has_agent_code(existing) and not force_update:
-        return {
-            "status": "exists",
-            "resource": _resource_name(existing),
-            "display_name": RUNTIME_DISPLAY_NAME,
-            "identity_type": IDENTITY_TYPE,
-            "effective_identity": _effective_identity(existing),
-        }
+    existing_all = _find_all(client)
+    if existing_all and not force_update:
+        existing = existing_all[0]
+        if _has_agent_code(existing):
+            return {
+                "status": "exists",
+                "resource": _resource_name(existing),
+                "display_name": RUNTIME_DISPLAY_NAME,
+                "identity_type": IDENTITY_TYPE,
+                "effective_identity": _effective_identity(existing),
+            }
+    for engine in existing_all:
+        _delete_engine(client, engine)
+    existing = None
 
     source = _stage_source()
     app = build_adk_app()
@@ -208,44 +237,35 @@ def deploy(*, force_update: bool = False) -> dict:
         "env_vars": _env_vars(),
         "context_spec": {"memory_bank_config": _memory_bank_config()},
     }
+    previous_cwd = os.getcwd()
+    os.chdir(source)
     try:
-        payload = {
-            **config,
-            "source_packages": [str(source)],
-            "entrypoint_module": ENTRYPOINT_MODULE,
-            "entrypoint_object": ENTRYPOINT_OBJECT,
-            "requirements_file": "requirements.txt",
-            "class_methods": _class_methods(app),
-        }
-        if existing is not None:
-            remote = client.agent_engines.update(
-                name=_resource_name(existing),
-                config=payload,
-            )
-            status = "updated-source"
-        else:
+        try:
+            payload = {
+                **config,
+                "source_packages": ["."],
+                "entrypoint_module": ENTRYPOINT_MODULE,
+                "entrypoint_object": ENTRYPOINT_OBJECT,
+                "requirements_file": "requirements.txt",
+                "class_methods": _class_methods(app),
+            }
             remote = client.agent_engines.create(config=payload)
             status = "created-source"
-    except Exception as source_error:
-        payload = {
-            **config,
-            "requirements": _requirements(),
-            "extra_packages": [str(source)],
-            "staging_bucket": STAGING_BUCKET,
-        }
-        if existing is not None:
-            remote = client.agent_engines.update(
-                name=_resource_name(existing),
-                agent=app,
-                config=payload,
-            )
-            status = f"updated-pickle:{type(source_error).__name__}"
-        else:
+        except Exception as source_error:
+            payload = {
+                **config,
+                "requirements": _requirements(),
+                "extra_packages": ["eir_agents", "eir_shared"],
+                "staging_bucket": STAGING_BUCKET,
+            }
             remote = client.agent_engines.create(agent=app, config=payload)
-            status = f"created-pickle:{type(source_error).__name__}"
+            status = f"created-pickle:{type(source_error).__name__}:{str(source_error)[:180]}"
+    finally:
+        os.chdir(previous_cwd)
     identity = _effective_identity(remote)
     if identity:
         bootstrap_allowlist([identity])
+    ensure_memory_bank_config(_resource_name(remote))
     return {
         "status": status,
         "resource": _resource_name(remote),
@@ -254,6 +274,57 @@ def deploy(*, force_update: bool = False) -> dict:
         "effective_identity": identity,
         "entrypoint_module": ENTRYPOINT_MODULE,
     }
+
+
+def ensure_memory_bank_config(resource_name: str) -> None:
+    import json
+    import urllib.request
+
+    import google.auth
+    import google.auth.transport.requests
+
+    creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+    creds.refresh(google.auth.transport.requests.Request())
+    body = {
+        "contextSpec": {
+            "memoryBankConfig": {
+                "generationConfig": {"model": MEMORY_MODEL},
+                "similaritySearchConfig": {"embeddingModel": EMBEDDING_MODEL},
+                "ttlConfig": {"defaultTtl": f"{30 * 24 * 60 * 60}s"},
+                "customizationConfigs": [
+                    {
+                        "memoryTopics": [
+                            {
+                                "managedMemoryTopic": {
+                                    "managedTopicEnum": "USER_PREFERENCES"
+                                }
+                            },
+                            {
+                                "managedMemoryTopic": {
+                                    "managedTopicEnum": "EXPLICIT_INSTRUCTIONS"
+                                }
+                            },
+                        ]
+                    }
+                ],
+            }
+        }
+    }
+    url = (
+        "https://us-central1-aiplatform.googleapis.com/v1beta1/"
+        f"{resource_name}?updateMask=contextSpec"
+    )
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode("utf-8"),
+        method="PATCH",
+        headers={
+            "Authorization": f"Bearer {creds.token}",
+            "Content-Type": "application/json",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        response.read()
 
 
 def _member(principal: str) -> str:

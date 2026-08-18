@@ -94,6 +94,9 @@ secrets/
 *.key
 !*.example.key
 
+# Agent Runtime SDK packaging scratch (never commit staged source)
+infra/gcp/agent_platform/.runtime_src/
+
 # Terraform local working files (commit .terraform.lock.hcl)
 infra/terraform/.terraform/
 infra/terraform/tfplan
