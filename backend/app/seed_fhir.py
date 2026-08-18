@@ -126,6 +126,22 @@ def _ordered_resources(resources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     )
 
 
+def _upsert_resource(client: GoogleHealthcareFhirClient, resource: dict[str, Any]) -> httpx.Response:
+    resource_type = str(resource["resourceType"])
+    resource_id = str(resource["id"])
+    headers = client._headers()
+    url = f"{client._base}/{resource_type}/{resource_id}"
+    exists = httpx.get(url, headers=headers, timeout=60)
+    if exists.status_code == 404:
+        return httpx.post(
+            f"{client._base}/{resource_type}",
+            headers=headers,
+            json=resource,
+            timeout=60,
+        )
+    return httpx.put(url, headers=headers, json=resource, timeout=60)
+
+
 def main() -> int:
     load_root_env()
     patient_mocks = repo_root() / "mocks" / "fhir"
@@ -147,22 +163,17 @@ def main() -> int:
     for resource in ordered:
         resource_type = str(resource["resourceType"])
         resource_id = str(resource["id"])
-        response = httpx.put(
-            f"{client._base}/{resource_type}/{resource_id}",
-            headers=client._headers(),
-            json=resource,
-            timeout=60,
-        )
+        response = _upsert_resource(client, resource)
         if response.status_code >= 400:
             print(
-                f"PUT {resource_type}/{resource_id} failed ({response.status_code}): "
+                f"upsert {resource_type}/{resource_id} failed ({response.status_code}): "
                 f"{response.text[:800]}",
                 file=sys.stderr,
             )
             return 1
 
     client.reachable = True
-    print(f"uploaded {len(ordered)} synthetic resources via idempotent PUT")
+    print(f"uploaded {len(ordered)} synthetic resources via idempotent upsert")
     for resource in ordered:
         print(f"  {resource['resourceType']}/{resource['id']}")
     return 0
