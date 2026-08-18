@@ -42,6 +42,8 @@ locals {
     "roles/iam.serviceAccountUser",
     "roles/secretmanager.secretAccessor",
     "roles/healthcare.fhirResourceEditor",
+    "roles/storage.admin",
+    "roles/serviceusage.serviceUsageConsumer",
   ]
 
   infra_roles = [
