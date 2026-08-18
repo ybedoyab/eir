@@ -10,10 +10,23 @@ CUSTOM_DATA_LIMIT = 200
 TRANSPORT_PSTN = "pstn"
 TRANSPORT_USER = "voximplant_user"
 PREVIEW_USERNAME = "eir-preview-user"
+PIPELINE_EVENTS = (
+    "VoiceCallStarted",
+    "VoiceCallConnected",
+    "VoiceCallCompleted",
+    "PatientResponded",
+    "RiskEscalated",
+    "HumanReviewRequested",
+)
 VoiceTransport = Literal["pstn", "voximplant_user"]
 
 _USER_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{1,49}$")
 _PHONE_RE = re.compile(r"^\+?\d{7,15}$")
+
+
+def missing_pipeline_events(event_types: list[str]) -> list[str]:
+    seen = set(event_types)
+    return [name for name in PIPELINE_EVENTS if name not in seen]
 
 
 def sanitize_preview_username(value: str | None) -> str:
@@ -93,4 +106,9 @@ def inspect_scenario_source(source: str) -> dict[str, Any]:
         or "data.phone" in source,
         "model": "gemini-live-2.5-flash-native-audio" in source,
         "vertex_backend": "Gemini.Backend.VERTEX_AI" in source,
+        "parses_vertex_credentials_json": "JSON.parse(secret('EIR_GEMINI_VERTEX_CREDENTIALS'))"
+        in source,
+        "credentials_string": "var credentials = secret('EIR_GEMINI_VERTEX_CREDENTIALS')" in source,
+        "privacy_mode": "privacy: true" in source,
+        "trace_disabled": "trace: false" in source,
     }

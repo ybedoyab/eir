@@ -7,11 +7,13 @@ from pathlib import Path
 from app.core.config import Settings, settings
 from app.integrations.voice.voximplant_custom import (
     CUSTOM_DATA_LIMIT,
+    PIPELINE_EVENTS,
     PREVIEW_USERNAME,
     TRANSPORT_PSTN,
     TRANSPORT_USER,
     encode_script_custom_data,
     inspect_scenario_source,
+    missing_pipeline_events,
     parse_script_custom_data,
     sanitize_preview_username,
 )
@@ -89,6 +91,10 @@ def test_scenario_shares_gemini_after_transport_split() -> None:
     assert info["reads_destination_from_custom_data"] is False
     assert info["model"] is True
     assert info["vertex_backend"] is True
+    assert info["parses_vertex_credentials_json"] is False
+    assert info["credentials_string"] is True
+    assert info["privacy_mode"] is True
+    assert info["trace_disabled"] is True
     pstn_secret = source.find("secret('EIR_DEMO_PHONE_E164')")
     gate = source.find("session.transport !== 'voximplant_user'")
     assert gate != -1
@@ -99,3 +105,13 @@ def test_scenario_shares_gemini_after_transport_split() -> None:
     assert "callUser" in user_branch
     assert "callPSTN" in user_branch
     assert "createLiveAPIClient" not in user_branch
+
+
+def test_missing_pipeline_events_reports_exact_gaps() -> None:
+    assert missing_pipeline_events(["VoiceCallStarted", "PatientResponded"]) == [
+        "VoiceCallConnected",
+        "VoiceCallCompleted",
+        "RiskEscalated",
+        "HumanReviewRequested",
+    ]
+    assert missing_pipeline_events(list(PIPELINE_EVENTS)) == []

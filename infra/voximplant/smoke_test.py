@@ -31,6 +31,7 @@ from app.integrations.voice.voximplant_custom import (  # noqa: E402
     TRANSPORT_PSTN,
     TRANSPORT_USER,
     encode_script_custom_data,
+    missing_pipeline_events,
 )
 
 from provision import (  # noqa: E402
@@ -314,25 +315,21 @@ def _event_types(episode_id: str) -> list[str]:
     return [str(item.get("event_type") or "") for item in items if isinstance(item, dict)]
 
 
-def wait_for_pipeline(episode_id: str, *, timeout_s: int = 180) -> list[str]:
+def wait_for_pipeline(episode_id: str, *, timeout_s: int = 180) -> tuple[list[str], list[str]]:
     deadline = time.time() + timeout_s
     types: list[str] = []
-    wanted = {
-        "VoiceCallStarted",
-        "VoiceCallConnected",
-        "VoiceCallCompleted",
-        "PatientResponded",
-        "RiskEscalated",
-        "HumanReviewRequested",
-    }
     while time.time() < deadline:
         types = _event_types(episode_id)
-        found = wanted.intersection(types)
+        missing = missing_pipeline_events(types)
         print(f"  events: {', '.join(t for t in types if t)}")
-        if "PatientResponded" in found and "RiskEscalated" in found:
-            return types
+        if not missing:
+            print("Preview pipeline complete.")
+            return types, []
         time.sleep(5)
-    return types
+    missing = missing_pipeline_events(types)
+    print("Preview pipeline incomplete. Missing expected events:")
+    print("  " + ", ".join(missing) if missing else "  (unknown)")
+    return types, missing
 
 
 def place_user_call() -> str:
@@ -404,9 +401,13 @@ def main() -> int:
         print("Preview StartScenarios accepted. PSTN calls placed: 0")
         if args.wait:
             print("Waiting for callback -> PatientResponded -> risk pipeline...")
-            types = wait_for_pipeline(episode_id)
+            types, missing = wait_for_pipeline(episode_id)
             print("Final event types (sanitized):")
             print("  " + ", ".join(types) if types else "  (none yet)")
+            if missing:
+                print("Missing expected events:")
+                print("  " + ", ".join(missing))
+                return 2
         return 0
     print("Preflight OK. Re-run with --place-call to place exactly one smoke call.")
     return 0

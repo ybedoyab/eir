@@ -173,13 +173,15 @@ function validateCheckin(args) {
 }
 
 function startGeminiLive(session, call, onSubmitted) {
-  var credentials = JSON.parse(secret('EIR_GEMINI_VERTEX_CREDENTIALS'));
+  var credentials = secret('EIR_GEMINI_VERTEX_CREDENTIALS');
   return Gemini.createLiveAPIClient({
     credentials: credentials,
     model: GEMINI_LIVE_MODEL,
     backend: Gemini.Backend.VERTEX_AI,
     project: VERTEX_PROJECT,
     location: VERTEX_LOCATION,
+    privacy: true,
+    trace: false,
     connectConfig: {
       responseModalities: ['AUDIO'],
       speechConfig: {
