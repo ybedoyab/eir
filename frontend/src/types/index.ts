@@ -143,5 +143,14 @@ export interface RuntimeStatus {
       gemini_live_voice: string;
       admin_credentials_used_at_runtime: boolean;
     };
+    platform?: {
+      managed_agent_runtime_verified?: boolean;
+      managed_memory_bank_verified?: boolean;
+      managed_registry_verified?: boolean;
+      managed_agent_identity_verified?: boolean;
+      managed_model_armor_verified?: boolean;
+      otel_cloud_trace_verified?: boolean;
+      cloud_logging_verified?: boolean;
+    };
   };
 }

@@ -105,6 +105,7 @@ class Container:
             api_key=settings.google_api_key or None,
         )
         testing = _in_pytest()
+        self.testing = testing
         is_worker = settings.pubsub_handle and not testing
         local_bus = InMemoryEventBus()
         sink = None
@@ -222,6 +223,14 @@ class Container:
         self.fhir = fhir
         self.fhir_mode = "local" if testing else settings.fhir_mode
         self.appointments = AppointmentService(fhir)
+        if firestore_client is not None and not testing:
+            from app.repositories.platform_verification import FirestorePlatformVerificationStore
+
+            self.platform_verification = FirestorePlatformVerificationStore(firestore_client)
+        else:
+            from app.repositories.platform_verification import InMemoryPlatformVerificationStore
+
+            self.platform_verification = InMemoryPlatformVerificationStore()
         self.access = PatientAccessService(
             sessions=self.access_sessions,
             appointments=self.appointments,
@@ -332,20 +341,16 @@ class Container:
                 "error": report.error,
             },
             "voice": getattr(self, "voice_status", {}),
-            "platform_verification": {
-                "managed_agent_runtime_verified": False,
-                "managed_memory_bank_verified": False,
-                "managed_registry_verified": False,
-                "managed_agent_identity_verified": False,
-                "managed_agent_gateway_verified": False,
-                "managed_model_armor_verified": getattr(
-                    self.content_guard, "managed_available", False
-                ),
-                "otel_cloud_trace_verified": False,
-                "cloud_logging_verified": False,
-                "cloud_monitoring_verified": False,
-            },
+            "platform_verification": self._platform_verification_status(),
         }
+
+    def _platform_verification_status(self) -> dict[str, Any]:
+        snapshot = self.platform_verification.snapshot()
+        snapshot["managed_model_armor_verified"] = getattr(
+            self.content_guard, "managed_available", False
+        )
+        snapshot["managed_agent_gateway_verified"] = False
+        return snapshot
 
     def seed(self) -> None:
         patients_path = MOCKS_DIR / "patients" / "patients.json"

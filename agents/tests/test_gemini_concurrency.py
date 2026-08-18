@@ -17,6 +17,7 @@ def _configure_vertex_test_env() -> None:
         infra_location="us-central1",
     )
     os.environ["GEMINI_LOCATION"] = "global"
+    os.environ["GEMINI_MODEL"] = "gemini-3.5-flash"
     gemini_model.cache_clear()
 
 

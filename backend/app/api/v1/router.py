@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     access,
     admin,
+    agent_runtime,
     agents,
     appointments,
     auth,
@@ -19,6 +20,9 @@ from app.api.v1 import (
 router = APIRouter()
 router.include_router(auth.router, prefix="/auth", tags=["auth"])
 router.include_router(access.router, prefix="/access", tags=["access"])
+router.include_router(
+    agent_runtime.router, prefix="/agent-runtime", tags=["agent-runtime"]
+)
 router.include_router(appointments.router, prefix="/appointments", tags=["appointments"])
 router.include_router(admin.router, prefix="/admin", tags=["admin"])
 router.include_router(patients.router, prefix="/patients", tags=["patients"])

@@ -552,6 +552,9 @@ source = { editable = "agents" }
 dependencies = [
     { name = "eir-shared" },
     { name = "google-adk", extra = ["gcp", "otel-gcp"] },
+    { name = "google-auth" },
+    { name = "google-cloud-aiplatform", extra = ["adk", "agent-engines"] },
+    { name = "httpx" },
     { name = "pydantic" },
 ]
 
@@ -565,6 +568,9 @@ dev = [
 requires-dist = [
     { name = "eir-shared", editable = "shared" },
     { name = "google-adk", extras = ["gcp", "otel-gcp"] },
+    { name = "google-auth", specifier = ">=2.35" },
+    { name = "google-cloud-aiplatform", extras = ["agent-engines", "adk"], specifier = ">=1.112" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "pydantic", specifier = ">=2.9" },
 ]
 
@@ -876,6 +882,10 @@ wheels = [
 ]
 
 [package.optional-dependencies]
+adk = [
+    { name = "aiohttp" },
+    { name = "google-adk" },
+]
 agent-engines = [
     { name = "aiohttp" },
     { name = "cloudpickle" },

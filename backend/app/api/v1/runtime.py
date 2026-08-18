@@ -33,6 +33,7 @@ def runtime_status() -> dict:
             "pubsub_handle": adapters["pubsub_handle"],
             "workflow_subscriber": adapters["workflow_subscriber"],
             "voice": adapters.get("voice", {}),
+            "platform": adapters.get("platform_verification", {}),
         },
     }
 

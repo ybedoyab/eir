@@ -28,6 +28,18 @@ export default function AdminFleetPage() {
           <div>FHIR mode: {runtime?.fleet.fhir_mode ?? "—"}</div>
           <div>Event bus: {runtime?.fleet.event_bus ?? "—"}</div>
           <div>Gemini model: {runtime?.fleet.gemini_model ?? "—"}</div>
+          <div>Agent Runtime: {runtime?.fleet.platform?.managed_agent_runtime_verified ? "MANAGED" : "UNVERIFIED"}</div>
+          <div>Memory Bank: {runtime?.fleet.platform?.managed_memory_bank_verified ? "MANAGED" : "UNVERIFIED"}</div>
+          <div>Agent Registry: {runtime?.fleet.platform?.managed_registry_verified ? "MANAGED" : "UNVERIFIED"}</div>
+          <div>Agent Identity: {runtime?.fleet.platform?.managed_agent_identity_verified ? "MANAGED" : "UNVERIFIED"}</div>
+          <div>Model Armor: {runtime?.content_guard.managed_model_armor_available ? "MANAGED" : "UNVERIFIED"}</div>
+          <div>
+            Observability:{" "}
+            {runtime?.fleet.platform?.otel_cloud_trace_verified ||
+            runtime?.fleet.platform?.cloud_logging_verified
+              ? "GCP"
+              : "UNVERIFIED"}
+          </div>
         </dl>
       </Card>
       <div className="grid gap-4 md:grid-cols-2">

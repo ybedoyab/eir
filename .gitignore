@@ -24,6 +24,7 @@ pyrightconfig.json
 
 # uv / virtual environments
 .venv/
+.venv-agent/
 venv/
 env/
 ENV/

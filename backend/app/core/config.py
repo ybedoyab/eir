@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     session_secret: str = "local-dev-session-secret"
     adk_capture_message_content_in_spans: bool = False
     adk_otel_enabled: bool = True
+    agent_runtime_audience: str = "https://eir-api-658898892127.us-central1.run.app"
 
     @field_validator("cors_origins", mode="before")
     @classmethod
