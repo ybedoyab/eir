@@ -13,6 +13,9 @@ from typing import Any
 import httpx
 from eir_agents.records.fhir_client import LocalFhirClient
 
+from app.integrations.fhir.gcp_scheduling import GcpSchedulingClient
+from app.repositories.operational_store import InMemoryOperationalSchedulingStore
+
 logger = logging.getLogger("eir.fhir")
 _SYNTHETIC_ID_SYSTEM = "https://eir.local/synthetic-patients"
 
@@ -27,6 +30,7 @@ class GoogleHealthcareFhirClient:
         store: str,
         fallback: LocalFhirClient | None = None,
         fallback_on_miss: bool = True,
+        operational_store: Any | None = None,
     ) -> None:
         self._base = (
             f"https://healthcare.googleapis.com/v1/projects/{project}/locations/{location}"
@@ -34,7 +38,19 @@ class GoogleHealthcareFhirClient:
         )
         self._fallback = fallback or LocalFhirClient()
         self._fallback_on_miss = fallback_on_miss
+        self._operational = operational_store or InMemoryOperationalSchedulingStore()
         self.reachable: bool | None = None
+        self._scheduling: GcpSchedulingClient | None = None
+
+    @property
+    def _gcp_scheduling(self) -> GcpSchedulingClient:
+        if self._scheduling is None:
+            self._scheduling = GcpSchedulingClient(
+                base_url=self._base,
+                headers=self._headers,
+                patient_ref=self._patient_ref,
+            )
+        return self._scheduling
 
     def _headers(self) -> dict[str, str]:
         import google.auth
@@ -256,17 +272,38 @@ class GoogleHealthcareFhirClient:
     def list_appointments(self, patient_id: str):
         if self._use_fallback():
             return self._fallback.list_appointments(patient_id)
-        return self._fallback.list_appointments(patient_id)
+        try:
+            return self._gcp_scheduling.list_appointments(patient_id)
+        except Exception:
+            self.reachable = False
+            logger.exception("Healthcare API appointment list failed")
+            if self._fallback_on_miss:
+                return self._fallback.list_appointments(patient_id)
+            raise
 
     def get_appointment(self, appointment_id: str):
         if self._use_fallback():
             return self._fallback.get_appointment(appointment_id)
-        return self._fallback.get_appointment(appointment_id)
+        try:
+            return self._gcp_scheduling.get_appointment(appointment_id)
+        except Exception:
+            self.reachable = False
+            logger.exception("Healthcare API appointment read failed")
+            if self._fallback_on_miss:
+                return self._fallback.get_appointment(appointment_id)
+            raise
 
     def search_available_slots(self, params):
         if self._use_fallback():
             return self._fallback.search_available_slots(params)
-        return self._fallback.search_available_slots(params)
+        try:
+            return self._gcp_scheduling.search_available_slots(params)
+        except Exception:
+            self.reachable = False
+            logger.exception("Healthcare API slot search failed")
+            if self._fallback_on_miss:
+                return self._fallback.search_available_slots(params)
+            raise
 
     def book_appointment(self, *, patient_id: str, slot_id: str, idempotency_key: str = ""):
         if self._use_fallback():
@@ -275,11 +312,26 @@ class GoogleHealthcareFhirClient:
                 slot_id=slot_id,
                 idempotency_key=idempotency_key,
             )
-        return self._fallback.book_appointment(
-            patient_id=patient_id,
-            slot_id=slot_id,
-            idempotency_key=idempotency_key,
-        )
+        try:
+            booked = self._gcp_scheduling.book_appointment(
+                patient_id=patient_id,
+                slot_id=slot_id,
+                idempotency_key=idempotency_key,
+            )
+            self._operational.schedule_reminder(booked)
+            return booked
+        except ValueError:
+            raise
+        except Exception:
+            self.reachable = False
+            logger.exception("Healthcare API booking failed")
+            if self._fallback_on_miss:
+                return self._fallback.book_appointment(
+                    patient_id=patient_id,
+                    slot_id=slot_id,
+                    idempotency_key=idempotency_key,
+                )
+            raise
 
     def reschedule_appointment(
         self,
@@ -296,12 +348,28 @@ class GoogleHealthcareFhirClient:
                 new_slot_id=new_slot_id,
                 idempotency_key=idempotency_key,
             )
-        return self._fallback.reschedule_appointment(
-            appointment_id=appointment_id,
-            patient_id=patient_id,
-            new_slot_id=new_slot_id,
-            idempotency_key=idempotency_key,
-        )
+        try:
+            updated = self._gcp_scheduling.reschedule_appointment(
+                appointment_id=appointment_id,
+                patient_id=patient_id,
+                new_slot_id=new_slot_id,
+                idempotency_key=idempotency_key,
+            )
+            self._operational.schedule_reminder(updated)
+            return updated
+        except (ValueError, PermissionError):
+            raise
+        except Exception:
+            self.reachable = False
+            logger.exception("Healthcare API reschedule failed")
+            if self._fallback_on_miss:
+                return self._fallback.reschedule_appointment(
+                    appointment_id=appointment_id,
+                    patient_id=patient_id,
+                    new_slot_id=new_slot_id,
+                    idempotency_key=idempotency_key,
+                )
+            raise
 
     def cancel_appointment(
         self,
@@ -318,12 +386,26 @@ class GoogleHealthcareFhirClient:
                 reason=reason,
                 confirmed=confirmed,
             )
-        return self._fallback.cancel_appointment(
-            appointment_id=appointment_id,
-            patient_id=patient_id,
-            reason=reason,
-            confirmed=confirmed,
-        )
+        try:
+            return self._gcp_scheduling.cancel_appointment(
+                appointment_id=appointment_id,
+                patient_id=patient_id,
+                reason=reason,
+                confirmed=confirmed,
+            )
+        except (ValueError, PermissionError):
+            raise
+        except Exception:
+            self.reachable = False
+            logger.exception("Healthcare API cancel failed")
+            if self._fallback_on_miss:
+                return self._fallback.cancel_appointment(
+                    appointment_id=appointment_id,
+                    patient_id=patient_id,
+                    reason=reason,
+                    confirmed=confirmed,
+                )
+            raise
 
     def join_waitlist(self, *, patient_id: str, appointment_id: str):
         if self._use_fallback():
@@ -331,27 +413,43 @@ class GoogleHealthcareFhirClient:
                 patient_id=patient_id,
                 appointment_id=appointment_id,
             )
-        return self._fallback.join_waitlist(
-            patient_id=patient_id,
-            appointment_id=appointment_id,
-        )
+        appointment = self.get_appointment(appointment_id)
+        if appointment is None:
+            raise ValueError("appointment not found")
+        if appointment.patient_id != patient_id:
+            raise PermissionError("appointment ownership mismatch")
+        return self._operational.join_waitlist(patient_id=patient_id, appointment=appointment)
 
     def list_waitlist(self, patient_id: str | None = None):
         if self._use_fallback():
             return self._fallback.list_waitlist(patient_id)
-        return self._fallback.list_waitlist(patient_id)
+        return self._operational.list_waitlist(patient_id)
 
     def list_reminders(self, patient_id: str | None = None):
         if self._use_fallback():
             return self._fallback.list_reminders(patient_id)
-        return self._fallback.list_reminders(patient_id)
+        return self._operational.list_reminders(patient_id)
 
     def list_all_appointments(self):
         if self._use_fallback():
             return self._fallback.list_all_appointments()
-        return self._fallback.list_all_appointments()
+        try:
+            return self._gcp_scheduling.list_all_appointments()
+        except Exception:
+            self.reachable = False
+            logger.exception("Healthcare API appointment list-all failed")
+            if self._fallback_on_miss:
+                return self._fallback.list_all_appointments()
+            raise
 
     def operations_snapshot(self):
         if self._use_fallback():
             return self._fallback.operations_snapshot()
-        return self._fallback.operations_snapshot()
+        try:
+            return self._gcp_scheduling.operations_snapshot()
+        except Exception:
+            self.reachable = False
+            logger.exception("Healthcare API operations snapshot failed")
+            if self._fallback_on_miss:
+                return self._fallback.operations_snapshot()
+            raise

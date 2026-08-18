@@ -1,8 +1,8 @@
-from typing import Annotated
+from typing import Annotated, Self
 
 from eir_shared.env import repo_root
 from eir_shared.gemini_config import DEFAULT_GEMINI_MODEL
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 _ENV_FILE = repo_root() / ".env"
@@ -68,6 +68,18 @@ class Settings(BaseSettings):
                     parts.append(item)
             return parts
         return value  # type: ignore[return-value]
+
+    @model_validator(mode="after")
+    def validate_production_session_secret(self) -> Self:
+        if self.environment.strip().lower() != "production":
+            return self
+        secret = self.session_secret.strip()
+        insecure = {"", "local-dev-session-secret", "change-me", "dev", "test"}
+        if secret.lower() in insecure or len(secret) < 32:
+            raise ValueError(
+                "SESSION_SECRET must be a secure Secret Manager value in production"
+            )
+        return self
 
 
 settings = Settings()

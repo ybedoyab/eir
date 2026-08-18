@@ -13,6 +13,7 @@ from eir_shared.env import load_root_env, repo_root
 
 from app.core.config import settings
 from app.integrations.fhir.client import GoogleHealthcareFhirClient
+from app.integrations.fhir.gcp_scheduling import _with_extensions
 
 _SEED_ORDER = (
     "patient.json",
@@ -23,7 +24,7 @@ _SEED_ORDER = (
 )
 
 
-def _load_resources(mocks: Path) -> list[dict[str, Any]]:
+def _load_patient_resources(mocks: Path) -> list[dict[str, Any]]:
     resources: list[dict[str, Any]] = []
     for patient_dir in sorted(mocks.iterdir()):
         if not patient_dir.is_dir():
@@ -35,6 +36,74 @@ def _load_resources(mocks: Path) -> list[dict[str, Any]]:
             resource = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(resource, dict) and resource.get("resourceType"):
                 resources.append(resource)
+    return resources
+
+
+def _load_json_list(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, list) else []
+
+
+def _hospital_resources(hospital_dir: Path) -> list[dict[str, Any]]:
+    resources: list[dict[str, Any]] = []
+    for filename in (
+        "practitioners.json",
+        "locations.json",
+        "healthcare-services.json",
+        "schedules.json",
+    ):
+        resources.extend(_load_json_list(hospital_dir / filename))
+    for raw in _load_json_list(hospital_dir / "slots.json"):
+        slot = {
+            "resourceType": "Slot",
+            "id": raw["id"],
+            "status": raw["status"],
+            "schedule": {"reference": f"Schedule/{raw['schedule_id']}"},
+            "start": raw["start"],
+            "end": raw["end"],
+        }
+        _with_extensions(
+            slot,
+            specialty=str(raw["specialty"]),
+            service_name=str(raw["service_name"]),
+            practitioner_name=str(raw["practitioner_name"]),
+            practitioner_id=str(raw["practitioner_id"]),
+            location_name=str(raw["location_name"]),
+            location_id=str(raw["location_id"]),
+            appointment_type=str(raw.get("appointment_type", "routine")),
+        )
+        resources.append(slot)
+    for raw in _load_json_list(hospital_dir / "appointments.json"):
+        patient_ref = f"Patient/{raw['patient_id']}"
+        appointment = {
+            "resourceType": "Appointment",
+            "id": raw["id"],
+            "status": raw["status"],
+            "start": raw["start"],
+            "end": raw["end"],
+            "slot": [{"reference": f"Slot/{raw['slot_id']}"}],
+            "participant": [
+                {"actor": {"reference": patient_ref}, "status": "accepted"},
+                {
+                    "actor": {"reference": f"Practitioner/{raw['practitioner_id']}"},
+                    "status": "accepted",
+                },
+            ],
+        }
+        _with_extensions(
+            appointment,
+            synthetic_patient_id=str(raw["patient_id"]),
+            specialty=str(raw["specialty"]),
+            service_name=str(raw["service_name"]),
+            practitioner_name=str(raw["practitioner_name"]),
+            practitioner_id=str(raw["practitioner_id"]),
+            location_name=str(raw["location_name"]),
+            location_id=str(raw["location_id"]),
+            appointment_type=str(raw.get("appointment_type", "routine")),
+        )
+        resources.append(appointment)
     return resources
 
 
@@ -53,28 +122,37 @@ def _rewrite_references(value: Any, urn_for_id: dict[str, str]) -> Any:
     return value
 
 
-def _transaction_bundle(resources: list[dict[str, Any]]) -> dict[str, Any]:
+def _transaction_bundle(resources: list[dict[str, Any]], *, upsert: bool = False) -> dict[str, Any]:
     urn_for_id = {str(resource["id"]): f"urn:uuid:{resource['id']}" for resource in resources}
     entries = []
     for resource in resources:
         body = _rewrite_references(copy.deepcopy(resource), urn_for_id)
-        entries.append(
-            {
-                "fullUrl": urn_for_id[str(resource["id"])],
-                "resource": body,
-                "request": {
-                    "method": "POST",
-                    "url": resource["resourceType"],
-                },
-            }
-        )
+        resource_type = resource["resourceType"]
+        resource_id = str(resource["id"])
+        if upsert:
+            entries.append(
+                {
+                    "resource": body,
+                    "request": {"method": "PUT", "url": f"{resource_type}/{resource_id}"},
+                }
+            )
+        else:
+            entries.append(
+                {
+                    "fullUrl": urn_for_id[resource_id],
+                    "resource": body,
+                    "request": {"method": "POST", "url": resource_type},
+                }
+            )
     return {"resourceType": "Bundle", "type": "transaction", "entry": entries}
 
 
 def main() -> int:
     load_root_env()
-    mocks = repo_root() / "mocks" / "fhir"
-    resources = _load_resources(mocks)
+    patient_mocks = repo_root() / "mocks" / "fhir"
+    hospital_mocks = repo_root() / "mocks" / "hospital"
+    resources = _load_patient_resources(patient_mocks)
+    resources.extend(_hospital_resources(hospital_mocks))
     if not resources:
         print("no FHIR fixtures found", file=sys.stderr)
         return 1
@@ -86,7 +164,7 @@ def main() -> int:
         store=settings.fhir_store,
         fallback_on_miss=False,
     )
-    bundle = _transaction_bundle(resources)
+    bundle = _transaction_bundle(resources, upsert=True)
     response = httpx.post(
         client._base,
         headers=client._headers(),

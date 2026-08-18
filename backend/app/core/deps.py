@@ -39,6 +39,11 @@ from app.repositories.file_store import (
     FileStructuredLogger,
     JsonEpisodeStore,
 )
+from app.repositories.firestore_access_repository import FirestorePatientAccessSessionRepository
+from app.repositories.operational_store import (
+    FirestoreOperationalSchedulingStore,
+    InMemoryOperationalSchedulingStore,
+)
 from app.repositories.patient_repository import InMemoryPatientRepository, PatientRepository
 from app.repositories.recovery_repository import (
     InMemoryRecoveryEpisodeRepository,
@@ -73,6 +78,21 @@ def _firestore_client() -> Any | None:
     except Exception:
         logger.exception("Firestore client unavailable")
         return None
+
+
+def _build_fhir_client(*, testing: bool, operational_store: Any) -> Any:
+    local = LocalFhirClient()
+    if testing or settings.fhir_mode != "gcp":
+        return local
+    return GoogleHealthcareFhirClient(
+        project=settings.fhir_project,
+        location=settings.fhir_location,
+        dataset=settings.fhir_dataset,
+        store=settings.fhir_store,
+        fallback=local,
+        fallback_on_miss=settings.fhir_fallback,
+        operational_store=operational_store,
+    )
 
 
 class Container:
@@ -192,25 +212,21 @@ class Container:
         )
         self.access_orchestrator = AccessOrchestrator()
         self.identity = DemoIdentityProvider(settings.session_secret)
-        self.access_sessions = InMemoryPatientAccessSessionRepository()
-        fhir = LocalFhirClient()
+        if firestore_client is not None and not testing:
+            self.access_sessions = FirestorePatientAccessSessionRepository(firestore_client)
+            operational_store = FirestoreOperationalSchedulingStore(firestore_client)
+        else:
+            self.access_sessions = InMemoryPatientAccessSessionRepository()
+            operational_store = InMemoryOperationalSchedulingStore()
+        fhir = _build_fhir_client(testing=testing, operational_store=operational_store)
         self.fhir = fhir
+        self.fhir_mode = "local" if testing else settings.fhir_mode
         self.appointments = AppointmentService(fhir)
         self.access = PatientAccessService(
             sessions=self.access_sessions,
             appointments=self.appointments,
             orchestrator=self.access_orchestrator,
         )
-        self.fhir_mode = "local" if testing else settings.fhir_mode
-        if self.fhir_mode == "gcp":
-            fhir = GoogleHealthcareFhirClient(
-                project=settings.fhir_project,
-                location=settings.fhir_location,
-                dataset=settings.fhir_dataset,
-                store=settings.fhir_store,
-                fallback=fhir,
-                fallback_on_miss=settings.fhir_fallback,
-            )
         summarizer = TemplateFollowUpSummarizer()
         self.outreach_llm = False
         if settings.outreach_llm and settings.google_api_key and not testing:
