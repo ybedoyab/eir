@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars and adjust as needed.
+project_id        = "eir-ata"
+region            = "us-central1"
+github_repository = "ybedoyab/eir"

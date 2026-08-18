@@ -1,10 +1,13 @@
-"""Idempotent GCP bootstrap for project eir-ata."""
+"""Verify GCP prerequisites and refresh documented exceptions.
+
+Terraform owns static infrastructure. This script verifies readiness and
+updates scheduler targets when the API URL changes.
+"""
 
 from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -12,7 +15,7 @@ from pathlib import Path
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
-from gcloud_utils import model_armor_gcloud_env, redact_command_args
+from gcloud_utils import redact_command_args
 
 PROJECT = "eir-ata"
 LOCATION = "us-central1"
@@ -23,90 +26,84 @@ FHIR_STORE = "fhir-r4"
 RUNTIME_SA = f"eir-runtime@{PROJECT}.iam.gserviceaccount.com"
 SCHEDULER_JOB = "eir-process-due-follow-ups"
 SCHEDULER_SECRET_NAME = "eir-scheduler-secret"
-MODEL_ARMOR_TEMPLATE = "eir-agent-guard"
 API_SERVICE = "eir-api"
 
 
-def _gcloud() -> str:
-    found = shutil.which("gcloud")
-    if found:
-        return found
-    if sys.platform == "win32":
-        candidate = Path.home() / "AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin/gcloud.cmd"
-        if candidate.is_file():
-            return str(candidate)
-    return "gcloud"
-
-
 def _run(args: list[str], *, ok_codes: set[int] | None = None) -> int:
+    import shutil
+
     ok_codes = ok_codes or {0}
+    gcloud = shutil.which("gcloud") or "gcloud"
     if args and args[0] == "gcloud":
-        args = [_gcloud(), *args[1:]]
+        args = [gcloud, *args[1:]]
     print("+", " ".join(redact_command_args(args)), flush=True)
-    env = model_armor_gcloud_env() if "model-armor" in args else None
-    completed = subprocess.run(args, check=False, env=env)
-    if completed.returncode not in ok_codes:
-        print(f"command failed with {completed.returncode}", file=sys.stderr)
-    return completed.returncode
+    completed = subprocess.run(args, check=False)
+    return completed.returncode if completed.returncode in ok_codes else 1
 
 
 def _gcloud_output(args: list[str]) -> str:
+    import shutil
+
+    gcloud = shutil.which("gcloud") or "gcloud"
     if args and args[0] == "gcloud":
-        args = [_gcloud(), *args[1:]]
+        args = [gcloud, *args[1:]]
     completed = subprocess.run(args, capture_output=True, text=True, check=False)
-    if completed.returncode != 0:
-        return ""
-    return completed.stdout.strip()
+    return completed.stdout.strip() if completed.returncode == 0 else ""
 
 
 def _service_url(service: str) -> str:
     number = _gcloud_output(
         ["gcloud", "projects", "describe", PROJECT, "--format=value(projectNumber)"]
     )
-    return f"https://{service}-{number}.{LOCATION}.run.app"
+    return f"https://{service}-{number or '658898892127'}.{LOCATION}.run.app"
 
 
-def _enable_apis() -> None:
-    _run(
+def _scheduler_secret() -> str:
+    token = os.environ.get("SCHEDULER_SECRET", "").strip()
+    if token:
+        return token
+    return _gcloud_output(
         [
             "gcloud",
-            "services",
-            "enable",
-            "pubsub.googleapis.com",
-            "healthcare.googleapis.com",
-            "firestore.googleapis.com",
-            "aiplatform.googleapis.com",
-            "cloudscheduler.googleapis.com",
-            "modelarmor.googleapis.com",
-            "run.googleapis.com",
-            "iamcredentials.googleapis.com",
+            "secrets",
+            "versions",
+            "access",
+            "latest",
+            f"--secret={SCHEDULER_SECRET_NAME}",
             f"--project={PROJECT}",
         ]
     )
 
 
-def _grant_runtime_roles() -> None:
-    for role in (
-        "roles/aiplatform.user",
-        "roles/datastore.user",
-        "roles/pubsub.subscriber",
-        "roles/pubsub.publisher",
-        "roles/healthcare.fhirResourceEditor",
-        "roles/logging.logWriter",
-        "roles/secretmanager.secretAccessor",
-        "roles/modelarmor.user",
-    ):
-        _run(
-            [
-                "gcloud",
-                "projects",
-                "add-iam-policy-binding",
-                PROJECT,
-                f"--member=serviceAccount:{RUNTIME_SA}",
-                f"--role={role}",
-            ],
-            ok_codes={0, 1},
-        )
+def _ensure_scheduler(api_url: str) -> None:
+    target = f"{api_url}/api/v1/recovery/process-due-follow-ups"
+    token = _scheduler_secret()
+    common = [
+        f"--location={LOCATION}",
+        "--schedule=*/15 * * * *",
+        f"--uri={target}",
+        "--http-method=POST",
+        f"--oidc-service-account-email={RUNTIME_SA}",
+        f"--oidc-token-audience={api_url}",
+        f"--project={PROJECT}",
+    ]
+    if token:
+        common.append(f"--headers=X-Scheduler-Token={token}")
+    describe = _run(
+        [
+            "gcloud",
+            "scheduler",
+            "jobs",
+            "describe",
+            SCHEDULER_JOB,
+            f"--location={LOCATION}",
+            f"--project={PROJECT}",
+        ],
+        ok_codes={0, 1},
+    )
+    verb = "update" if describe == 0 else "create"
+    _run(["gcloud", "scheduler", "jobs", verb, "http", SCHEDULER_JOB, *common], ok_codes={0, 1})
+    print(json.dumps({"scheduler_job": SCHEDULER_JOB, "target": target}))
 
 
 def _verify_gemini_access() -> int:
@@ -140,122 +137,15 @@ print(model, os.environ.get('GEMINI_LOCATION', 'global'), (response.text or '').
     return completed.returncode
 
 
-def _scheduler_secret() -> str:
-    token = os.environ.get("SCHEDULER_SECRET", "").strip()
-    if token:
-        return token
-    value = _gcloud_output(
-        [
-            "gcloud",
-            "secrets",
-            "versions",
-            "access",
-            "latest",
-            f"--secret={SCHEDULER_SECRET_NAME}",
-            f"--project={PROJECT}",
-        ]
-    )
-    if not value:
-        print(
-            f"warning: {SCHEDULER_SECRET_NAME} unavailable; scheduler header auth may fail",
-            file=sys.stderr,
-        )
-        return ""
-    return value
-
-
-def _ensure_scheduler(api_url: str) -> None:
-    target = f"{api_url}/api/v1/recovery/process-due-follow-ups"
-    token = _scheduler_secret()
-    common = [
-        f"--location={LOCATION}",
-        f"--schedule=*/15 * * * *",
-        f"--uri={target}",
-        "--http-method=POST",
-        f"--oidc-service-account-email={RUNTIME_SA}",
-        f"--oidc-token-audience={api_url}",
-        f"--project={PROJECT}",
-    ]
-    if token:
-        common.append(f"--headers=X-Scheduler-Token={token}")
-    describe = _run(
-        [
-            "gcloud",
-            "scheduler",
-            "jobs",
-            "describe",
-            SCHEDULER_JOB,
-            f"--location={LOCATION}",
-            f"--project={PROJECT}",
-        ],
-        ok_codes={0, 1},
-    )
-    if describe == 0:
-        args = [
-            "gcloud",
-            "scheduler",
-            "jobs",
-            "update",
-            "http",
-            SCHEDULER_JOB,
-            *common,
-        ]
-    else:
-        args = [
-            "gcloud",
-            "scheduler",
-            "jobs",
-            "create",
-            "http",
-            SCHEDULER_JOB,
-            *common,
-        ]
-    _run(args, ok_codes={0, 1})
-    print(json.dumps({"scheduler_job": SCHEDULER_JOB, "target": target}))
-
-
-def _ensure_model_armor_template() -> None:
-    describe = _run(
-        [
-            "gcloud",
-            "model-armor",
-            "templates",
-            "describe",
-            MODEL_ARMOR_TEMPLATE,
-            f"--location={LOCATION}",
-            f"--project={PROJECT}",
-        ],
-        ok_codes={0, 1},
-    )
-    if describe == 0:
-        print(json.dumps({"model_armor_template": MODEL_ARMOR_TEMPLATE, "status": "exists"}))
-        return
-    _run(
-        [
-            "gcloud",
-            "model-armor",
-            "templates",
-            "create",
-            MODEL_ARMOR_TEMPLATE,
-            f"--location={LOCATION}",
-            f"--project={PROJECT}",
-            "--pi-and-jailbreak-filter-settings-enforcement=enabled",
-            "--pi-and-jailbreak-filter-settings-confidence-level=LOW_AND_ABOVE",
-            "--basic-config-filter-enforcement=enabled",
-            "--malicious-uri-filter-settings-enforcement=enabled",
-            "--template-metadata-log-sanitize-operations",
-        ],
-        ok_codes={0, 1},
-    )
-    print(json.dumps({"model_armor_template": MODEL_ARMOR_TEMPLATE, "status": "created"}))
-
-
 def main() -> int:
-    _enable_apis()
-    if _run(["gcloud", "pubsub", "topics", "describe", TOPIC, f"--project={PROJECT}"]) != 0:
-        _run(["gcloud", "pubsub", "topics", "create", TOPIC, f"--project={PROJECT}"])
-    if (
-        _run(
+    checks = {
+        "runtime_service_account": _run(
+            ["gcloud", "iam", "service-accounts", "describe", RUNTIME_SA, f"--project={PROJECT}"]
+        )
+        == 0,
+        "recovery_topic": _run(["gcloud", "pubsub", "topics", "describe", TOPIC, f"--project={PROJECT}"])
+        == 0,
+        "recovery_subscription": _run(
             [
                 "gcloud",
                 "pubsub",
@@ -265,100 +155,53 @@ def main() -> int:
                 f"--project={PROJECT}",
             ]
         )
-        != 0
-    ):
-        _run(
-            [
-                "gcloud",
-                "pubsub",
-                "subscriptions",
-                "create",
-                SUBSCRIPTION,
-                f"--topic={TOPIC}",
-                "--ack-deadline=60",
-                f"--project={PROJECT}",
-            ]
-        )
-    firestore = _run(
-        [
-            "gcloud",
-            "firestore",
-            "databases",
-            "describe",
-            f"--project={PROJECT}",
-            "--database=(default)",
-        ]
-    )
-    if firestore != 0:
-        _run(
+        == 0,
+        "firestore": _run(
             [
                 "gcloud",
                 "firestore",
                 "databases",
-                "create",
+                "describe",
                 f"--project={PROJECT}",
-                f"--location={LOCATION}",
-                "--type=firestore-native",
+                "--database=(default)",
             ]
         )
-    dataset = _run(
-        [
-            "gcloud",
-            "healthcare",
-            "datasets",
-            "describe",
-            DATASET,
-            f"--location={LOCATION}",
-            f"--project={PROJECT}",
-        ]
-    )
-    if dataset != 0:
-        _run(
-            [
-                "gcloud",
-                "healthcare",
-                "datasets",
-                "create",
-                DATASET,
-                f"--location={LOCATION}",
-                f"--project={PROJECT}",
-            ]
-        )
-    store = _run(
-        [
-            "gcloud",
-            "healthcare",
-            "fhir-stores",
-            "describe",
-            FHIR_STORE,
-            f"--dataset={DATASET}",
-            f"--location={LOCATION}",
-            f"--project={PROJECT}",
-        ]
-    )
-    if store != 0:
-        _run(
+        == 0,
+        "fhir_store": _run(
             [
                 "gcloud",
                 "healthcare",
                 "fhir-stores",
-                "create",
+                "describe",
                 FHIR_STORE,
                 f"--dataset={DATASET}",
                 f"--location={LOCATION}",
-                "--version=R4",
                 f"--project={PROJECT}",
             ]
         )
-    _grant_runtime_roles()
-    _ensure_model_armor_template()
-    verify_code = _verify_gemini_access()
-    if verify_code != 0:
-        print("warning: gemini verification failed; check runtime service account permissions", file=sys.stderr)
+        == 0,
+    }
+    missing = [name for name, ok in checks.items() if not ok]
+    if missing:
+        print(
+            json.dumps(
+                {
+                    "status": "missing_prerequisites",
+                    "missing": missing,
+                    "hint": "Apply infra/terraform before running provision.py",
+                }
+            ),
+            file=sys.stderr,
+        )
+        return 1
+
     api_url = _service_url(API_SERVICE)
     print(json.dumps({"api_url": api_url}))
     _ensure_scheduler(api_url)
-    print("provision finished")
+    verify_code = _verify_gemini_access()
+    if verify_code != 0:
+        print("warning: gemini verification failed", file=sys.stderr)
+    print("provision verify finished")
     return 0
 
 
