@@ -90,10 +90,12 @@ export async function listAppointments() {
 export async function searchAvailability(params: {
   specialty?: string;
   time_of_day?: string;
+  location_id?: string;
 }) {
   const query = new URLSearchParams();
   if (params.specialty) query.set("specialty", params.specialty);
   if (params.time_of_day) query.set("time_of_day", params.time_of_day);
+  if (params.location_id) query.set("location_id", params.location_id);
   return getJson<SlotOption[]>(`/api/v1/appointments/availability?${query.toString()}`, true);
 }
 

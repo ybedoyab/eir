@@ -27,6 +27,8 @@ jobs:
         run: uv sync --all-packages --all-groups
       - name: Test backend
         run: uv run --package eir-backend --group dev pytest backend/tests
+      - name: Validate demo hospital catalog
+        run: uv run --package eir-backend python -m app.validate_demo
       - name: Test agents
         run: uv run --package eir-agents --group dev pytest agents/tests
       - name: Lint Python
@@ -147,8 +149,17 @@ jobs:
           FHIR_DATASET: eir
           FHIR_STORE: fhir-r4
         run: uv run --package eir-backend python -m app.seed_fhir
+      - name: Seed synthetic operational demo state
+        env:
+          EPISODE_STORE: firestore
+          GOOGLE_CLOUD_PROJECT: eir-ata
+        run: uv run --package eir-backend python -m app.seed_demo_ops
       - name: Production smoke
         run: uv run python infra/gcp/smoke_production.py
+      - name: Production browser QA
+        run: |
+          uv run --with playwright python -m playwright install --with-deps chromium
+          uv run --with playwright python infra/gcp/smoke_ui.py
       - name: Sync Voximplant scenario
         env:
           VOXIMPLANT_CREDENTIALS: ${{ secrets.VOXIMPLANT_CREDENTIALS }}

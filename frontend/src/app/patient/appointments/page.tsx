@@ -1,16 +1,20 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
-import { Badge } from "@/components/ui/Badge";
+import { AppointmentCard } from "@/components/ui/AppointmentCard";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader } from "@/components/ui/Card";
+import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import { FilterChips } from "@/components/ui/FilterChips";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { CardSkeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 import type { Appointment, SlotOption } from "@/lib/auth";
+import { formatDateLong, formatTime, formatWhen, isMorning, SPECIALTIES } from "@/lib/format";
 import {
   bookAppointment,
   cancelAppointment,
@@ -19,14 +23,18 @@ import {
   searchAvailability,
 } from "@/services/api";
 
-function formatWhen(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
+type Tab = "upcoming" | "past" | "cancelled";
+type DayPart = "any" | "morning" | "afternoon";
+
+function groupSlots(slots: SlotOption[]): Array<{ label: string; slots: SlotOption[] }> {
+  const groups = new Map<string, SlotOption[]>();
+  for (const slot of slots) {
+    const label = formatDateLong(slot.start);
+    const list = groups.get(label) ?? [];
+    list.push(slot);
+    groups.set(label, list);
+  }
+  return Array.from(groups.entries()).map(([label, items]) => ({ label, slots: items }));
 }
 
 export default function PatientAppointmentsPage() {
@@ -34,11 +42,8 @@ export default function PatientAppointmentsPage() {
     <Suspense
       fallback={
         <section className="space-y-6">
-          <PageHeader
-            eyebrow="Appointment center"
-            title="Your appointments"
-            description="Loading appointment workspace…"
-          />
+          <PageHeader title="Your appointments" description="Loading appointment workspace…" />
+          <CardSkeleton rows={4} />
         </section>
       }
     >
@@ -50,33 +55,58 @@ export default function PatientAppointmentsPage() {
 function PatientAppointmentsContent() {
   const searchParams = useSearchParams();
   const action = searchParams.get("action");
+  const { toast } = useToast();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [slots, setSlots] = useState<SlotOption[]>([]);
-  const [selectedAppointment, setSelectedAppointment] = useState<string>("");
-  const [message, setMessage] = useState<string | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [pendingSlot, setPendingSlot] = useState<SlotOption | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"upcoming" | "past" | "cancelled">("upcoming");
+  const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<Tab>(action === "cancel" ? "upcoming" : "upcoming");
+  const [specialty, setSpecialty] = useState("Cardiology");
+  const [dayPart, setDayPart] = useState<DayPart>("any");
+  const [scheduling, setScheduling] = useState(action === "schedule");
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setError(null);
     try {
       setAppointments(await listAppointments());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load appointments");
+    } finally {
+      setLoading(false);
     }
-  }
+  }, []);
+
+  const loadSlots = useCallback(async (nextSpecialty = specialty, nextDayPart = dayPart) => {
+    setSearching(true);
+    try {
+      const found = await searchAvailability({
+        specialty: nextSpecialty,
+        time_of_day: nextDayPart,
+      });
+      setSlots(found);
+    } catch {
+      setSlots([]);
+    } finally {
+      setSearching(false);
+    }
+  }, [specialty, dayPart]);
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   useEffect(() => {
-    if (action === "schedule") {
-      void searchAvailability({ specialty: "Cardiology" })
-        .then(setSlots)
-        .catch(() => setSlots([]));
+    if (action === "schedule" || action === "reschedule") {
+      setScheduling(true);
+      void loadSlots();
     }
-  }, [action]);
+  }, [action, loadSlots]);
 
   const filtered = useMemo(() => {
     const now = Date.now();
@@ -93,121 +123,264 @@ function PatientAppointmentsContent() {
     );
   }, [appointments, tab]);
 
+  const visibleSlots = useMemo(() => {
+    if (dayPart === "morning") return slots.filter((slot) => isMorning(slot.start));
+    if (dayPart === "afternoon") return slots.filter((slot) => !isMorning(slot.start));
+    return slots;
+  }, [slots, dayPart]);
+
+  async function confirmPending() {
+    if (!pendingSlot || busy) return;
+    setBusy(true);
+    try {
+      if (selectedAppointment) {
+        await rescheduleAppointment(selectedAppointment.id, pendingSlot.id);
+        toast("Appointment rescheduled");
+      } else {
+        await bookAppointment(pendingSlot.id);
+        toast("Appointment booked");
+      }
+      setPendingSlot(null);
+      setSelectedAppointment(null);
+      setSlots([]);
+      setScheduling(false);
+      await refresh();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not save appointment", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmCancel() {
+    if (!cancelTarget || busy) return;
+    setBusy(true);
+    try {
+      await cancelAppointment(
+        cancelTarget.id,
+        cancelReason.trim() || "patient requested cancellation",
+      );
+      toast("Appointment cancelled");
+      setCancelTarget(null);
+      setCancelReason("");
+      await refresh();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not cancel appointment", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="space-y-6">
       <PageHeader
         eyebrow="Appointment center"
         title="Your appointments"
-        description="View, schedule, reschedule, or cancel visits."
+        description="View upcoming visits, find availability, and confirm changes before they are saved."
       />
-      {error ? <ErrorAlert message={error} /> : null}
-      {message ? (
-        <Card className="border-emerald-200 bg-emerald-50">
-          <p className="text-sm font-medium text-emerald-900">{message}</p>
-        </Card>
-      ) : null}
+      {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
 
-      <div className="flex flex-wrap gap-2">
-        {(["upcoming", "past", "cancelled"] as const).map((value) => (
-          <Button
-            key={value}
-            variant={tab === value ? "primary" : "secondary"}
-            onClick={() => setTab(value)}
-          >
-            {value[0].toUpperCase() + value.slice(1)}
-          </Button>
-        ))}
-      </div>
+      <FilterChips
+        label="Appointment list"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { id: "upcoming", label: "Upcoming" },
+          { id: "past", label: "Past" },
+          { id: "cancelled", label: "Cancelled" },
+        ]}
+      />
 
-      <div className="grid gap-4">
-        {filtered.length ? (
-          filtered.map((appointment) => (
-            <Card key={appointment.id}>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-lg font-semibold text-slate-900">{appointment.specialty}</p>
-                  <p className="text-sm text-slate-600">{appointment.practitioner_name}</p>
-                  <p className="mt-2 text-sm text-slate-700">{formatWhen(appointment.start)}</p>
-                  <p className="text-sm text-slate-500">{appointment.location_name}</p>
-                  <Badge className="mt-3 bg-slate-50 text-slate-700 ring-slate-200">
-                    {appointment.status}
-                  </Badge>
-                </div>
-                {appointment.status !== "cancelled" ? (
-                  <div className="flex flex-wrap gap-2">
+      {loading ? (
+        <CardSkeleton rows={4} />
+      ) : filtered.length ? (
+        <div className="grid gap-4">
+          {filtered.map((appointment) => (
+            <AppointmentCard
+              key={appointment.id}
+              appointment={appointment}
+              actions={
+                appointment.status !== "cancelled" && tab === "upcoming" ? (
+                  <>
                     <Button
                       variant="secondary"
-                      onClick={async () => {
-                        setSelectedAppointment(appointment.id);
-                        setSlots(await searchAvailability({ specialty: appointment.specialty }));
+                      onClick={() => {
+                        setSelectedAppointment(appointment);
+                        setScheduling(true);
+                        setSpecialty(appointment.specialty);
+                        void loadSlots(appointment.specialty, dayPart);
                       }}
                     >
                       Reschedule
                     </Button>
-                    <Button
-                      variant="danger"
-                      onClick={async () => {
-                        if (!window.confirm("Cancel this appointment?")) return;
-                        await cancelAppointment(appointment.id, "patient requested cancellation");
-                        setMessage("Appointment cancelled.");
-                        await refresh();
-                      }}
-                    >
+                    <Button variant="danger" onClick={() => setCancelTarget(appointment)}>
                       Cancel
                     </Button>
-                  </div>
-                ) : null}
-              </div>
-            </Card>
-          ))
-        ) : (
-          <EmptyState title="No appointments in this tab" />
-        )}
+                  </>
+                ) : undefined
+              }
+            />
+          ))}
+        </div>
+      ) : (
+        <EmptyState title="No appointments in this tab" />
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={scheduling && !selectedAppointment ? "primary" : "secondary"}
+          onClick={() => {
+            setSelectedAppointment(null);
+            setScheduling(true);
+            void loadSlots();
+          }}
+        >
+          Find a time
+        </Button>
       </div>
 
-      {action === "schedule" || slots.length ? (
+      {scheduling ? (
         <Card>
           <CardHeader
             title={selectedAppointment ? "Choose a new time" : "Available times"}
-            description="Select a slot to book or reschedule."
+            description="Select a slot, then confirm before booking or rescheduling."
           />
-          <div className="grid gap-3">
-            {slots.map((slot) => (
-              <div
-                key={slot.id}
-                className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <p className="font-medium text-slate-900">{slot.service_name}</p>
-                  <p className="text-sm text-slate-600">
-                    {formatWhen(slot.start)} · {slot.location_name}
-                  </p>
-                </div>
-                <Button
-                  onClick={async () => {
-                    if (selectedAppointment) {
-                      await rescheduleAppointment(selectedAppointment, slot.id);
-                      setMessage("Appointment rescheduled.");
-                    } else {
-                      await bookAppointment(slot.id);
-                      setMessage("Appointment booked.");
-                    }
-                    setSlots([]);
-                    setSelectedAppointment("");
-                    await refresh();
-                  }}
-                >
-                  {selectedAppointment ? "Confirm reschedule" : "Book"}
-                </Button>
-              </div>
-            ))}
+          <div className="mb-4 flex flex-col gap-3">
+            <FilterChips
+              label="Specialty"
+              value={specialty}
+              onChange={(value) => {
+                setSpecialty(value);
+                void loadSlots(value, dayPart);
+              }}
+              options={SPECIALTIES.map((item) => ({ id: item, label: item }))}
+            />
+            <FilterChips
+              label="Time of day"
+              value={dayPart}
+              onChange={(value) => {
+                setDayPart(value);
+                void loadSlots(specialty, value);
+              }}
+              options={[
+                { id: "any", label: "Any time" },
+                { id: "morning", label: "Morning" },
+                { id: "afternoon", label: "Afternoon" },
+              ]}
+            />
           </div>
+          {searching ? (
+            <CardSkeleton rows={3} />
+          ) : visibleSlots.length ? (
+            <div className="space-y-6">
+              {groupSlots(visibleSlots).map((group) => (
+                <div key={group.label}>
+                  <h3 className="mb-2 text-sm font-semibold text-slate-800">{group.label}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {group.slots.map((slot) => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => setPendingSlot(slot)}
+                        className="inline-flex min-h-11 flex-col rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm hover:border-teal-300 hover:bg-teal-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                      >
+                        <span className="font-medium text-slate-900">{formatTime(slot.start)}</span>
+                        <span className="text-xs text-slate-500">{slot.location_name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="No open slots" description="Try another specialty or time of day." />
+          )}
         </Card>
       ) : null}
 
-      <Link href="/patient/assistant" className="text-sm font-medium text-teal-700 hover:text-teal-800">
-        Prefer conversation? Ask EIR to schedule for you
-      </Link>
+      <Dialog
+        open={Boolean(pendingSlot)}
+        title={selectedAppointment ? "Confirm reschedule" : "Confirm booking"}
+        description="Review the selected time before it is saved."
+        onClose={() => setPendingSlot(null)}
+      >
+        {pendingSlot ? (
+          <div className="space-y-4">
+            {selectedAppointment ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Current
+                  </p>
+                  <p className="mt-2 font-medium text-slate-900">
+                    {formatWhen(selectedAppointment.start)}
+                  </p>
+                  <p className="text-sm text-slate-600">{selectedAppointment.location_name}</p>
+                </div>
+                <div className="rounded-xl bg-teal-50 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-teal-700">New</p>
+                  <p className="mt-2 font-medium text-slate-900">{formatWhen(pendingSlot.start)}</p>
+                  <p className="text-sm text-slate-600">{pendingSlot.location_name}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-teal-50 p-4">
+                <p className="font-medium text-slate-900">{pendingSlot.service_name}</p>
+                <p className="mt-1 text-sm text-slate-700">{formatWhen(pendingSlot.start)}</p>
+                <p className="text-sm text-slate-600">{pendingSlot.location_name}</p>
+                <p className="text-sm text-slate-600">{pendingSlot.practitioner_name}</p>
+              </div>
+            )}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="secondary" onClick={() => setPendingSlot(null)}>
+                Keep looking
+              </Button>
+              <Button disabled={busy} onClick={() => void confirmPending()}>
+                {busy
+                  ? "Saving…"
+                  : selectedAppointment
+                    ? "Confirm reschedule"
+                    : "Confirm booking"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={Boolean(cancelTarget)}
+        title="Cancel appointment?"
+        onClose={() => setCancelTarget(null)}
+      >
+        {cancelTarget ? (
+          <div className="space-y-4">
+            <div className="rounded-xl bg-slate-50 p-4">
+              <p className="font-medium text-slate-900">{cancelTarget.specialty}</p>
+              <p className="text-sm text-slate-600">{cancelTarget.practitioner_name}</p>
+              <p className="mt-2 text-sm text-slate-700">{formatWhen(cancelTarget.start)}</p>
+              <p className="text-sm text-slate-500">{cancelTarget.location_name}</p>
+            </div>
+            <label className="block text-sm font-medium text-slate-700" htmlFor="cancel-reason">
+              Cancellation reason (optional)
+            </label>
+            <textarea
+              id="cancel-reason"
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              rows={3}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-100"
+            />
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="secondary" onClick={() => setCancelTarget(null)}>
+                Keep appointment
+              </Button>
+              <Button variant="danger" disabled={busy} onClick={() => void confirmCancel()}>
+                {busy ? "Cancelling…" : "Cancel appointment"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Dialog>
     </section>
   );
 }

@@ -57,6 +57,7 @@ export interface AdminSnapshot {
   appointments: Record<string, number>;
   active_recoveries: number;
   pending_reviews: number;
+  waitlist_requests?: number;
 }
 
 const STORAGE_KEY = "eir.demo.session";

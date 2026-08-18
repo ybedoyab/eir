@@ -1,23 +1,13 @@
-import Link from "next/link";
+"use client";
 
-import { Card, CardHeader } from "@/components/ui/Card";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { listPatients } from "@/services/api";
+import { PatientDirectory } from "@/components/PatientDirectory";
 
-export default async function AdminPatientsPage() {
-  const patients = await listPatients();
+export default function AdminPatientsPage() {
   return (
-    <section className="space-y-6">
-      <PageHeader eyebrow="Operations" title="Patient directory" />
-      <div className="grid gap-4 sm:grid-cols-2">
-        {patients.map((patient) => (
-          <Link key={patient.id} href={`/clinician/patients/${patient.id}`}>
-            <Card>
-              <CardHeader title={patient.name} description={patient.id} />
-            </Card>
-          </Link>
-        ))}
-      </div>
-    </section>
+    <PatientDirectory
+      eyebrow="Operations"
+      title="Patient directory"
+      hrefFor={(id) => `/admin/patients/${id}`}
+    />
   );
 }

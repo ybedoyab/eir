@@ -1,32 +1,32 @@
+import { CalendarDays, HeartPulse, MessageCircle } from "lucide-react";
 import Link from "next/link";
 
-import { Card } from "@/components/ui/Card";
-
-const modules = [
+const pillars = [
   {
     title: "Patient Access",
-    description: "Appointments, assistant chat, and portal self-service.",
-    href: "/login",
-    tone: "bg-teal-50 text-teal-700",
+    description: "Appointments, reminders, and a secure hospital assistant.",
+    icon: CalendarDays,
   },
   {
     title: "Recovery",
-    description: "Longitudinal follow-up, voice outreach, and clinician review.",
-    href: "/demo",
-    tone: "bg-sky-50 text-sky-700",
+    description: "Longitudinal follow-up with clinician review when risk rises.",
+    icon: HeartPulse,
   },
   {
-    title: "Clinical Reviews",
-    description: "Escalations, human review queue, and patient charts.",
-    href: "/login",
-    tone: "bg-violet-50 text-violet-700",
+    title: "Hospital Operations",
+    description: "A command center for schedules, reviews, and the agent fleet.",
+    icon: MessageCircle,
   },
-  {
-    title: "Fleet Operations",
-    description: "Agent registry, observability, and synthetic hospital metrics.",
-    href: "/login",
-    tone: "bg-amber-50 text-amber-700",
-  },
+];
+
+const platform = [
+  "Gemini",
+  "ADK",
+  "Agent Runtime",
+  "Memory Bank",
+  "Agent Gateway",
+  "Model Armor",
+  "FHIR",
 ];
 
 export default function HomePage() {
@@ -44,10 +44,16 @@ export default function HomePage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Link href="/login" className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+            <Link
+              href="/login"
+              className="inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
               Sign in
             </Link>
-            <Link href="/demo" className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800">
+            <Link
+              href="/demo"
+              className="inline-flex min-h-11 items-center rounded-lg bg-teal-700 px-4 text-sm font-medium text-white hover:bg-teal-800"
+            >
               Live demo
             </Link>
           </div>
@@ -55,40 +61,63 @@ export default function HomePage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-        <section className="overflow-hidden rounded-[28px] border border-teal-100 bg-gradient-to-br from-white via-teal-50/60 to-slate-50 px-6 py-10 shadow-[var(--eir-shadow)] sm:px-10 sm:py-12">
+        <section className="rounded-[28px] border border-teal-100 bg-white px-6 py-10 shadow-[var(--eir-shadow)] sm:px-10 sm:py-12">
           <p className="text-sm font-medium uppercase tracking-[0.18em] text-teal-700">
-            Enterprise Intelligence Runtime
+            Healthcare Agent Fleet
           </p>
           <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-            AI-powered hospital operations across voice and web.
+            One secure agent fleet for hospital access, recovery, and operations.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-            EIR coordinates patient access, appointment lifecycle, recovery follow-up, and staff
-            workspaces through one secure agent fleet. Synthetic demo data only.
+            EIR coordinates patient access, recovery follow-up, and staff workspaces through
+            managed Google agent infrastructure. Synthetic demo identities only.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/login" className="rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-800">
-              Enter portal
+            <Link
+              href="/demo"
+              className="inline-flex min-h-11 items-center rounded-lg bg-teal-700 px-4 text-sm font-medium text-white hover:bg-teal-800"
+            >
+              Explore live demo
             </Link>
-            <Link href="/dev/voice-preview" className="rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
-              Developer voice preview
+            <Link
+              href="/login"
+              className="inline-flex min-h-11 items-center rounded-lg bg-white px-4 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+            >
+              Sign in by role
             </Link>
           </div>
         </section>
 
-        <section className="mt-10">
-          <h2 className="text-lg font-semibold text-slate-900">Product modules</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {modules.map((module) => (
-              <Link key={module.title} href={module.href}>
-                <Card className="h-full transition hover:border-teal-200 hover:shadow-lg">
-                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${module.tone}`}>
-                    {module.title}
-                  </span>
-                  <h3 className="mt-4 text-lg font-semibold text-slate-900">{module.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{module.description}</p>
-                </Card>
-              </Link>
+        <section className="mt-10 grid gap-4 md:grid-cols-3">
+          {pillars.map((pillar) => {
+            const Icon = pillar.icon;
+            return (
+              <div
+                key={pillar.title}
+                className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[var(--eir-shadow)]"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-800">
+                  <Icon aria-hidden className="h-5 w-5" />
+                </span>
+                <h2 className="mt-4 text-lg font-semibold text-slate-900">{pillar.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{pillar.description}</p>
+              </div>
+            );
+          })}
+        </section>
+
+        <section className="mt-10 rounded-2xl border border-slate-200 bg-slate-50/80 px-5 py-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Managed platform
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {platform.map((item) => (
+              <span
+                key={item}
+                className="rounded-full bg-white px-3 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-slate-200"
+              >
+                {item}
+              </span>
             ))}
           </div>
         </section>

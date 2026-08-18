@@ -7,6 +7,7 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { CardSkeleton } from "@/components/ui/Skeleton";
 import { getRuntimeHistory, getRuntimeStatus, listTraces } from "@/services/api";
 import type { AdkWorkerTelemetry, RuntimeStatus, WorkflowTrace } from "@/types";
 
@@ -183,21 +184,22 @@ export default function ObservabilityPage() {
   return (
     <section>
       <PageHeader
-        eyebrow="Workflow telemetry"
+        eyebrow="Operations"
         title="Observability"
-        description="Fleet runtime proof, autonomous actions, and trace activity across the recovery loop."
+        description="System status, recent agent actions, and security decisions. Trace IDs stay secondary."
       />
 
       {error ? <ErrorAlert message={`API unavailable: ${error}`} /> : null}
 
+      {loading && !runtime ? <CardSkeleton rows={4} /> : null}
       {runtime ? <FleetRuntime runtime={runtime} /> : null}
       {runtime ? <LastAutonomousAction worker={runtime.adk_worker} /> : null}
       <AutonomousHistory items={history} />
 
       <Card>
         <CardHeader
-          title="Recent traces"
-          description="workflow_id · episode_id · trace_id · agent_name · event_type · status"
+          title="Trace details"
+          description="Technical identifiers for judges. Prompt and transcript content is never shown."
         />
         {loading ? (
           <p className="text-sm text-slate-500">Loading traces…</p>

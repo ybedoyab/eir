@@ -4,7 +4,7 @@ import { use } from "react";
 
 import { PatientChart } from "@/components/PatientChart";
 
-export default function ClinicianPatientDetailPage({
+export default function AdminPatientDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;

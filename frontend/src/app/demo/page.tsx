@@ -340,17 +340,20 @@ export default function DemoPage() {
     awaiting !== "concerning";
 
   return (
-    <div className="space-y-5">
-      <header className="space-y-2">
-        <p className="text-sm font-medium uppercase tracking-[0.18em] text-teal-700">
-          Hackathon showcase
-        </p>
+    <div className="mx-auto max-w-6xl space-y-5 px-4 py-8 sm:px-6">
+      <header className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-medium uppercase tracking-[0.18em] text-teal-700">
+            Guided Recovery Demo
+          </p>
+          <a href="/login" className="text-sm font-medium text-teal-700 hover:text-teal-800">
+            Back to role portal
+          </a>
+        </div>
         <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
           EIR — Autonomous Recovery Demo
         </h1>
-        <p className="text-sm text-slate-500">
-          Gemini 3.5 Flash · Google ADK · Voximplant PSTN · Gemini Live · Model Armor
-        </p>
+        <p className="text-sm text-slate-500">~4 minute judge flow · synthetic identities only</p>
       </header>
 
       {error ? <ErrorAlert message={error} /> : null}
