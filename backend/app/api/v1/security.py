@@ -11,6 +11,11 @@ from app.integrations.enterprise.security_demo import (
     DEMO_SAFE_PROMPT,
     screen_demo_prompt,
 )
+from app.services.demo_controls import (
+    claim_demo_action,
+    has_prompt_injection_attempt,
+    require_synthetic_episode,
+)
 
 router = APIRouter()
 
@@ -37,9 +42,15 @@ def screen_prompt(body: SecurityScreenRequest) -> dict:
 async def demo_prompt_injection(episode_id: str) -> dict:
     """Publish a synthetic malicious patient message through the normal event bus."""
     container = get_container()
-    episode = container.episodes.get(episode_id)
-    if episode is None:
-        raise HTTPException(status_code=404, detail="Recovery episode not found")
+    require_synthetic_episode(container.episodes, episode_id)
+    events = container.episodes.list_events(episode_id)
+    if has_prompt_injection_attempt(events) or not claim_demo_action(
+        episode_id, "prompt_injection"
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Prompt-injection demo already submitted for this episode",
+        )
 
     from eir_shared.events import PatientResponded
 
@@ -48,6 +59,7 @@ async def demo_prompt_injection(episode_id: str) -> dict:
         channel="synthetic",
         payload={"message": DEMO_MALICIOUS_PROMPT},
     )
+    container.episodes.append_event(episode_id, event)
     await container.event_bus.publish(event)
     return {
         "published": event.event_type,

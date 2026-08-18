@@ -84,6 +84,24 @@ export interface AdkWorkerTelemetry {
   security_category?: string | null;
 }
 
+export interface DemoBootstrapResponse {
+  episode_id: string;
+  patient_id: string;
+  patient_name?: string;
+  status: EpisodeStatus;
+  risk_level: RiskLevel;
+  next_follow_up_at: string | null;
+  fast_forwarded: boolean;
+  monitoring?: boolean;
+}
+
+export interface DemoAdvanceResponse {
+  advanced: boolean;
+  episode_id: string;
+  event: string | null;
+  reason?: string;
+}
+
 export interface RuntimeStatus {
   adk_worker: AdkWorkerTelemetry | null;
   content_guard: {

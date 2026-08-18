@@ -45,18 +45,21 @@ export default function HomePage() {
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
-            href="/recovery"
+            href="/demo"
             className="inline-flex items-center rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-teal-800"
+          >
+            Run live demo
+          </Link>
+          <Link
+            href="/recovery"
+            className="inline-flex items-center rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50"
           >
             Open recovery dashboard
           </Link>
-          <Link
-            href="/patients"
-            className="inline-flex items-center rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50"
-          >
-            View patients
-          </Link>
         </div>
+        <p className="mt-3 text-sm text-slate-500">
+          See an autonomous recovery episode unfold end-to-end.
+        </p>
       </section>
 
       <section>

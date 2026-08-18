@@ -50,6 +50,34 @@ class FollowUpScheduler:
                     due_events.append(claimed)
             return due_events
 
+    def advance_episode(
+        self,
+        episode_id: str,
+        *,
+        now: datetime | None = None,
+    ) -> FollowUpDue | None:
+        """Demo clock control: make one episode due, then claim via the production path.
+
+        Uses the same ``claim_due_follow_up`` as Cloud Scheduler. Does not invoke
+        outreach agents or bypass EventBus/worker handling.
+        """
+        now = now or datetime.now(UTC)
+        episode = self._episodes.get(episode_id)
+        if episode is None:
+            return None
+        if episode.next_follow_up_at is not None:
+            follow_up_at = episode.next_follow_up_at
+            if follow_up_at.tzinfo is None:
+                follow_up_at = follow_up_at.replace(tzinfo=UTC)
+            if follow_up_at > now:
+                episode.next_follow_up_at = now
+                self._episodes.save(episode)
+        return self._episodes.claim_due_follow_up(
+            episode_id,
+            now=now,
+            interval_days=self._default_interval,
+        )
+
     def ensure_schedule(self, episode: RecoveryEpisode) -> RecoveryEpisode:
         if episode.next_follow_up_at is None:
             from datetime import timedelta

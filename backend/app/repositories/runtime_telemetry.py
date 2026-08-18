@@ -36,7 +36,9 @@ class AdkRuntimeTelemetryStore(Protocol):
 
     def latest(self) -> dict[str, Any] | None: ...
 
-    def history(self, limit: int = 25) -> list[dict[str, Any]]: ...
+    def history(
+        self, limit: int = 25, episode_id: str | None = None
+    ) -> list[dict[str, Any]]: ...
 
 
 class InMemoryAdkRuntimeTelemetryStore:
@@ -55,10 +57,15 @@ class InMemoryAdkRuntimeTelemetryStore:
         with self._lock:
             return dict(self._latest) if self._latest else None
 
-    def history(self, limit: int = 25) -> list[dict[str, Any]]:
+    def history(
+        self, limit: int = 25, episode_id: str | None = None
+    ) -> list[dict[str, Any]]:
         size = max(1, min(limit, HISTORY_LIMIT))
         with self._lock:
-            return [dict(item) for item in list(self._history)[:size]]
+            items = [dict(item) for item in self._history]
+        if episode_id:
+            items = [item for item in items if item.get("episode_id") == episode_id]
+        return items[:size]
 
 
 class FirestoreAdkRuntimeTelemetryStore:
@@ -88,13 +95,17 @@ class FirestoreAdkRuntimeTelemetryStore:
         data.pop("history", None)
         return data
 
-    def history(self, limit: int = 25) -> list[dict[str, Any]]:
+    def history(
+        self, limit: int = 25, episode_id: str | None = None
+    ) -> list[dict[str, Any]]:
         size = max(1, min(limit, HISTORY_LIMIT))
         snapshot = self._doc.get()
         if not snapshot.exists:
             return []
         data = dict(snapshot.to_dict() or {})
         items = list(data.get("history") or [])
+        if episode_id:
+            items = [item for item in items if item.get("episode_id") == episode_id]
         return items[:size]
 
 

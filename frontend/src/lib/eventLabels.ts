@@ -4,7 +4,7 @@ const EVENT_LABELS: Record<string, { title: string; description: string }> = {
     description: "EIR opened a longitudinal recovery episode.",
   },
   FollowUpDue: {
-    title: "Autonomous follow-up due",
+    title: "Autonomous follow-up became due",
     description: "Scheduler or workflow marked the next proactive outreach window.",
   },
   PatientResponded: {
@@ -16,7 +16,7 @@ const EVENT_LABELS: Record<string, { title: string; description: string }> = {
     description: "Medication or recovery-task adherence needs attention.",
   },
   RiskEscalated: {
-    title: "Risk escalation",
+    title: "Recovery risk escalated",
     description: "Risk agent elevated the episode for closer monitoring.",
   },
   HumanReviewRequested: {
@@ -32,7 +32,7 @@ const EVENT_LABELS: Record<string, { title: string; description: string }> = {
     description: "Scheduling agent requested a follow-up visit.",
   },
   ContentSecurityBlocked: {
-    title: "Security block",
+    title: "Security threat blocked",
     description: "Model Armor blocked unsafe ingress before any tool execution.",
   },
   RecoveryEpisodeCompleted: {

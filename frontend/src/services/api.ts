@@ -79,8 +79,40 @@ export async function getRuntimeStatus() {
   return getJson<import("@/types").RuntimeStatus>("/api/v1/runtime/status");
 }
 
-export async function getRuntimeHistory(limit = 25) {
+export async function getRuntimeHistory(limit = 25, episodeId?: string) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (episodeId) {
+    params.set("episode_id", episodeId);
+  }
   return getJson<{ items: import("@/types").AdkWorkerTelemetry[] }>(
-    `/api/v1/runtime/history?limit=${limit}`,
+    `/api/v1/runtime/history?${params.toString()}`,
+  );
+}
+
+export async function bootstrapDemo(fastForward = false) {
+  return postJson<import("@/types").DemoBootstrapResponse>("/api/v1/demo/bootstrap", {
+    fast_forward: fastForward,
+  });
+}
+
+export async function advanceDemoFollowUp(episodeId: string) {
+  return postJson<import("@/types").DemoAdvanceResponse>(
+    `/api/v1/demo/advance-follow-up/${episodeId}`,
+    {},
+  );
+}
+
+export async function simulateConcerningSignal(episodeId: string) {
+  return postJson<{
+    published: string;
+    episode_id: string;
+    signal?: { pain_score: number; reported_issue: string };
+  }>(`/api/v1/demo/concerning-signal/${episodeId}`, {});
+}
+
+export async function simulatePromptInjection(episodeId: string) {
+  return postJson<{ published: string; episode_id: string }>(
+    `/api/v1/security/demo/prompt-injection/${episodeId}`,
+    {},
   );
 }

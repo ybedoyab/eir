@@ -37,6 +37,11 @@ def runtime_status() -> dict:
 
 
 @router.get("/history")
-def runtime_history(limit: int = Query(default=25, ge=1, le=50)) -> dict:
+def runtime_history(
+    limit: int = Query(default=25, ge=1, le=50),
+    episode_id: str | None = Query(default=None),
+) -> dict:
     container = get_container()
-    return {"items": container.adk_telemetry.history(limit)}
+    return {
+        "items": container.adk_telemetry.history(limit=limit, episode_id=episode_id),
+    }
