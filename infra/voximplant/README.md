@@ -16,7 +16,9 @@ Production Cloud Run stays on **PSTN** (`VoxEngine.callPSTN`). A CLI-only previe
 
 ## Credentials
 
-Bootstrap **Admin** key is local-only (`VOXIMPLANT_CREDENTIALS`). Never deploy it to Cloud Run.
+Bootstrap **Admin** key is local-only (`VOXIMPLANT_CREDENTIALS`). Never bind it to Cloud Run. CI on `main` uses the same Admin JSON as a GitHub Actions secret to run `provision.py --sync-scenario` after Cloud Run deploy. Runtime `StartScenarios` still uses the Scenarios-role key.
+
+Cloud Run does **not** execute VoxEngine. Changing `scenario.js` without that CI step (or a local `--sync-scenario`) leaves the live Voximplant app on the previous script.
 
 Runtime worker uses Secret Manager `eir-voximplant-runtime-credentials` (`eir-runtime-caller`, Scenarios role).
 
@@ -28,6 +30,7 @@ Preview Web Softphone login is written once to gitignored `.voximplant-preview.e
 
 ```bash
 uv run python infra/voximplant/provision.py
+uv run python infra/voximplant/provision.py --sync-scenario
 uv run python infra/voximplant/smoke_test.py --transport user
 uv run python infra/voximplant/smoke_test.py --transport user --place-call --wait
 uv run python infra/voximplant/smoke_test.py
@@ -41,7 +44,8 @@ Web Softphone login:
 2. Allow microphone
 3. Username is `eir-preview-user@eir-recovery.<account>.voximplant.com` (see `.voximplant-preview.env`)
 4. Password from `.voximplant-preview.env` (never paste it into chat)
-5. Then run the `--place-call` command above and answer in the browser
+5. Then run the `--place-call` command above and answer in the browser with the green button. Do not type a destination or press Call.
+6. The ringtone is a local Web SDK sound. After answer, audio is WebRTC: disable browser VPN and prefer Chrome if the timer runs but you hear silence.
 
 ## Secrets (Voximplant Secret Storage)
 

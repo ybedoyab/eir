@@ -6,6 +6,7 @@ Never print secret values, private keys, phone numbers, or callback tokens.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import secrets
@@ -661,7 +662,6 @@ def _write_runtime_env(application_id: int, rule_id: int) -> None:
                 "GEMINI_LIVE_LOCATION=us-central1",
                 "GEMINI_LIVE_VOICE=Sulafat",
                 "VOXIMPLANT_VOICE_TRANSPORT=pstn",
-    "VOXIMPLANT_VOICE_TRANSPORT=pstn",
             ]
         )
         + "\n",
@@ -669,8 +669,46 @@ def _write_runtime_env(application_id: int, rule_id: int) -> None:
     )
 
 
-def main() -> int:
+def _admin_client() -> VoximplantAPI:
+    creds_path = _env_path("VOXIMPLANT_CREDENTIALS")
+    if not creds_path:
+        raise ManualActionRequired(
+            "Voximplant:\n"
+            "Settings -> Service accounts -> Add\n"
+            "name: eir-bootstrap\n"
+            "role: Admin\n"
+            "Generate key\n"
+            "save JSON locally\n"
+            "set VOXIMPLANT_CREDENTIALS to its path"
+        )
+    return VoximplantAPI(load_credentials(creds_path))
+
+
+def sync_scenario() -> int:
+    """Upload scenario.js only. Used by CI; does not touch PSTN secrets or Cloud Run."""
     _load_env_file()
+    api = _admin_client()
+    info = discover(api)
+    application_id = ensure_application(api)
+    scenario_id = ensure_scenario(api, application_id)
+    print("Voximplant scenario synced")
+    print(f"  account_id: {info['account_id']}")
+    print(f"  application: {APP_NAME} ({application_id})")
+    print(f"  scenario: {SCENARIO_NAME} ({scenario_id})")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Idempotent Voximplant provisioning")
+    parser.add_argument(
+        "--sync-scenario",
+        action="store_true",
+        help="Upload infra/voximplant/scenario.js only. Does not require PSTN secrets.",
+    )
+    args = parser.parse_args()
+    _load_env_file()
+    if args.sync_scenario:
+        return sync_scenario()
     creds_path = _env_path("VOXIMPLANT_CREDENTIALS")
     if not creds_path:
         print("MANUAL_ACTION_REQUIRED")

@@ -63,3 +63,13 @@ jobs:
           project_id: eir-ata
       - name: Deploy Cloud Run stack
         run: uv run python infra/gcp/deploy.py --services-only
+      - name: Sync Voximplant scenario
+        env:
+          VOXIMPLANT_CREDENTIALS: ${{ secrets.VOXIMPLANT_CREDENTIALS }}
+        run: |
+          if [ -z "$VOXIMPLANT_CREDENTIALS" ]; then
+            echo "MANUAL_ACTION_REQUIRED: set GitHub secret VOXIMPLANT_CREDENTIALS"
+            echo "Use the local Admin bootstrap JSON. Never bind it to Cloud Run."
+            exit 1
+          fi
+          uv run python infra/voximplant/provision.py --sync-scenario

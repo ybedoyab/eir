@@ -103,11 +103,38 @@ function startDestinationCall(session) {
   if (session.transport === 'voximplant_user') {
     return VoxEngine.callUser({
       username: session.destinationUser,
-      callerid: 'eir',
+      callerid: PREVIEW_USERNAME,
       displayName: 'EIR Recovery',
+      video: false,
     });
   }
   return VoxEngine.callPSTN(session.destination, session.callerId);
+}
+
+function greetingText(session) {
+  return (
+    'Hi ' +
+    session.displayName +
+    ', this is EIR, the automated recovery assistant following up after your recent visit. ' +
+    'Is now a good time for a quick recovery check-in?'
+  );
+}
+
+function playNativeGreeting(call, text) {
+  try {
+    if (typeof VoiceList !== 'undefined' && VoiceList.Google && VoiceList.Google.en_US_Neural2_F) {
+      call.say(text, {language: VoiceList.Google.en_US_Neural2_F});
+      return true;
+    }
+  } catch (error) {
+    // fall through
+  }
+  try {
+    call.say(text);
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 
 function notify(session, state, extra) {
@@ -172,7 +199,8 @@ function validateCheckin(args) {
   };
 }
 
-function startGeminiLive(session, call, onSubmitted) {
+function startGeminiLive(session, call, onSubmitted, options) {
+  options = options || {};
   var credentials = secret('EIR_GEMINI_VERTEX_CREDENTIALS');
   return Gemini.createLiveAPIClient({
     credentials: credentials,
@@ -201,18 +229,49 @@ function startGeminiLive(session, call, onSubmitted) {
       }
     },
   }).then(function (voiceAIClient) {
-    voiceAIClient.addEventListener(Gemini.LiveAPIEvents.SetupComplete, function () {
+    var started = false;
+
+    function bindCallAudio() {
       VoxEngine.sendMediaBetween(call, voiceAIClient);
-      var intro =
-        'Hi ' +
-        session.displayName +
-        ', this is EIR, the automated recovery assistant following up after your recent visit. ' +
-        'Is now a good time for a quick recovery check-in?';
-      voiceAIClient.sendClientContent({
-        turns: [{role: 'user', parts: [{text: 'Begin the call by saying: ' + intro}]}],
-        turnComplete: true,
+      try {
+        if (voiceAIClient.sendMediaTo) {
+          voiceAIClient.sendMediaTo(call);
+        }
+      } catch (error) {
+        // ignore
+      }
+      try {
+        if (call.sendMediaTo) {
+          call.sendMediaTo(voiceAIClient);
+        }
+      } catch (error) {
+        // ignore
+      }
+    }
+
+    function startConversation() {
+      if (started) {
+        return;
+      }
+      started = true;
+      bindCallAudio();
+      if (options.alreadyGreeted) {
+        voiceAIClient.sendRealtimeInput({
+          text:
+            'The patient already heard your greeting. Do not repeat it. ' +
+            'Wait for their reply, then continue the recovery check-in.',
+        });
+        return;
+      }
+      voiceAIClient.sendRealtimeInput({
+        text: 'Speak this greeting now, then wait for the patient: ' + greetingText(session),
       });
-    });
+    }
+
+    voiceAIClient.addEventListener(Gemini.LiveAPIEvents.SetupComplete, startConversation);
+    if (Gemini.Events && Gemini.Events.WebSocketMediaStarted) {
+      voiceAIClient.addEventListener(Gemini.Events.WebSocketMediaStarted, bindCallAudio);
+    }
 
     voiceAIClient.addEventListener(Gemini.LiveAPIEvents.ServerContent, function (event) {
       var payload = (event && event.data && event.data.payload) || {};
@@ -333,7 +392,29 @@ VoxEngine.addEventListener(AppEvents.Started, async function () {
 
     call.addEventListener(CallEvents.Connected, async function () {
       await notify(session, 'CALL_CONNECTED');
-      voiceAIClient = await startGeminiLive(session, call, markSubmitted);
+      var greeted = playNativeGreeting(call, greetingText(session));
+      var geminiConnecting = false;
+
+      function connectGemini() {
+        if (geminiConnecting || voiceAIClient) {
+          return;
+        }
+        geminiConnecting = true;
+        startGeminiLive(session, call, markSubmitted, {alreadyGreeted: greeted})
+          .then(function (client) {
+            voiceAIClient = client;
+          })
+          .catch(function () {
+            notify(session, 'CALL_FAILED', {failure_reason: 'gemini_setup'}).then(finish);
+          });
+      }
+
+      if (greeted) {
+        call.addEventListener(CallEvents.PlaybackFinished, connectGemini);
+        setTimeout(connectGemini, 10000);
+      } else {
+        connectGemini();
+      }
       setTimeout(function () {
         if (!submitted) {
           notify(session, 'CALL_FAILED', {failure_reason: 'timeout'}).then(function () {

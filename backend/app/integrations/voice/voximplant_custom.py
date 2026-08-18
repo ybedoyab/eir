@@ -111,4 +111,9 @@ def inspect_scenario_source(source: str) -> dict[str, Any]:
         "credentials_string": "var credentials = secret('EIR_GEMINI_VERTEX_CREDENTIALS')" in source,
         "privacy_mode": "privacy: true" in source,
         "trace_disabled": "trace: false" in source,
+        "uses_send_realtime_input": "sendRealtimeInput" in source,
+        "starts_media_without_setup_complete": "startConversation();" in source,
+        "uses_native_tts_greeting": "call.say(" in source,
+        "binds_media_on_setup_complete": "LiveAPIEvents.SetupComplete" in source
+        and "bindCallAudio" in source,
     }

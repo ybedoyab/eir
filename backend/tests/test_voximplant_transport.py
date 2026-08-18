@@ -95,6 +95,10 @@ def test_scenario_shares_gemini_after_transport_split() -> None:
     assert info["credentials_string"] is True
     assert info["privacy_mode"] is True
     assert info["trace_disabled"] is True
+    assert info["uses_send_realtime_input"] is True
+    assert info["starts_media_without_setup_complete"] is False
+    assert info["uses_native_tts_greeting"] is True
+    assert info["binds_media_on_setup_complete"] is True
     pstn_secret = source.find("secret('EIR_DEMO_PHONE_E164')")
     gate = source.find("session.transport !== 'voximplant_user'")
     assert gate != -1
@@ -115,3 +119,17 @@ def test_missing_pipeline_events_reports_exact_gaps() -> None:
         "HumanReviewRequested",
     ]
     assert missing_pipeline_events(list(PIPELINE_EVENTS)) == []
+
+
+def test_provisioner_can_sync_scenario_without_pstn_secrets() -> None:
+    source = (
+        Path(__file__).resolve().parents[2] / "infra" / "voximplant" / "provision.py"
+    ).read_text(encoding="utf-8")
+    workflow = (
+        Path(__file__).resolve().parents[2] / ".github" / "workflows" / "ci.yml"
+    ).read_text(encoding="utf-8")
+    assert "--sync-scenario" in source
+    assert "def sync_scenario" in source
+    assert "provision.py --sync-scenario" in workflow
+    assert "VOXIMPLANT_CREDENTIALS" in workflow
+    assert "infra/gcp/deploy.py --services-only" in workflow
