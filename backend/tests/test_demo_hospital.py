@@ -1,4 +1,5 @@
 from app.demo_ops import DEMO_EPISODES, DEMO_REVIEWS, DEMO_WAITLIST
+from app.seed_fhir import _ordered_resources
 from eir_shared.demo_hospital import (
     LOCATIONS,
     PATIENTS,
@@ -30,3 +31,14 @@ def test_demo_operations_counts() -> None:
     assert len([item for item in DEMO_REVIEWS if item["status"].value == "pending"]) >= 2
     assert len(DEMO_WAITLIST) >= 1
     assert {item["patient_id"] for item in DEMO_EPISODES} <= {item["id"] for item in PATIENTS}
+
+
+def test_fhir_seed_orders_services_before_roles() -> None:
+    ordered = _ordered_resources(
+        [
+            {"resourceType": "PractitionerRole", "id": "role-amir-rahman"},
+            {"resourceType": "HealthcareService", "id": "service-neurology"},
+        ]
+    )
+    types = [item["resourceType"] for item in ordered]
+    assert types.index("HealthcareService") < types.index("PractitionerRole")
