@@ -8,6 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from eir_agents.access.orchestrator import AccessOrchestrator
 from eir_agents.orchestrator.handler import RecoveryOrchestrator
 from eir_agents.outreach.llm import GeminiFollowUpSummarizer, TemplateFollowUpSummarizer
 from eir_agents.records.fhir_client import LocalFhirClient
@@ -23,6 +24,7 @@ from eir_shared.observability import StructuredLogger
 from app.core.config import settings
 from app.integrations.agents.runtime import WorkflowRuntime
 from app.integrations.agents.runtime_verification import verify_runtime
+from app.integrations.enterprise.demo_identity import DemoIdentityProvider
 from app.integrations.enterprise.gateway import AgentGateway
 from app.integrations.enterprise.registry import EnterpriseAgentRegistry
 from app.integrations.enterprise.vertex_memory import build_agent_memory
@@ -30,6 +32,7 @@ from app.integrations.enterprise.vertex_model_armor import build_content_guard
 from app.integrations.fhir.client import GoogleHealthcareFhirClient
 from app.integrations.messaging.pubsub import CompositeEventBus, GooglePubSubEventBus
 from app.integrations.voice.providers import voice_provider
+from app.repositories.access_repository import InMemoryPatientAccessSessionRepository
 from app.repositories.file_store import (
     FileRecoveryEpisodeRepository,
     FileReviewRepository,
@@ -47,6 +50,8 @@ from app.repositories.runtime_telemetry import (
     runtime_service_name,
 )
 from app.repositories.scheduler_idempotency import build_scheduler_idempotency_store
+from app.services.access_service import PatientAccessService
+from app.services.appointment_service import AppointmentService
 
 MOCKS_DIR = Path(__file__).resolve().parents[3] / "mocks"
 logger = logging.getLogger("eir.deps")
@@ -185,7 +190,17 @@ class Container:
             safety=SafetyGate(armor=armor),
             logger=self.logger,
         )
+        self.access_orchestrator = AccessOrchestrator()
+        self.identity = DemoIdentityProvider(settings.session_secret)
+        self.access_sessions = InMemoryPatientAccessSessionRepository()
         fhir = LocalFhirClient()
+        self.fhir = fhir
+        self.appointments = AppointmentService(fhir)
+        self.access = PatientAccessService(
+            sessions=self.access_sessions,
+            appointments=self.appointments,
+            orchestrator=self.access_orchestrator,
+        )
         self.fhir_mode = "local" if testing else settings.fhir_mode
         if self.fhir_mode == "gcp":
             fhir = GoogleHealthcareFhirClient(

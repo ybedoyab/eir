@@ -22,7 +22,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(
     title="EIR API",
-    description="Enterprise Intelligence for Recovery — healthcare recovery fleet API",
+    description="EIR — Healthcare Agent Fleet API",
     version="0.1.0",
     lifespan=lifespan,
 )
