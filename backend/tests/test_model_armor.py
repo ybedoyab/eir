@@ -154,6 +154,27 @@ def test_sensitive_write_does_not_proceed_when_managed_unavailable() -> None:
     assert "managed Model Armor unavailable" in decision.reason
 
 
+def test_managed_adapter_blocks_numeric_filter_match_state() -> None:
+    adapter = _adapter()
+    mock_result = MagicMock()
+    mock_result.filter_match_state = 2
+    mock_result.filter_results = {}
+    mock_response = MagicMock()
+    mock_response.sanitization_result = mock_result
+    with patch.object(adapter, "_client_instance") as client_factory:
+        client_factory.return_value.sanitize_user_prompt.return_value = mock_response
+        decision = adapter.inspect_ingress(DEMO_MALICIOUS_PROMPT)
+    assert decision.allowed is False
+    assert decision.adapter == "google_model_armor"
+    from app.integrations.enterprise.vertex_model_armor import _match_state_is_hit
+    from google.cloud.modelarmor_v1.types import FilterMatchState
+
+    assert _match_state_is_hit(FilterMatchState.MATCH_FOUND) is True
+    assert _match_state_is_hit(2) is True
+    assert _match_state_is_hit(FilterMatchState.NO_MATCH_FOUND) is False
+    assert _match_state_is_hit(1) is False
+
+
 def test_security_demo_malicious_prompt_blocked_by_regex_fallback() -> None:
     guard = RegexContentGuardFallback()
     decision = screen_demo_prompt(guard, DEMO_MALICIOUS_PROMPT)

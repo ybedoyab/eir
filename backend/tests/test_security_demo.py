@@ -36,10 +36,11 @@ def test_runtime_history_endpoint(client: TestClient) -> None:
     assert isinstance(response.json()["items"], list)
 
 
-def test_demo_bootstrap_creates_episode(client: TestClient) -> None:
-    response = client.post("/api/v1/demo/bootstrap", json={"fast_forward": False})
-    assert response.status_code == 200
-    body = response.json()
-    assert body["patient_id"] == "patient-synthetic-001"
-    assert body["episode_id"]
-    assert "story" in body
+def test_demo_bootstrap_creates_episode() -> None:
+    with TestClient(app) as client:
+        response = client.post("/api/v1/demo/bootstrap", json={"fast_forward": False})
+        assert response.status_code == 200
+        body = response.json()
+        assert body["patient_id"] == "patient-synthetic-001"
+        assert body["episode_id"]
+        assert "story" in body

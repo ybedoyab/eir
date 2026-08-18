@@ -240,7 +240,7 @@ def _ensure_model_armor_template() -> None:
             f"--location={LOCATION}",
             f"--project={PROJECT}",
             "--pi-and-jailbreak-filter-settings-enforcement=enabled",
-            "--pi-and-jailbreak-filter-settings-confidence-level=MEDIUM_AND_ABOVE",
+            "--pi-and-jailbreak-filter-settings-confidence-level=LOW_AND_ABOVE",
             "--basic-config-filter-enforcement=enabled",
             "--malicious-uri-filter-settings-enforcement=enabled",
             "--template-metadata-log-sanitize-operations",

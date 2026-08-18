@@ -24,8 +24,20 @@ def managed_model_armor_available() -> bool:
 
 
 def _match_state_is_hit(value: Any) -> bool:
+    name = getattr(value, "name", None)
+    if isinstance(name, str) and name.upper() == MATCH_FOUND:
+        return True
+    try:
+        from google.cloud.modelarmor_v1.types import FilterMatchState
+
+        if value == FilterMatchState.MATCH_FOUND:
+            return True
+        if int(value) == int(FilterMatchState.MATCH_FOUND):
+            return True
+    except Exception:
+        pass
     text = str(value).upper()
-    return MATCH_FOUND in text and "NO_MATCH" not in text
+    return text == MATCH_FOUND or text.endswith("." + MATCH_FOUND)
 
 
 def _filter_category_label(key: str) -> str:
