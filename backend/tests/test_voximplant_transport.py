@@ -138,10 +138,10 @@ def test_provisioner_can_sync_scenario_without_pstn_secrets() -> None:
 
 def test_voice_preview_page_uses_node2_and_not_hosted_webphone() -> None:
     root = Path(__file__).resolve().parents[2]
-    page = (root / "frontend" / "src" / "app" / "voice-preview" / "VoicePreviewClient.tsx").read_text(
-        encoding="utf-8"
-    )
-    helper = (root / "frontend" / "src" / "lib" / "voximplantPreview.ts").read_text(encoding="utf-8")
+    preview_client = root / "frontend" / "src" / "app" / "voice-preview" / "VoicePreviewClient.tsx"
+    page = preview_client.read_text(encoding="utf-8")
+    helper_path = root / "frontend" / "src" / "lib" / "voximplantPreview.ts"
+    helper = helper_path.read_text(encoding="utf-8")
     smoke = (root / "infra" / "voximplant" / "smoke_test.py").read_text(encoding="utf-8")
     assert "ConnectionNode.NODE_2" in page
     assert "unmutePlayback" in page
