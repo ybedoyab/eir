@@ -48,6 +48,8 @@ Point at **REAL PHONE FOLLOW-UP COMPLETED** and the audit timeline:
 
 Wait for **RiskEscalated** / **Human review required**.
 
+Until PSTN Caller ID exists, validate Gemini Live on `/voice-preview` (not phone.voximplant.com). Close the hosted Web Softphone first so `eir-preview-user` is only registered there.
+
 If PSTN is unavailable, the **Backup demo control** still publishes a concerning `PatientResponded` through the same EventBus. Do not present it as the primary path.
 
 ## 1:40–2:20 — Clinician review
@@ -78,7 +80,7 @@ Stay on `/demo`. Point at **Agent chain** (this episode only). Expect something 
 
 outreach_agent → risk_agent → escalation_agent → content_guard
 
-Do **not** treat Fast-forward as finished until PSTN Caller ID + demo phone secrets exist. Until then, Gemini Live audio is validated with the Web Softphone preview (`infra/voximplant/smoke_test.py --transport user`), not `/demo`.
+Do **not** treat Fast-forward as finished until PSTN Caller ID + demo phone secrets exist. Until then, Gemini Live audio is validated on `/voice-preview` via `infra/voximplant/smoke_test.py --transport user`, not `/demo`.
 
 Optionally click **Open observability** and say:
 

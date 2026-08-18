@@ -17,6 +17,9 @@ importers:
       react-dom:
         specifier: ^19.1.1
         version: 19.2.8(react@19.2.8)
+      voximplant-websdk:
+        specifier: 4.14.0-3018
+        version: 4.14.0-3018
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.3.1
@@ -1820,6 +1823,9 @@ packages:
 
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
+
+  voximplant-websdk@4.14.0-3018:
+    resolution: {integrity: sha512-x97ZJI+PjOGLCuACTPWsYcW6X71Dn96QwHuiI2yXZSr0cZsnvSm+bW2jX4FPf8y/DQwVHCnZ5SI9F9lupniVyw==}
 
   which-boxed-primitive@1.1.1:
     resolution: {integrity: sha512-TbX3mj8n0odCBFVlY8AxkqcHASw3L60jIuF8jFP78az3C2YhmGvqbHBpAjTRH2/xqYunrJ9g1jSyjCjpoWzIAA==}
@@ -3785,6 +3791,8 @@ snapshots:
   uri-js@4.4.1:
     dependencies:
       punycode: 2.3.1
+
+  voximplant-websdk@4.14.0-3018: {}
 
   which-boxed-primitive@1.1.1:
     dependencies:

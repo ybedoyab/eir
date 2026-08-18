@@ -38,14 +38,13 @@ uv run python infra/voximplant/smoke_test.py
 
 Do not place paid PSTN calls from CI. Preview `callUser` does not require Caller ID or `EIR_DEMO_PHONE_E164`.
 
-Web Softphone login:
+Voice preview login:
 
-1. Open https://phone.voximplant.com
-2. Allow microphone
-3. Username is `eir-preview-user@eir-recovery.<account>.voximplant.com` (see `.voximplant-preview.env`)
-4. Password from `.voximplant-preview.env` (never paste it into chat)
-5. Then run the `--place-call` command above and answer in the browser with the green button. Do not type a destination or press Call.
-6. The ringtone is a local Web SDK sound. After answer, audio is WebRTC: disable browser VPN and prefer Chrome if the timer runs but you hear silence.
+1. Close https://phone.voximplant.com so `eir-preview-user` is not registered twice
+2. Open the EIR page `/voice-preview` (Chrome, VPN off)
+3. Username is prefilled; password is in `.voximplant-preview.env` (never paste it into chat)
+4. Click **Connect and wait**, allow the microphone
+5. Run `--place-call` and press **Answer** on `/voice-preview`
 
 ## Secrets (Voximplant Secret Storage)
 

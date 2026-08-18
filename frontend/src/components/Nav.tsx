@@ -12,6 +12,7 @@ const links = [
   { href: "/recovery", label: "Recovery" },
   { href: "/agents", label: "Agents" },
   { href: "/observability", label: "Observability" },
+  { href: "/voice-preview", label: "Voice" },
 ];
 
 function isActive(pathname: string, href: string): boolean {

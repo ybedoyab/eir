@@ -30,6 +30,8 @@ function loadRootEnv(): void {
 
 loadRootEnv();
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  transpilePackages: ["voximplant-websdk"],
+};
 
 export default nextConfig;

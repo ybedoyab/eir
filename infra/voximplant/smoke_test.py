@@ -49,6 +49,7 @@ from provision import (  # noqa: E402
 
 UI_URL = "https://eir-ui-658898892127.us-central1.run.app"
 WEB_SOFTPHONE_URL = "https://phone.voximplant.com"
+VOICE_PREVIEW_URL = f"{UI_URL}/voice-preview"
 
 
 def _load_env_file(path: Path) -> None:
@@ -223,7 +224,8 @@ def report(result: dict[str, Any]) -> list[str]:
         print(f"  preview_user: {PREVIEW_USER}")
         print(f"  preview_user_exists: {'yes' if result['preview_user_configured'] else 'no'}")
         print(f"  preview_credentials_file: {PREVIEW_ENV.name}")
-        print(f"  web_softphone: {WEB_SOFTPHONE_URL}")
+        print(f"  voice_preview: {VOICE_PREVIEW_URL}")
+        print("  close hosted webphone: yes")
     print(f"  runtime_credentials: {'yes' if result['runtime_credentials_configured'] else 'no'}")
     print(f"  rule_id: {'yes' if result['rule_configured'] else 'no'}")
     if transport == TRANSPORT_USER:
@@ -341,7 +343,7 @@ def place_user_call() -> str:
         raise RuntimeError("preview custom data must not include phone numbers")
     print(f"Preview episode: {episode_id}")
     print(f"Recovery page: {UI_URL}/recovery/{episode_id}")
-    print("Answer the incoming Web Softphone call, then speak naturally.")
+    print(f"Answer on {VOICE_PREVIEW_URL} (close phone.voximplant.com first).")
     _start_scenarios(custom=custom)
     return episode_id
 
@@ -387,10 +389,11 @@ def main() -> int:
             print()
         return 2
     if transport == TRANSPORT_USER and not args.place_call:
-        print("Preflight OK. Log into the Web Softphone, then re-run with:")
+        print("Preflight OK. Open the EIR voice preview, connect, then re-run with:")
         print("  uv run python infra/voximplant/smoke_test.py --transport user --place-call --wait")
-        print(f"Softphone: {WEB_SOFTPHONE_URL}")
+        print(f"Voice preview: {VOICE_PREVIEW_URL}")
         print("Login and password are in .voximplant-preview.env (not printed).")
+        print(f"Do not use {WEB_SOFTPHONE_URL} for this preview.")
         return 0
     if args.place_call and transport == TRANSPORT_PSTN:
         place_pstn_call()
