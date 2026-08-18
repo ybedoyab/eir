@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -70,6 +71,13 @@ async def _query(agent, *, user_id: str, session_id: str, message: str) -> str:
     return _text_from_events(events)
 
 
+def _gcloud() -> str:
+    found = shutil.which("gcloud.cmd") or shutil.which("gcloud")
+    if not found:
+        raise FileNotFoundError("gcloud not found on PATH")
+    return found
+
+
 def _write_verification(payload: dict) -> None:
     _firestore().collection(COLLECTION).document(DOC_ID).set(payload, merge=True)
 
@@ -77,7 +85,7 @@ def _write_verification(payload: dict) -> None:
 def _list_registry() -> list[dict]:
     completed = subprocess.run(
         [
-            "gcloud",
+            _gcloud(),
             "agent-registry",
             "agents",
             "list",
@@ -100,7 +108,7 @@ def _list_registry() -> list[dict]:
 def _observability_hit() -> dict[str, bool]:
     completed = subprocess.run(
         [
-            "gcloud",
+            _gcloud(),
             "logging",
             "read",
             'resource.type="cloud_run_revision"'

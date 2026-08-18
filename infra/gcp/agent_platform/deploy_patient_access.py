@@ -140,9 +140,16 @@ def _find_existing(client) -> object | None:
     return None
 
 
+def _gcloud() -> str:
+    found = shutil.which("gcloud.cmd") or shutil.which("gcloud")
+    if not found:
+        raise FileNotFoundError("gcloud not found on PATH")
+    return found
+
+
 def _adc_account() -> str:
     completed = subprocess.run(
-        ["gcloud", "config", "get-value", "account"],
+        [_gcloud(), "config", "get-value", "account"],
         check=False,
         capture_output=True,
         text=True,
@@ -260,7 +267,7 @@ def _member(principal: str) -> str:
 def grant_tool_boundary(principal: str) -> None:
     subprocess.run(
         [
-            "gcloud",
+            _gcloud(),
             "run",
             "services",
             "add-iam-policy-binding",
