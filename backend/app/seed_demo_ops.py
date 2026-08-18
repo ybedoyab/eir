@@ -1,4 +1,8 @@
-"""Idempotent operational demo seed for Firestore. Synthetic IDs only."""
+"""Idempotent operational demo seed for Firestore. Synthetic IDs only.
+
+Intended for a runtime with Firestore access (Cloud Run startup or an
+operator identity). The GitHub deploy SA seeds FHIR only.
+"""
 
 from __future__ import annotations
 

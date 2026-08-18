@@ -149,11 +149,6 @@ jobs:
           FHIR_DATASET: eir
           FHIR_STORE: fhir-r4
         run: uv run --package eir-backend python -m app.seed_fhir
-      - name: Seed synthetic operational demo state
-        env:
-          EPISODE_STORE: firestore
-          GOOGLE_CLOUD_PROJECT: eir-ata
-        run: uv run --package eir-backend python -m app.seed_demo_ops
       - name: Production smoke
         run: uv run python infra/gcp/smoke_production.py
       - name: Production browser QA
