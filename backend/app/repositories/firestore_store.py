@@ -5,13 +5,16 @@ TODO: Cloud SQL if document size or query patterns outgrow Firestore.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from eir_shared.events import DomainEvent, parse_event_dict
+from eir_shared.events import DomainEvent, FollowUpDue, parse_event_dict
 from eir_shared.observability import StructuredLogger, WorkflowTrace
 
-from app.domain.recovery.models import RecoveryEpisode
+from app.domain.recovery.models import EpisodeStatus, RecoveryEpisode
 from app.repositories.review_repository import HumanReview, ReviewStatus
+
+_SCHEDULABLE = frozenset({EpisodeStatus.ACTIVE, EpisodeStatus.WAITING_FOR_NEXT_FOLLOWUP})
 
 
 class FirestoreRecoveryEpisodeRepository:
@@ -60,6 +63,51 @@ class FirestoreRecoveryEpisodeRepository:
             return []
         events = (snapshot.to_dict() or {}).get("events") or []
         return [parse_event_dict(item) for item in events]
+
+    def claim_due_follow_up(
+        self,
+        episode_id: str,
+        *,
+        now: datetime,
+        interval_days: int,
+    ) -> FollowUpDue | None:
+        from google.cloud import firestore
+
+        ref = self._col.document(episode_id)
+
+        @firestore.transactional
+        def _claim(transaction: firestore.Transaction) -> FollowUpDue | None:
+            snapshot = ref.get(transaction=transaction)
+            if not snapshot.exists:
+                return None
+            data = snapshot.to_dict() or {}
+            episode_data = data.get("episode")
+            if not episode_data:
+                return None
+            episode = RecoveryEpisode.model_validate(episode_data)
+            events = list(data.get("events") or [])
+            if episode.status not in _SCHEDULABLE:
+                return None
+            if episode.next_follow_up_at is None:
+                return None
+            if events and events[-1].get("event_type") == "FollowUpDue":
+                return None
+            follow_up_at = episode.next_follow_up_at
+            if follow_up_at.tzinfo is None:
+                follow_up_at = follow_up_at.replace(tzinfo=UTC)
+            if follow_up_at > now:
+                return None
+            event = FollowUpDue(episode_id=episode_id)
+            events.append(event.model_dump(mode="json"))
+            episode.next_follow_up_at = now + timedelta(days=interval_days)
+            transaction.set(
+                ref,
+                {"episode": episode.model_dump(mode="json"), "events": events},
+            )
+            return event
+
+        transaction = self._col._client.transaction()
+        return _claim(transaction)
 
 
 class FirestoreReviewRepository:

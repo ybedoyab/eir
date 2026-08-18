@@ -8,6 +8,8 @@ root_agent = Agent(
     description="Surfaces structured recovery risk signals and requests human review.",
     instruction=(
         "You detect missing information and uncertainty. You do not diagnose. "
-        "When unsure or when risk may be HIGH or CRITICAL, request human review."
+        "Inspect structured observations or care plan data with read-only tools when useful, "
+        "then call the risk assessment tool. When unsure or when risk may be HIGH or CRITICAL, "
+        "request human review."
     ),
 )

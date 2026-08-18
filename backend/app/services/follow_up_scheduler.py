@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import threading
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from eir_shared.events import FollowUpDue
 
-from app.domain.recovery.models import EpisodeStatus, RecoveryEpisode
+from app.domain.recovery.models import RecoveryEpisode
 from app.repositories.recovery_repository import RecoveryEpisodeRepository
 from app.repositories.scheduler_idempotency import (
     InMemorySchedulerIdempotencyStore,
     SchedulerIdempotencyStore,
 )
-
-_SCHEDULABLE = frozenset({EpisodeStatus.ACTIVE, EpisodeStatus.WAITING_FOR_NEXT_FOLLOWUP})
 
 
 class FollowUpScheduler:
@@ -43,43 +41,19 @@ class FollowUpScheduler:
                 return []
             due_events: list[FollowUpDue] = []
             for episode in self._episodes.list():
-                claimed = self._claim_episode_follow_up(episode, now=now)
+                claimed = self._episodes.claim_due_follow_up(
+                    episode.id,
+                    now=now,
+                    interval_days=self._default_interval,
+                )
                 if claimed is not None:
                     due_events.append(claimed)
             return due_events
 
-    def _claim_episode_follow_up(
-        self,
-        episode: RecoveryEpisode,
-        *,
-        now: datetime,
-    ) -> FollowUpDue | None:
-        if episode.status not in _SCHEDULABLE:
-            return None
-        if episode.next_follow_up_at is None:
-            return None
-        if self._has_unprocessed_follow_up(episode.id):
-            return None
-        follow_up_at = episode.next_follow_up_at
-        if follow_up_at.tzinfo is None:
-            follow_up_at = follow_up_at.replace(tzinfo=UTC)
-        if follow_up_at > now:
-            return None
-        event = FollowUpDue(episode_id=episode.id)
-        self._episodes.append_event(episode.id, event)
-        episode.next_follow_up_at = now + timedelta(days=self._default_interval)
-        self._episodes.save(episode)
-        return event
-
-    def _has_unprocessed_follow_up(self, episode_id: str) -> bool:
-        events = self._episodes.list_events(episode_id)
-        if not events:
-            return False
-        last = events[-1]
-        return last.event_type == "FollowUpDue"
-
     def ensure_schedule(self, episode: RecoveryEpisode) -> RecoveryEpisode:
         if episode.next_follow_up_at is None:
+            from datetime import timedelta
+
             episode.next_follow_up_at = datetime.now(UTC) + timedelta(minutes=1)
             self._episodes.save(episode)
         return episode

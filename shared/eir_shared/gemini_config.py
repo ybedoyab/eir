@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator
-from contextlib import contextmanager
 from typing import Any
 
 from eir_shared.env import load_root_env
@@ -87,16 +85,3 @@ def genai_client_kwargs(
         }
     key = api_key or os.getenv("GOOGLE_API_KEY") or ""
     return {"api_key": key}
-
-
-@contextmanager
-def gemini_model_call_context(*, infra_location: str | None = None) -> Iterator[str]:
-    """Temporarily point GenAI/ADK at the Gemini model region without moving infra."""
-    load_root_env()
-    model_location = resolve_gemini_location()
-    restore = infra_location or resolve_infra_location()
-    os.environ["GOOGLE_CLOUD_LOCATION"] = model_location
-    try:
-        yield model_location
-    finally:
-        os.environ["GOOGLE_CLOUD_LOCATION"] = restore

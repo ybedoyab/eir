@@ -160,6 +160,15 @@ def test_outreach_runs_without_pre_approval() -> None:
         assert not contact_reviews
 
 
+def test_runtime_status_endpoint() -> None:
+    with TestClient(app) as client:
+        response = client.get("/api/v1/runtime/status")
+        assert response.status_code == 200
+        body = response.json()
+        assert "adk_worker" in body
+        assert body["content_guard"]["managed_model_armor_available"] is False
+
+
 def test_health_reports_runtime_verification() -> None:
     with TestClient(app) as client:
         response = client.get("/health")
@@ -169,5 +178,6 @@ def test_health_reports_runtime_verification() -> None:
         assert verification["vertex_model_probe"]["location"] == "global"
         assert "success" in verification["vertex_model_probe"]
         assert verification["enterprise"]["runtime_region"] == "us-central1"
+        assert "shared_worker_telemetry" in verification["adk_runtime"]
         assert verification["adk_runtime"]["mode"] == "direct"
         assert body["adapters"]["adk_allow_direct_fallback"] is True

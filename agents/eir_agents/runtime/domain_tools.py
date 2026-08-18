@@ -133,7 +133,7 @@ class DomainToolKit:
         ]
         by_capability: dict[str, list[Any]] = {
             Capability.PATIENT_CONTACT: common + [FunctionTool(self.conduct_outreach)],
-            Capability.RISK_ASSESS: [FunctionTool(self.assess_patient_response)],
+            Capability.RISK_ASSESS: common + [FunctionTool(self.assess_patient_response)],
             Capability.ESCALATION_REQUEST: [FunctionTool(self.request_escalation)],
             Capability.ADHERENCE_CHECK: common + [FunctionTool(self.check_adherence)],
             Capability.APPOINTMENT_SCHEDULE: common

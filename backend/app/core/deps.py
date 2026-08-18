@@ -42,6 +42,10 @@ from app.repositories.recovery_repository import (
     RecoveryEpisodeRepository,
 )
 from app.repositories.review_repository import InMemoryReviewRepository
+from app.repositories.runtime_telemetry import (
+    build_adk_runtime_telemetry_store,
+    runtime_service_name,
+)
 from app.repositories.scheduler_idempotency import build_scheduler_idempotency_store
 
 MOCKS_DIR = Path(__file__).resolve().parents[3] / "mocks"
@@ -152,6 +156,11 @@ class Container:
             firestore_client=firestore_client,
             testing=testing,
         )
+        self.adk_telemetry = build_adk_runtime_telemetry_store(
+            firestore_client=firestore_client,
+            testing=testing,
+        )
+        service_name = "local" if testing else runtime_service_name()
         prefer_managed = settings.environment == "production" and not testing
         armor = build_content_guard(
             project=settings.google_cloud_project,
@@ -190,6 +199,8 @@ class Container:
         self.adk_runner = AdkAgentRunner(
             mode="direct" if testing else settings.adk_runner_mode,
             allow_direct_fallback=allow_fallback,
+            telemetry=self.adk_telemetry,
+            service_name=service_name,
         )
         self.runtime = WorkflowRuntime(
             event_bus=self.event_bus,
@@ -226,6 +237,25 @@ class Container:
     def adapter_status(self) -> dict[str, Any]:
         report = self.adk_runner.last_report
         verification = self.runtime_verification
+        shared_adk = self.adk_telemetry.latest()
+        adk_runtime = {
+            "mode": verification.adk_runner_mode,
+            "allow_direct_fallback": verification.adk_allow_direct_fallback,
+            "last_invocation_success": (
+                shared_adk.get("success")
+                if shared_adk is not None
+                else report.adk_invocation_succeeded
+            ),
+            "tools_invoked": shared_adk.get("tools_invoked", report.tools_invoked)
+            if shared_adk is not None
+            else report.tools_invoked,
+            "used_direct_fallback": (
+                shared_adk.get("used_direct_fallback", report.used_direct_fallback)
+                if shared_adk is not None
+                else report.used_direct_fallback
+            ),
+            "shared_worker_telemetry": shared_adk,
+        }
         return {
             "event_bus": "pubsub" if self.pubsub_sink else "memory",
             "episode_store": self.store_mode,
@@ -238,6 +268,9 @@ class Container:
             "pubsub_handle": self.pubsub_handle,
             "agent_memory_adapter": getattr(self.agent_memory, "adapter_name", "unknown"),
             "content_guard_adapter": getattr(self.content_guard, "adapter_name", "unknown"),
+            "managed_model_armor_available": getattr(
+                self.content_guard, "managed_available", False
+            ),
             "runtime_verification": {
                 "vertex_model_probe": {
                     "model": verification.model,
@@ -245,13 +278,7 @@ class Container:
                     "success": verification.vertex_model_probe_success,
                     "error": verification.probe_error,
                 },
-                "adk_runtime": {
-                    "mode": verification.adk_runner_mode,
-                    "allow_direct_fallback": verification.adk_allow_direct_fallback,
-                    "last_invocation_success": report.adk_invocation_succeeded,
-                    "tools_invoked": report.tools_invoked,
-                    "used_direct_fallback": report.used_direct_fallback,
-                },
+                "adk_runtime": adk_runtime,
                 "enterprise": {
                     "configured": verification.enterprise_configured,
                     "runtime_region": verification.infra_location,
