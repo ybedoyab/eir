@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 
 from eir_agents.access.constants import SYNTHETIC_USER_ID
 from eir_agents.access.runtime_app import build_adk_app
+
+os.environ.setdefault("EIR_ALLOW_IMPERSONATE_TOOL_SA", "true")
 
 
 async def _collect(app, message: str, session_id: str | None = None) -> str:

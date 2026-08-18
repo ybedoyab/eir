@@ -164,6 +164,9 @@ def bootstrap_allowlist(extra: list[str] | None = None) -> list[str]:
     account = _adc_account()
     if account:
         principals.append(account)
+    runtime_sa = "eir-runtime@eir-ata.iam.gserviceaccount.com"
+    if runtime_sa not in principals:
+        principals.append(runtime_sa)
     for item in extra or []:
         if item and item not in principals:
             principals.append(item)

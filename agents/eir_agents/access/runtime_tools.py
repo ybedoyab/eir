@@ -28,7 +28,40 @@ def _identity_token() -> str:
     from google.auth.transport.requests import Request
     from google.oauth2 import id_token
 
-    return id_token.fetch_id_token(Request(), _audience())
+    audience = _audience()
+    try:
+        return id_token.fetch_id_token(Request(), audience)
+    except Exception:
+        allowed = os.environ.get("EIR_ALLOW_IMPERSONATE_TOOL_SA", "").strip().lower()
+        if allowed in {"1", "true", "yes"}:
+            return _impersonated_identity_token(audience)
+        raise
+
+
+def _impersonated_identity_token(audience: str) -> str:
+    from google.auth import default, impersonated_credentials
+    from google.auth.transport.requests import Request
+
+    source, _ = default()
+    principal = os.environ.get(
+        "EIR_TOOL_IMPERSONATE_SA",
+        "eir-runtime@eir-ata.iam.gserviceaccount.com",
+    )
+    delegated = impersonated_credentials.Credentials(
+        source_credentials=source,
+        target_principal=principal,
+        target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
+    )
+    id_creds = impersonated_credentials.IDTokenCredentials(
+        target_credentials=delegated,
+        target_audience=audience,
+        include_email=True,
+    )
+    id_creds.refresh(Request())
+    token = getattr(id_creds, "token", None)
+    if not token:
+        raise RuntimeError("identity token unavailable")
+    return str(token)
 
 
 def _headers() -> dict[str, str]:
