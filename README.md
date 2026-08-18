@@ -113,6 +113,16 @@ Architecture diagram source: [docs/architecture/eir-gcp.mmd](docs/architecture/e
 - Demo RBAC with server-enforced signed sessions
 - Role-based portal routes
 
+**Managed Agent Platform (Patient Access)**
+
+- Agent Runtime ReasoningEngine `eir-patient-access` (`gemini-3.5-flash`)
+- Memory Bank attached to that runtime (Session A preference → Session B retrieval)
+- Agent Registry entry for `eir-patient-access`
+- Agent Identity (`AGENT_IDENTITY`) to protected `eir-api` tools
+- Model Armor + Cloud Logging / Trace
+
+See [infra/gcp/agent_platform/README.md](infra/gcp/agent_platform/README.md).
+
 **Recovery (unchanged pipeline)**
 
 - RecoveryEpisode workflow, orchestrator, voice callback path, risk, escalation, human review

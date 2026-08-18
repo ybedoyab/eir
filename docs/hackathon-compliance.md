@@ -10,10 +10,10 @@ Synthetic data only. No real PHI. Voice is not verified until a paid PSTN/WebRTC
 | Pub/Sub | Recovery event bus | Pub/Sub `eir-recovery-events` | Worker consumed `RecoveryEpisodeStarted` | VERIFIED MANAGED |
 | Firestore | Episodes, reviews, access sessions, waitlist | Firestore `(default)` | `episode_store=firestore`, access session reload | VERIFIED MANAGED |
 | Cloud Healthcare FHIR | Appointment lifecycle + patient fixtures | FHIR R4 `fhir-r4` (`enableUpdateCreate=true`) | List/search/book/reschedule/cancel on synthetic Alex | VERIFIED GCP |
-| Agent Registry | Local `EnterpriseAgentRegistry`; API enabled | Agent Registry | List works; custom Service create returned internal error 13 | BLOCKED |
-| Agent Runtime | Custom ADK on Cloud Run | Agent Runtime `reasoningEngines` | API lists; ADK package deploy not completed | BLOCKED |
-| Memory Bank | Firestore preference fallback | Memory Bank (Runtime-attached) | `.../memoryBanks` HTTP 404; Firestore fallback | BLOCKED |
-| Agent Identity | Demo signed tokens | Agent Identity (target) | `/api/v1/auth/login` | VERIFIED LOCAL |
+| Agent Registry | `google_agent_registry_service.patient_access` → live Agent resource | Agent Registry | URN `urn:agent:projects-658898892127:projects:658898892127:locations:us-central1:agentregistry:services:eir-patient-access` | VERIFIED MANAGED |
+| Agent Runtime | ADK `AdkApp` on ReasoningEngine `3041998479602745344` | Agent Runtime | Remote `async_stream_query` → `get_upcoming_appointments` → GCP FHIR Alex cardiology 2026-08-27 | VERIFIED MANAGED |
+| Memory Bank | ReasoningEngine `contextSpec.memoryBankConfig` | Memory Bank | Session A preference generated; retrieve + Session B used Main Clinic / afternoon | VERIFIED MANAGED |
+| Agent Identity | `identity_type=AGENT_IDENTITY` STS token | Agent Identity | `last_authenticated_principal` matches engine SPIFFE / principal | VERIFIED MANAGED |
 | Agent Gateway | In-process `AgentGateway` + Model Armor | Agent Gateway (target) | Security demo routes; backend RBAC is final | VERIFIED LOCAL |
 | Model Armor | `VertexModelArmorAdapter` | Model Armor `eir-agent-guard` | `/health` → `managed_model_armor_available` | VERIFIED MANAGED |
 | Agent Observability / OTel | ADK OTel exporters + Cloud Run logs | Cloud Logging + Cloud Trace | Request logs + Cloud Run `/health` spans in Trace | VERIFIED GCP |
@@ -38,6 +38,5 @@ Synthetic data only. No real PHI. Voice is not verified until a paid PSTN/WebRTC
 - No real patient data
 - No autonomous diagnosis
 - No verified paid voice call in this sprint
-- No verified managed Agent Runtime invocation of Patient Access
-- No verified Memory Bank cross-session preference
-- Custom Agent Registry registration is not complete
+- Agent Gateway remains in-process (not a managed Google gateway)
+- ReasoningEngine packaging is pickle-based; source-based deploy is not yet the live path

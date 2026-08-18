@@ -86,17 +86,21 @@ Worker ingress is `INGRESS_TRAFFIC_INTERNAL_ONLY` (Pub/Sub pull). API/UI remain 
 
 ## Managed Agent Platform
 
-See `infra/gcp/agent_platform/README.md`.
+Live 2026-08-18 (synthetic Alex only). No secrets.
 
-| Capability | Status |
-| --- | --- |
-| Agent Registry | BLOCKED (API on; custom Service create internal error 13) |
-| Agent Runtime | BLOCKED (API on; ADK package not deployed) |
-| Memory Bank | BLOCKED (no Memory Bank API; Firestore fallback) |
-| Agent Identity | VERIFIED LOCAL |
-| Agent Gateway | VERIFIED LOCAL |
-| Model Armor | VERIFIED MANAGED |
-| Agent Observability | VERIFIED GCP (Cloud Logging + Cloud Run Trace spans) |
+| Capability | Status | Evidence |
+| --- | --- | --- |
+| Agent Runtime | VERIFIED MANAGED | ReasoningEngine `3041998479602745344`; remote query `What appointments do I have?` → tool `get_upcoming_appointments` → Alex cardiology with Dr. Maya Chen, Main Clinic, 2026-08-27T15:00:00Z |
+| Managed Sessions | VERIFIED MANAGED | Distinct session IDs `7917773378407104512` and `7561989007844835328` for `patient-synthetic-001` |
+| Memory Bank | VERIFIED MANAGED | Attached `contextSpec.memoryBankConfig`; generated fact prefers Main Clinic + afternoon; retrieve API + Session B ranking used those preferences |
+| Agent Registry | VERIFIED MANAGED | URN `urn:agent:projects-658898892127:projects:658898892127:locations:us-central1:agentregistry:services:eir-patient-access`; method: standard REST service (not the old eir-api POST). Terraform-imported |
+| Agent Identity | VERIFIED MANAGED | `principal://agents.global.proj-658898892127.system.id.goog/resources/aiplatform/projects/658898892127/locations/us-central1/reasoningEngines/3041998479602745344`; Cloud Run invoker only; live tool call recorded that principal |
+| Agent Gateway | VERIFIED LOCAL | Unchanged |
+| Model Armor | VERIFIED MANAGED | Unchanged |
+| Agent Observability | VERIFIED GCP | Cloud Logging hit on `/api/v1/agent-runtime/` during the acceptance query |
+
+Obsolete claims removed: Memory Bank is not `/memoryBanks`; Agent Runtime is not blocked on `vertexai` import; empty reasoningEngine shells do not count.
+
 
 ## Voice
 

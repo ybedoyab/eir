@@ -11,10 +11,10 @@ flowchart TB
     Worker["Cloud Run eir-worker"]
   end
 
-  subgraph Agents["Agent Platform (target)"]
-    Registry["Agent Registry"]
-    Runtime["Agent Runtime"]
-    Memory["Memory Bank"]
+  subgraph Agents["Agent Platform (verified managed)"]
+    Registry["Agent Registry eir-patient-access"]
+    Runtime["Agent Runtime ReasoningEngine"]
+    Memory["Memory Bank on ReasoningEngine"]
     Identity["Agent Identity"]
     Gateway["Agent Gateway"]
     Armor["Model Armor eir-agent-guard"]
@@ -58,9 +58,11 @@ flowchart TB
   OTel --> Log
   OTel --> Mon
   Sched --> API
-  Registry -.-> Runtime
-  Runtime -.-> Memory
+  Runtime --> API
+  Runtime --> Memory
+  Runtime --> Identity
+  Registry --> Runtime
   Gateway -.-> Armor
 ```
 
-Solid lines are verified today. Dotted lines are configured or planned managed-platform paths.
+Solid lines are verified today. Dotted lines remain preview or unpaid voice paths.
