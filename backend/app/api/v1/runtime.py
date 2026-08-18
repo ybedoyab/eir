@@ -32,6 +32,7 @@ def runtime_status() -> dict:
             "fhir_mode": adapters["fhir_mode"],
             "pubsub_handle": adapters["pubsub_handle"],
             "workflow_subscriber": adapters["workflow_subscriber"],
+            "voice": adapters.get("voice", {}),
         },
     }
 

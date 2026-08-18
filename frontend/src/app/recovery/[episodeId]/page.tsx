@@ -66,6 +66,10 @@ export default function RecoveryEpisodePage({
   const latestAdherence = latestEventOfType(events, "AdherenceConcernDetected");
   const latestRisk = latestEventOfType(events, "RiskEscalated");
   const latestSecurity = latestEventOfType(events, "ContentSecurityBlocked");
+  const voiceStarted = latestEventOfType(events, "VoiceCallStarted");
+  const voiceConnected = latestEventOfType(events, "VoiceCallConnected");
+  const voiceCompleted = latestEventOfType(events, "VoiceCallCompleted");
+  const voiceFailedEvent = latestEventOfType(events, "VoiceCallFailed");
 
   async function runFollowUp() {
     if (!episode) {
@@ -168,6 +172,42 @@ export default function RecoveryEpisodePage({
               </p>
             </Card>
           </div>
+
+          {voiceStarted || voiceConnected || voiceCompleted || voiceFailedEvent ? (
+            <Card className="mb-6 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Voice outreach</p>
+              <dl className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+                <div>Provider: {String(voiceStarted?.payload.provider ?? voiceCompleted?.payload.provider ?? "voximplant")}</div>
+                <div>
+                  Status:{" "}
+                  {voiceCompleted
+                    ? "completed"
+                    : voiceFailedEvent
+                      ? "failed"
+                      : voiceConnected
+                        ? "connected"
+                        : "started"}
+                </div>
+                <div>Started: {voiceStarted ? formatWhen(voiceStarted.occurred_at) : "—"}</div>
+                <div>Connected: {voiceConnected ? formatWhen(voiceConnected.occurred_at) : "—"}</div>
+                <div>
+                  {voiceCompleted
+                    ? `Completed: ${formatWhen(voiceCompleted.occurred_at)}`
+                    : voiceFailedEvent
+                      ? `Failed: ${formatWhen(voiceFailedEvent.occurred_at)}`
+                      : "Completed: —"}
+                </div>
+                <div>
+                  Gemini Live model:{" "}
+                  {String(
+                    voiceStarted?.payload.gemini_live_model ??
+                      voiceCompleted?.payload.gemini_live_model ??
+                      "gemini-live-2.5-flash-native-audio",
+                  )}
+                </div>
+              </dl>
+            </Card>
+          ) : null}
 
           <Card className="mb-6 p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Human review</p>

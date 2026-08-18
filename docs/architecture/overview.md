@@ -89,14 +89,15 @@ A Recovery Episode is durable workflow state:
 
 1. Day 0 — episode created (`RecoveryEpisodeStarted`)
 2. Day 0/3 — `FollowUpDue` → outreach tools run via ADK (no pre-approval for routine contact)
-3. Day 3 — patient response assessed; high-risk paths escalate and create clinician reviews
-4. Day 4 — clinician resolves pending reviews → workflow resumes
-5. Day 7 — episode in `WAITING_FOR_NEXT_FOLLOWUP`; Cloud Scheduler publishes the next `FollowUpDue` (Firestore idempotency markers)
+3. Production `VOICE_PROVIDER=voximplant` starts PSTN asynchronously (`VoiceCallStarted`). `PatientResponded` arrives later from the Voximplant callback.
+4. Day 3 — patient response assessed; high-risk paths escalate and create clinician reviews
+5. Day 4 — clinician resolves pending reviews → workflow resumes
+6. Day 7 — episode in `WAITING_FOR_NEXT_FOLLOWUP`; Cloud Scheduler publishes the next `FollowUpDue` (Firestore idempotency markers)
 
 Firestore/file stores and in-memory implementations are **fallback adapters**. Agent Engine Memory Bank is not claimed unless the Vertex memory adapter is active.
 
 ## Adapter rule
 
-External systems are reached only through interfaces: FHIR, voice, event bus, identity, observability. Adapters are labeled **REAL** vs **fallback** in `docs/hackathon-compliance.md` (e.g. `FirestoreAgentMemoryFallback`, managed Model Armor vs `RegexContentGuardFallback`, `SyntheticVoiceProvider`).
+External systems are reached only through interfaces: FHIR, voice, event bus, identity, observability. Adapters are labeled **REAL** vs **fallback** in `docs/hackathon-compliance.md` (e.g. `FirestoreAgentMemoryFallback`, managed Model Armor vs `RegexContentGuardFallback`, Voximplant vs `SyntheticVoiceProvider`).
 
 Production Model Armor uses template `eir-agent-guard` in `us-central1` (separate from Gemini `global` endpoint). Managed screening status is exposed via `/api/v1/runtime/status` → `model_armor`.

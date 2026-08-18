@@ -78,11 +78,14 @@ logs/
 # Local workflow state
 data/
 
-# Google Cloud credentials
+# Google Cloud / Voximplant credentials
 *-service-account*.json
 service-account*.json
 gcloud-service-key.json
 application_default_credentials.json
+voximplant-credentials.json
+*voximplant*credentials*.json
+*_private.json
 .gcloud/
 secrets/
 *.pem

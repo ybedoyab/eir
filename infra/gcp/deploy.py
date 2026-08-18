@@ -51,6 +51,9 @@ BASE_ENV = [
     "ADK_RUNNER_MODE=adk",
     "ADK_ALLOW_DIRECT_FALLBACK=false",
     "VOICE_PROVIDER=synthetic",
+    "GEMINI_LIVE_MODEL=gemini-live-2.5-flash-native-audio",
+    "GEMINI_LIVE_LOCATION=us-central1",
+    "GEMINI_LIVE_VOICE=Sulafat",
     "ENVIRONMENT=production",
     "MODEL_ARMOR_LOCATION=us-central1",
     "MODEL_ARMOR_TEMPLATE=eir-agent-guard",
@@ -101,12 +104,49 @@ def _service_url(service: str, project_number: str) -> str:
     return f"https://{service}-{project_number}.{REGION}.run.app"
 
 
+VOICE_SECRET_BINDINGS = (
+    ("VOXIMPLANT_CALLBACK_TOKEN", "eir-voximplant-callback-token"),
+    ("VOXIMPLANT_RUNTIME_CREDENTIALS", "eir-voximplant-runtime-credentials"),
+    ("EIR_DEMO_PHONE_E164", "eir-demo-phone-e164"),
+    ("VOXIMPLANT_CALLER_ID_E164", "eir-voximplant-caller-id"),
+)
+
+
 def _shared_env(project_number: str) -> list[str]:
     ui_url = _service_url(UI_SERVICE, project_number)
-    return [
+    env = [
         *BASE_ENV,
         f"CORS_ORIGINS=http://localhost:3000,{ui_url}",
     ]
+    runtime_env = Path(".cursor") / "voximplant-runtime.env"
+    if runtime_env.is_file():
+        merged = {item.split("=", 1)[0]: item for item in env}
+        for line in runtime_env.read_text(encoding="utf-8").splitlines():
+            if not line.strip() or line.strip().startswith("#") or "=" not in line:
+                continue
+            key = line.split("=", 1)[0]
+            merged[key] = line.strip()
+        env = list(merged.values())
+    return env
+
+
+def _voice_secret_flags() -> str:
+    extra: list[str] = []
+    for env_name, secret_name in VOICE_SECRET_BINDINGS:
+        described = _run(
+            ["gcloud", "secrets", "describe", secret_name, f"--project={PROJECT}"],
+            ok_codes={0, 1},
+        )
+        if described == 0:
+            extra.append(f"{env_name}={secret_name}:latest")
+    return ",".join(extra)
+
+
+def _deploy_secrets() -> str:
+    extra = _voice_secret_flags()
+    if extra:
+        return f"{DEPLOY_SECRETS},{extra}"
+    return DEPLOY_SECRETS
 
 
 def _write_env_file(env: list[str], name: str) -> Path:
@@ -432,7 +472,7 @@ def _deploy_api(shared_env: list[str]) -> int:
             "--max-instances=3",
             f"--env-vars-file={env_file}",
             "--set-secrets",
-            DEPLOY_SECRETS,
+            _deploy_secrets(),
         ]
     )
 
@@ -461,7 +501,7 @@ def _deploy_worker(shared_env: list[str]) -> int:
             "--no-cpu-throttling",
             f"--env-vars-file={env_file}",
             "--set-secrets",
-            DEPLOY_SECRETS,
+            _deploy_secrets(),
         ]
     )
 

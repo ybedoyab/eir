@@ -132,5 +132,16 @@ export interface RuntimeStatus {
     fhir_mode: string;
     pubsub_handle: boolean;
     workflow_subscriber: string;
+    voice?: {
+      configured_provider: string;
+      active_provider: string;
+      mode: string;
+      pstn_enabled: boolean;
+      synthetic_patients_only: boolean;
+      gemini_live_model: string;
+      gemini_live_location: string;
+      gemini_live_voice: string;
+      admin_credentials_used_at_runtime: boolean;
+    };
   };
 }

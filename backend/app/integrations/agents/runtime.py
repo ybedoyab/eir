@@ -89,6 +89,12 @@ class WorkflowRuntime:
             "RiskEscalated",
             "HumanReviewRequested",
         }:
+            if event.event_type == "PatientResponded":
+                gateway = getattr(self, "gateway", None)
+                if gateway is not None:
+                    gateway_decision = gateway.authorize_event(event)
+                    if not gateway_decision.allowed:
+                        await self._record_security_block(episode, event, gateway_decision)
             await self._checkpoint(episode, event, None)
             return
 
@@ -104,37 +110,7 @@ class WorkflowRuntime:
         if gateway is not None:
             gateway_decision = gateway.authorize_event(event)
             if not gateway_decision.allowed:
-                from eir_agents.orchestrator.handler import EVENT_TO_CAPABILITY
-
-                blocked = ContentSecurityBlocked(
-                    episode_id=episode.id,
-                    filter_category=gateway_decision.filter_category,
-                    adapter=gateway_decision.adapter,
-                    capability=EVENT_TO_CAPABILITY.get(event.event_type, ""),
-                    payload={
-                        "reason": gateway_decision.reason,
-                        "filter_category": gateway_decision.filter_category,
-                        "adapter": gateway_decision.adapter,
-                    },
-                )
-                self.episodes.append_event(episode.id, blocked)
-                self.logger.emit(
-                    WorkflowTrace(
-                        workflow_id=episode.id,
-                        episode_id=episode.id,
-                        trace_id=blocked.event_id,
-                        agent_name="content_guard",
-                        event_type="ContentSecurityBlocked",
-                        status="blocked",
-                    )
-                )
-                self.adk_runner.record_security_event(
-                    episode_id=episode.id,
-                    capability=EVENT_TO_CAPABILITY.get(event.event_type, ""),
-                    adapter=gateway_decision.adapter,
-                    category=gateway_decision.filter_category,
-                    trace_id=blocked.event_id,
-                )
+                await self._record_security_block(episode, event, gateway_decision)
                 await self._checkpoint(episode, event, None)
                 return
 
@@ -149,6 +125,44 @@ class WorkflowRuntime:
             return
 
         await self._execute_decision(episode, decision, event)
+
+    async def _record_security_block(
+        self,
+        episode: RecoveryEpisode,
+        event: DomainEvent,
+        gateway_decision: Any,
+    ) -> None:
+        from eir_agents.orchestrator.handler import EVENT_TO_CAPABILITY
+
+        blocked = ContentSecurityBlocked(
+            episode_id=episode.id,
+            filter_category=gateway_decision.filter_category,
+            adapter=gateway_decision.adapter,
+            capability=EVENT_TO_CAPABILITY.get(event.event_type, ""),
+            payload={
+                "reason": gateway_decision.reason,
+                "filter_category": gateway_decision.filter_category,
+                "adapter": gateway_decision.adapter,
+            },
+        )
+        self.episodes.append_event(episode.id, blocked)
+        self.logger.emit(
+            WorkflowTrace(
+                workflow_id=episode.id,
+                episode_id=episode.id,
+                trace_id=blocked.event_id,
+                agent_name="content_guard",
+                event_type="ContentSecurityBlocked",
+                status="blocked",
+            )
+        )
+        self.adk_runner.record_security_event(
+            episode_id=episode.id,
+            capability=EVENT_TO_CAPABILITY.get(event.event_type, ""),
+            adapter=gateway_decision.adapter,
+            category=gateway_decision.filter_category,
+            trace_id=blocked.event_id,
+        )
 
     async def _execute_decision(
         self,

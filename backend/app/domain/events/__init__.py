@@ -11,6 +11,10 @@ from eir_shared.events import (
     RecoveryEpisodeCompleted,
     RecoveryEpisodeStarted,
     RiskEscalated,
+    VoiceCallCompleted,
+    VoiceCallConnected,
+    VoiceCallFailed,
+    VoiceCallStarted,
 )
 
 __all__ = [
@@ -24,4 +28,8 @@ __all__ = [
     "RecoveryEpisodeCompleted",
     "RecoveryEpisodeStarted",
     "RiskEscalated",
+    "VoiceCallCompleted",
+    "VoiceCallConnected",
+    "VoiceCallFailed",
+    "VoiceCallStarted",
 ]

@@ -156,6 +156,11 @@ class Container:
             firestore_client=firestore_client,
             testing=testing,
         )
+        self.voice_idempotency = build_scheduler_idempotency_store(
+            firestore_client=firestore_client,
+            testing=testing,
+            collection="eir_voice_callbacks",
+        )
         self.adk_telemetry = build_adk_runtime_telemetry_store(
             firestore_client=firestore_client,
             testing=testing,
@@ -215,8 +220,9 @@ class Container:
             summarizer=summarizer,
             adk_runner=self.adk_runner,
             gateway=AgentGateway(armor=armor),
-            voice=voice_provider("mock" if testing else settings.voice_provider),
+            voice=_build_voice(testing=testing),
         )
+        self.voice_status = _voice_status(testing=testing, voice=self.runtime.voice)
         self.adk_runner_mode = "direct" if testing else settings.adk_runner_mode
         self.adk_allow_direct_fallback = allow_fallback
         self.runtime_verification = verify_runtime(
@@ -294,12 +300,66 @@ class Container:
                 "used_direct_fallback": report.used_direct_fallback,
                 "error": report.error,
             },
+            "voice": getattr(self, "voice_status", {}),
         }
 
     def seed(self) -> None:
         patients_path = MOCKS_DIR / "patients" / "patients.json"
         if patients_path.exists():
             self.patients.seed_from_file(patients_path)
+
+
+def _build_voice(*, testing: bool) -> Any:
+    if testing:
+        return voice_provider("mock")
+    name = settings.voice_provider.strip().lower() or "synthetic"
+    if name != "voximplant":
+        return voice_provider(name)
+    try:
+        return voice_provider(
+            "voximplant",
+            credentials_source=settings.voximplant_runtime_credentials,
+            rule_id=settings.voximplant_rule_id,
+            application_id=settings.voximplant_application_id or None,
+            demo_phone_e164=settings.eir_demo_phone_e164,
+            caller_id_e164=settings.voximplant_caller_id_e164,
+            gemini_live_model=settings.gemini_live_model,
+            allow_non_synthetic=settings.voice_allow_non_synthetic,
+        )
+    except Exception:
+        logger.exception("Voximplant voice provider unavailable; using synthetic fallback")
+        return voice_provider("synthetic")
+
+
+def _voice_status(*, testing: bool, voice: Any) -> dict[str, Any]:
+    provider = getattr(voice, "provider_name", "unknown")
+    configured = settings.voice_provider.strip().lower() or "mock"
+    if testing:
+        configured = "mock"
+    runtime_creds = bool(settings.voximplant_runtime_credentials.strip())
+    admin_creds_name = "VOXIMPLANT_CREDENTIALS"
+    return {
+        "configured_provider": configured,
+        "active_provider": provider,
+        "mode": getattr(voice, "mode", "sync"),
+        "pstn_enabled": provider == "voximplant",
+        "synthetic_patients_only": True,
+        "gemini_live_model": settings.gemini_live_model,
+        "gemini_live_location": settings.gemini_live_location,
+        "gemini_live_voice": settings.gemini_live_voice,
+        "runtime_credentials_configured": runtime_creds if not testing else False,
+        "admin_credentials_used_at_runtime": False,
+        "admin_credentials_env": admin_creds_name,
+        "rule_configured": bool(str(settings.voximplant_rule_id).strip()) if not testing else False,
+        "application_configured": bool(str(settings.voximplant_application_id).strip())
+        if not testing
+        else False,
+        "callback_token_configured": bool(settings.voximplant_callback_token)
+        if not testing
+        else False,
+        "destination_configured": bool(settings.eir_demo_phone_e164) if not testing else False,
+        "caller_id_configured": bool(settings.voximplant_caller_id_e164) if not testing else False,
+    }
 
 
 @lru_cache

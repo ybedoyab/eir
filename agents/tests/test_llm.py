@@ -27,7 +27,9 @@ def test_outreach_keeps_deterministic_risk_fields() -> None:
             summarizer=FixedSummarizer(),
         )
     )
-    payload = result.next_events[0].payload
+    payload = next(
+        event.payload for event in result.next_events if event.event_type == "PatientResponded"
+    )
     assert payload["pain_score"] == 2
     assert payload["reported_issue"] is False
     assert payload["llm_summary"] == "synthetic clinician summary"

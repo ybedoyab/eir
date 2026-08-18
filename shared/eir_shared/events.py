@@ -77,6 +77,22 @@ class ContentSecurityBlocked(DomainEvent):
     capability: str = ""
 
 
+class VoiceCallStarted(DomainEvent):
+    event_type: Literal["VoiceCallStarted"] = "VoiceCallStarted"
+
+
+class VoiceCallConnected(DomainEvent):
+    event_type: Literal["VoiceCallConnected"] = "VoiceCallConnected"
+
+
+class VoiceCallCompleted(DomainEvent):
+    event_type: Literal["VoiceCallCompleted"] = "VoiceCallCompleted"
+
+
+class VoiceCallFailed(DomainEvent):
+    event_type: Literal["VoiceCallFailed"] = "VoiceCallFailed"
+
+
 EVENT_TYPE_MAP: dict[str, type[DomainEvent]] = {
     "RecoveryEpisodeStarted": RecoveryEpisodeStarted,
     "FollowUpDue": FollowUpDue,
@@ -88,6 +104,10 @@ EVENT_TYPE_MAP: dict[str, type[DomainEvent]] = {
     "ClinicianResolved": ClinicianResolved,
     "RecoveryEpisodeCompleted": RecoveryEpisodeCompleted,
     "ContentSecurityBlocked": ContentSecurityBlocked,
+    "VoiceCallStarted": VoiceCallStarted,
+    "VoiceCallConnected": VoiceCallConnected,
+    "VoiceCallCompleted": VoiceCallCompleted,
+    "VoiceCallFailed": VoiceCallFailed,
 }
 
 

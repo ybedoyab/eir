@@ -15,6 +15,7 @@ dependencies = [
     "google-cloud-pubsub>=2.23",
     "google-cloud-firestore>=2.19",
     "google-cloud-modelarmor>=0.7.1",
+    "cryptography>=43",
 ]
 
 [tool.uv.sources]

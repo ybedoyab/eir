@@ -110,6 +110,13 @@ export async function simulateConcerningSignal(episodeId: string) {
   }>(`/api/v1/demo/concerning-signal/${episodeId}`, {});
 }
 
+export async function retryDemoVoice(episodeId: string) {
+  return postJson<{ retried: boolean; episode_id: string; event: string }>(
+    `/api/v1/demo/retry-voice/${episodeId}`,
+    {},
+  );
+}
+
 export async function simulatePromptInjection(episodeId: string) {
   return postJson<{ published: string; episode_id: string }>(
     `/api/v1/security/demo/prompt-injection/${episodeId}`,

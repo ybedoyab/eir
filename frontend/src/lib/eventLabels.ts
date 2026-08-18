@@ -39,6 +39,22 @@ const EVENT_LABELS: Record<string, { title: string; description: string }> = {
     title: "Recovery episode completed",
     description: "The recovery workflow reached a terminal state.",
   },
+  VoiceCallStarted: {
+    title: "Phone outreach started",
+    description: "The recovery fleet requested a real outbound PSTN call.",
+  },
+  VoiceCallConnected: {
+    title: "Call connected",
+    description: "The patient answered. Gemini Live is on the call.",
+  },
+  VoiceCallCompleted: {
+    title: "Voice check-in completed",
+    description: "Structured recovery signals were submitted from the live call.",
+  },
+  VoiceCallFailed: {
+    title: "Voice outreach failed",
+    description: "The outbound call did not complete. No recovery data was invented.",
+  },
 };
 
 export function eventLabel(eventType: string): { title: string; description: string } {
@@ -63,6 +79,15 @@ export function eventOutcome(event: { event_type: string; payload: Record<string
   }
   if (event.event_type === "FollowUpDue") {
     return "Autonomous outreach scheduled";
+  }
+  if (event.event_type === "VoiceCallStarted") {
+    return `Provider: ${String(event.payload.provider ?? "unknown")}`;
+  }
+  if (event.event_type === "VoiceCallCompleted") {
+    return "Structured check-in received";
+  }
+  if (event.event_type === "VoiceCallFailed") {
+    return `Outcome: ${String(event.payload.failure_reason ?? event.payload.state ?? "failed")}`;
   }
   return "Recorded";
 }

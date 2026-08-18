@@ -2,14 +2,19 @@ import asyncio
 
 from eir_agents.outreach.handler import handle_follow_up
 from eir_agents.risk.handler import assess_response
-from eir_shared.events import FollowUpDue, PatientResponded
+from eir_shared.events import FollowUpDue, PatientResponded, VoiceCallStarted
+
+
+def _patient_responded(result):
+    return next(event for event in result.next_events if isinstance(event, PatientResponded))
 
 
 def test_outreach_uses_synthetic_care_plan() -> None:
     event = FollowUpDue(episode_id="ep-1")
     result = asyncio.run(handle_follow_up(event, patient_id="patient-synthetic-001"))
     assert result.next_events
-    responded = result.next_events[0]
+    assert any(isinstance(event, VoiceCallStarted) for event in result.next_events)
+    responded = _patient_responded(result)
     assert isinstance(responded, PatientResponded)
     assert responded.payload["synthetic"] is True
     assert responded.payload["reported_issue"] is False
@@ -20,7 +25,7 @@ def test_outreach_uses_synthetic_care_plan() -> None:
 def test_outreach_reads_jordan_risk_from_fhir() -> None:
     event = FollowUpDue(episode_id="ep-2")
     result = asyncio.run(handle_follow_up(event, patient_id="patient-synthetic-002"))
-    responded = result.next_events[0]
+    responded = _patient_responded(result)
     assert isinstance(responded, PatientResponded)
     assert responded.payload["reported_issue"] is True
     assert responded.payload["pain_score"] == 8

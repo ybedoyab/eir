@@ -4,7 +4,7 @@ EIR is a longitudinal recovery agent fleet: after a consultation, procedure, or 
 
 ## Architecture overview
 
-The platform is a modular monorepo. A Next.js clinician/operator UI and (later) voice channels talk to a FastAPI API. The API persists Recovery Episodes and publishes domain events. A Recovery Orchestrator inspects episode state, asks a local Agent Registry for the next **capability**, and delegates to specialist agents (outreach, adherence, risk, scheduling, records, escalation). A safety gate sits in front of high-risk actions. External systems (FHIR, Pub/Sub, voice, identity, observability) are accessed only through adapters so local in-memory implementations can be replaced with Google Cloud services later.
+The platform is a modular monorepo. A Next.js clinician/operator UI and Voximplant PSTN voice outreach talk to a FastAPI API. The API persists Recovery Episodes and publishes domain events. A Recovery Orchestrator inspects episode state, asks a local Agent Registry for the next **capability**, and delegates to specialist agents (outreach, adherence, risk, scheduling, records, escalation). A safety gate sits in front of high-risk actions. External systems (FHIR, Pub/Sub, voice, identity, observability) are accessed only through adapters so local in-memory implementations can be replaced with Google Cloud services.
 
 ```text
 Patient / Clinician
@@ -130,7 +130,8 @@ Or: `make lint`
 - Pre-approval gate: only `observation.write` requires clinician approval **before** tools run; outreach/escalation run automatically and pause via post-action reviews when needed
 - Episode state `WAITING_FOR_NEXT_FOLLOWUP` supports recurring scheduler-driven follow-ups
 - Cloud Scheduler target: authenticated `POST /api/v1/recovery/process-due-follow-ups` (Secret Manager `eir-scheduler-secret` + OIDC)
-- Synthetic voice via `SyntheticVoiceProvider` (not Gemini Live)
+- Production voice: Voximplant PSTN + Vertex Gemini Live (`gemini-live-2.5-flash-native-audio`). Orchestration remains `gemini-3.5-flash`. `SyntheticVoiceProvider` is local/test fallback.
+- Authenticated async callback `POST /api/v1/voice/voximplant/callback` publishes `PatientResponded` on the existing EventBus
 - Synthetic FHIR including Appointment creation on schedule requests
 - Optional Vertex Gemini (`gemini-3.5-flash`, `ADK_RUNNER_MODE=adk`, `ADK_ALLOW_DIRECT_FALLBACK=false` in production)
 
@@ -138,7 +139,7 @@ Or: `make lint`
 
 - Firestore agent memory (`FirestoreAgentMemoryFallback`) — not Agent Engine Memory Bank
 - Regex content guard (`RegexContentGuardFallback`) — local/test fallback; production uses managed Model Armor template `eir-agent-guard` in `us-central1` when screening succeeds
-- Synthetic voice — not telephony / Gemini Live
+- `SyntheticVoiceProvider` — local tests and fallback if `VOICE_PROVIDER` is not `voximplant`
 
 Production stack also exposes shared worker telemetry at `GET /api/v1/runtime/status` and a security demo at `POST /api/v1/security/screen`.
 

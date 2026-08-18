@@ -560,6 +560,7 @@ name = "eir-backend"
 version = "0.1.0"
 source = { editable = "backend" }
 dependencies = [
+    { name = "cryptography" },
     { name = "eir-agents" },
     { name = "eir-shared" },
     { name = "fastapi" },
@@ -582,6 +583,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=43" },
     { name = "eir-agents", editable = "agents" },
     { name = "eir-shared", editable = "shared" },
     { name = "fastapi", specifier = ">=0.115" },

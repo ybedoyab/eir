@@ -75,9 +75,10 @@ async def bootstrap_demo(body: DemoBootstrapRequest) -> dict:
             "Next autonomous follow-up scheduled",
             "POST /api/v1/demo/advance-follow-up/{episode_id} uses FollowUpScheduler",
             "FollowUpDue published through EventBus → worker outreach_agent",
-            "PatientResponded → risk_agent evaluates",
+            "Voximplant PSTN + Gemini Live (async callback) → PatientResponded",
+            "risk_agent evaluates structured recovery check-in",
             f"POST /api/v1/security/demo/prompt-injection/{episode.id}",
-            f"POST /api/v1/demo/concerning-signal/{episode.id}",
+            f"POST /api/v1/demo/concerning-signal/{episode.id} (backup if PSTN unavailable)",
         ],
         "malicious_prompt": DEMO_MALICIOUS_PROMPT,
     }
@@ -144,4 +145,35 @@ async def concerning_signal(episode_id: str) -> dict:
         "episode_id": episode_id,
         "expected": "risk_agent escalates; clinician review may open",
         "signal": {"pain_score": 8, "reported_issue": "swelling"},
+        "backup": True,
+    }
+
+
+@router.post("/retry-voice/{episode_id}")
+async def retry_voice(episode_id: str) -> dict:
+    """One manual PSTN retry after a failed/unanswered call. Never loops automatically."""
+    container = get_container()
+    require_synthetic_episode(container.episodes, episode_id)
+    events = container.episodes.list_events(episode_id)
+    failed = any(event.event_type == "VoiceCallFailed" for event in events)
+    completed = any(event.event_type == "VoiceCallCompleted" for event in events)
+    if not failed or completed:
+        raise HTTPException(
+            status_code=409,
+            detail="Voice retry is only available after a failed or unanswered call",
+        )
+    if not claim_demo_action(episode_id, "voice-retry"):
+        raise HTTPException(
+            status_code=409,
+            detail="Voice retry already used for this demo episode",
+        )
+    service = RecoveryService(container.episodes)
+    event = service.trigger_follow_up(episode_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="Recovery episode not found")
+    await container.event_bus.publish(event)
+    return {
+        "retried": True,
+        "episode_id": episode_id,
+        "event": event.event_type,
     }

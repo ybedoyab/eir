@@ -29,12 +29,17 @@ EIR implements a recovery workflow platform with **synthetic FHIR data only**. T
 | FHIR Healthcare API | **REAL** when `FHIR_MODE=gcp` |
 | Firestore episode store | **REAL** in production |
 | Pub/Sub event bus | **REAL** in split deploy |
-| Vertex Gemini (`gemini-3.5-flash`) | **REAL** when `GOOGLE_GENAI_USE_VERTEXAI=TRUE` and IAM permits `aiplatform.endpoints.predict` |
+| Vertex Gemini (`gemini-3.5-flash`) orchestration | **REAL** when `GOOGLE_GENAI_USE_VERTEXAI=TRUE` and IAM permits `aiplatform.endpoints.predict` |
+| Google ADK | **REAL** when `ADK_RUNNER_MODE=adk` |
+| Voximplant PSTN | **REAL** when `VOICE_PROVIDER=voximplant` |
+| Gemini Live native audio (`gemini-live-2.5-flash-native-audio`) | **REAL** on the Voximplant call path (Vertex `us-central1`) |
+| Voice conversation | **REAL** outbound PSTN to the demo phone secret |
+| `SyntheticVoiceProvider` | **FALLBACK/local** (`VOICE_PROVIDER=synthetic` or tests) |
 | Cloud Scheduler | **REAL** after `infra/gcp/provision.py` (API must be enabled; job targets `/api/v1/recovery/process-due-follow-ups`) |
 | Agent memory | **Fallback**: Firestore (`FirestoreAgentMemoryFallback`) — not Agent Engine Memory Bank yet |
 | Content guard | **REAL** in production when template `eir-agent-guard` exists and `sanitize_user_prompt` succeeds; **Degraded** regex fallback for low-risk capabilities if the managed API is temporarily unavailable; sensitive writes (`observation.write`) require human review when managed screening is down |
-| Voice outreach | **Synthetic**: `SyntheticVoiceProvider` — not Gemini Live |
 | Clinical diagnosis | **Never** performed |
+| Real patient data | **Never** used |
 
 ## Workflow guarantees
 
@@ -52,6 +57,8 @@ EIR implements a recovery workflow platform with **synthetic FHIR data only**. T
 - Runtime proof: `GET /api/v1/runtime/status`, `GET /api/v1/runtime/history?limit=25`
 - Security demo: `POST /api/v1/security/screen`, `POST /api/v1/security/demo/prompt-injection/{episode_id}`
 - Demo bootstrap: `POST /api/v1/demo/bootstrap`
+- Voice callback: `POST /api/v1/voice/voximplant/callback` (`X-EIR-Voice-Token`)
+- Voice retry (once): `POST /api/v1/demo/retry-voice/{episode_id}`
 
 ## Regression scenarios covered in tests
 
@@ -66,5 +73,5 @@ EIR implements a recovery workflow platform with **synthetic FHIR data only**. T
 
 - HIPAA compliance
 - Real patient data
-- Gemini Live voice (production uses synthetic voice)
+- Autonomous diagnosis
 - Managed Agent Runtime / Memory Bank / Registry unless explicitly wired and verified

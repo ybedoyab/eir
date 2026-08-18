@@ -1,6 +1,7 @@
 # EIR live demo script (~3:30–3:50)
 
 Keep the camera on `/demo`. Do not open raw JSON. Use the real pipeline.
+Do not show the destination phone number.
 
 The episode-scoped agent chain is on `/demo` (`GET /api/v1/runtime/history?episode_id=`).
 `/observability` is the **global** fleet view. Do not say it is scoped to this episode.
@@ -25,31 +26,39 @@ Home → **Run live demo** → **Start demo**.
 
 Point at the shortened episode id, status, and next follow-up time.
 
-## 0:40–1:20 — Fast-forward → autonomous outreach
+## 0:40–1:40 — Fast-forward → real phone call
 
 Click **Fast-forward to follow-up**.
 
-> This button only accelerates the demo clock. Production uses Cloud Scheduler. The same FollowUpScheduler publishes FollowUpDue onto Pub/Sub. The worker — not the UI — runs outreach_agent.
+> Production would normally wait until the scheduled follow-up. I'll fast-forward the clock.
 
-Wait for the activity banner, then **Autonomous follow-up completed**.
+> My phone is now being called by the recovery fleet.
 
-Point at:
+Wait for **Calling patient…** / **REAL VOICE OUTREACH**. Answer on speaker.
 
-- Agent: outreach_agent
-- Model: Gemini 3.5 Flash
-- Tool: conduct_outreach
-- Direct fallback: disabled
-- Synthetic voice simulation — not a live phone call
+Let Gemini Live speak. Then say:
 
-## 1:20–1:55 — Persistent recovery + agent fleet
+> My pain is about an eight and I noticed swelling near the incision this morning.
 
-Stay on the stepper and the **Agent chain** on `/demo`.
+Let Gemini acknowledge, submit the check-in, and close.
 
-> This is not a chat session that ends when the window closes. The episode is longitudinal state. Gemini 3.5 Flash and Google ADK agents inspect that context and invoke tools through a governed fleet.
+Point at **REAL PHONE FOLLOW-UP COMPLETED** and the audit timeline:
 
-If the chain already shows outreach_agent → conduct_outreach and risk_agent → assess_patient_response, pause on it.
+> That wasn't a prerecorded transcript. The live call produced this PatientResponded event, and the same risk agent that handles every recovery episode is now evaluating what I actually said.
 
-## 1:55–2:30 — Model Armor
+Wait for **RiskEscalated** / **Human review required**.
+
+If PSTN is unavailable, the **Backup demo control** still publishes a concerning `PatientResponded` through the same EventBus. Do not present it as the primary path.
+
+## 1:40–2:20 — Clinician review
+
+Wait for **Preparing clinician review…** if needed. Click **Approve / Mark reviewed**.
+
+The button stays locked. Wait for **Review submitted — waiting for worker…**.
+
+> EIR did not diagnose a complication. It flagged the spoken recovery signal for a clinician.
+
+## 2:20–2:55 — Model Armor
 
 Click **Simulate prompt-injection attack**.
 
@@ -63,29 +72,13 @@ Wait for **BLOCKED BY MODEL ARMOR**.
 
 If the card says Fallback guard, do not claim managed Model Armor.
 
-## 2:30–3:15 — Concerning response → clinician
-
-Click **Simulate concerning patient response**. Point at pain 8/10 and swelling.
-
-Wait for **EIR escalated instead of guessing**.
-
-> The agent detected a concerning recovery signal and routed the case to a clinician. EIR did not diagnose a complication.
-
-Then wait for **Preparing clinician review…**. That gap is the worker opening the governed checkpoint — do not skip it.
-
-When **Human review required** appears, click **Approve / Mark reviewed**.
-
-The button stays locked. Wait for **Review submitted — waiting for worker…**, then **EIR recovery loop completed**. Do not treat the HTTP response as success.
-
-## 3:15–3:40 — Episode chain, then optional Observability
+## 2:55–3:40 — Agent chain + close
 
 Stay on `/demo`. Point at **Agent chain** (this episode only). Expect something like:
 
-outreach_agent → risk_agent → content_guard → escalation_agent
+outreach_agent → risk_agent → escalation_agent → content_guard
 
-A second risk_agent may appear after the concerning signal. That is the same fleet, not leftover global telemetry.
-
-Show the compact runtime strip: Gemini 3.5 Flash LIVE, Google ADK LIVE, Direct fallback OFF, Model Armor MANAGED.
+Show the compact runtime strip: Gemini 3.5 Flash LIVE, Google ADK LIVE, Voximplant PSTN LIVE, Gemini Live LIVE, Direct fallback OFF, Model Armor MANAGED.
 
 Optionally click **Open observability** and say:
 

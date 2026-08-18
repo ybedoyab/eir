@@ -52,7 +52,8 @@ def build_scheduler_idempotency_store(
     *,
     firestore_client: Any | None,
     testing: bool,
+    collection: str = "eir_scheduler_runs",
 ) -> SchedulerIdempotencyStore:
     if testing or firestore_client is None:
         return InMemorySchedulerIdempotencyStore()
-    return FirestoreSchedulerIdempotencyStore(firestore_client)
+    return FirestoreSchedulerIdempotencyStore(firestore_client, collection=collection)

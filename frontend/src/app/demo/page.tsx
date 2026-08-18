@@ -23,9 +23,11 @@ import {
   formatWhen,
   hasEvent,
   latestEvent,
-  outreachProof,
   runtimeProof,
   shortEpisodeId,
+  voiceCheckin,
+  voiceFailed,
+  isConcerningResponse,
 } from "@/lib/demoStory";
 import { eventLabel } from "@/lib/eventLabels";
 import { cn } from "@/lib/cn";
@@ -42,6 +44,7 @@ import {
   resolveReview,
   simulateConcerningSignal,
   simulatePromptInjection,
+  retryDemoVoice,
 } from "@/services/api";
 import type {
   AdkWorkerTelemetry,
@@ -53,7 +56,7 @@ import type {
 } from "@/types";
 
 type AwaitKind = "follow-up" | "attack" | "concerning" | "review" | null;
-type BusyKind = "start" | "advance" | "attack" | "concerning" | "review" | null;
+type BusyKind = "start" | "advance" | "attack" | "concerning" | "review" | "retry" | null;
 
 function isConflict(error: unknown): boolean {
   return error instanceof Error && error.message.includes("(409)");
@@ -105,15 +108,17 @@ export default function DemoPage() {
     pendingReview: Boolean(pendingReview),
   });
   const securityEvent = latestEvent(events, "ContentSecurityBlocked");
-  const outreach = outreachProof(history);
   const chain = agentChain(history);
   const proof = runtime ? runtimeProof(runtime) : [];
   const armor = armorLabel(
     String(securityEvent?.payload.adapter ?? history.find((item) => item.security_adapter)?.security_adapter ?? ""),
   );
-  const loopComplete = completed[0] && completed[1] && completed[2] && completed[3] && completed[4] && completed[5] && clinicianResolved;
+  const loopComplete = completed.every(Boolean) && clinicianResolved;
   const reviewLocked = busy === "review" || awaiting === "review";
-  const preparingReview = completed[5] && !pendingReview && !clinicianResolved && awaiting !== "review";
+  const preparingReview = completed[4] && !pendingReview && !clinicianResolved && awaiting !== "review";
+  const checkin = voiceCheckin(events);
+  const callFailed = voiceFailed(events);
+  const concerningFromVoice = events.some(isConcerningResponse);
 
   const refresh = useCallback(async (id: string) => {
     const [nextEpisode, nextEvents, nextHistory, nextReviews, nextRuntime] = await Promise.all([
@@ -179,11 +184,11 @@ export default function DemoPage() {
   }, [episodeId, waiting, refresh]);
 
   useEffect(() => {
-    if (awaiting === "follow-up" && completed[3]) {
+    if (awaiting === "follow-up" && (completed[3] || callFailed)) {
       setAwaiting(null);
       setStalled(false);
     }
-    if (awaiting === "attack" && completed[4]) {
+    if (awaiting === "attack" && completed[6]) {
       setAwaiting(null);
       setStalled(false);
     }
@@ -196,7 +201,7 @@ export default function DemoPage() {
       setBusy(null);
       setStalled(false);
     }
-  }, [awaiting, completed, pendingReview, clinicianResolved]);
+  }, [awaiting, completed, pendingReview, clinicianResolved, callFailed]);
 
   function beginAwait(kind: AwaitKind) {
     awaitingSince.current = Date.now();
@@ -307,10 +312,32 @@ export default function DemoPage() {
     }
   }
 
+  async function retryVoice() {
+    if (!episodeId) {
+      return;
+    }
+    setBusy("retry");
+    setError(null);
+    try {
+      await retryDemoVoice(episodeId);
+      beginAwait("follow-up");
+      await refresh(episodeId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Voice retry failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const actionLocked = busy !== null || reviewLocked;
   const showFastForward = Boolean(episodeId) && !completed[2] && awaiting !== "follow-up";
-  const showAttack = completed[3] && !completed[4] && awaiting !== "attack";
-  const showConcerning = completed[4] && !completed[5] && awaiting !== "concerning";
+  const inCall =
+    hasEvent(events, "VoiceCallStarted") && !hasEvent(events, "VoiceCallCompleted") && !callFailed;
+  const showAttack = completed[3] && !completed[6] && awaiting !== "attack";
+  const showConcerning =
+    (callFailed || (completed[3] && !concerningFromVoice)) &&
+    !completed[4] &&
+    awaiting !== "concerning";
 
   return (
     <div className="space-y-5">
@@ -322,7 +349,7 @@ export default function DemoPage() {
           EIR — Autonomous Recovery Demo
         </h1>
         <p className="text-sm text-slate-500">
-          Gemini 3.5 Flash · Google ADK · Model Armor · FHIR · Pub/Sub
+          Gemini 3.5 Flash · Google ADK · Voximplant PSTN · Gemini Live · Model Armor
         </p>
       </header>
 
@@ -435,21 +462,55 @@ export default function DemoPage() {
             </Card>
           ) : null}
 
-          {showAttack && outreach ? (
+          {inCall ? (
+            <Card className="border-teal-300 bg-teal-50/80 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-teal-800">
+                REAL VOICE OUTREACH
+              </p>
+              <h2 className="mt-1 text-xl font-semibold text-teal-950">
+                {hasEvent(events, "VoiceCallConnected")
+                  ? "Gemini Live conversation active"
+                  : "Calling patient…"}
+              </h2>
+              <ul className="mt-3 space-y-1 text-sm text-teal-900">
+                <li>Voximplant PSTN</li>
+                <li>Gemini Live</li>
+                <li>{runtime?.fleet.voice?.gemini_live_model || "gemini-live-2.5-flash-native-audio"}</li>
+                <li>Synthetic patient · real phone call</li>
+              </ul>
+            </Card>
+          ) : null}
+
+          {checkin ? (
             <Card className="border-emerald-200 bg-emerald-50/50 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
-                Synthetic voice simulation
+                REAL PHONE FOLLOW-UP COMPLETED
               </p>
               <h2 className="mt-1 text-xl font-semibold text-emerald-950">
-                Autonomous follow-up completed
+                Recovery check-in received
               </h2>
               <dl className="mt-3 grid gap-1 text-sm text-slate-700 sm:grid-cols-2">
-                <div>Agent: {outreach.agent_name}</div>
-                <div>Model: {outreach.model}</div>
-                <div>Tool: {(outreach.tools_invoked ?? []).join(", ") || "conduct_outreach"}</div>
-                <div>Direct fallback: {outreach.used_direct_fallback ? "enabled" : "disabled"}</div>
-                <div>Worker: {outreach.service}</div>
+                <div>Pain: {String(checkin.payload.pain_score ?? "—")}/10</div>
+                <div>
+                  Reported issue: {checkin.payload.reported_issue ? String(checkin.payload.issue_summary || "yes") : "none"}
+                </div>
+                <div>Medication adherence: {String(checkin.payload.medication_adherence ?? "unknown")}</div>
+                <div>Provider: {String(checkin.payload.provider ?? "voice")}</div>
               </dl>
+            </Card>
+          ) : null}
+
+          {callFailed ? (
+            <Card className="border-amber-200 bg-amber-50/70 p-4">
+              <h2 className="text-xl font-semibold text-amber-950">Voice outreach did not complete</h2>
+              <p className="mt-1 text-sm text-amber-900">
+                No recovery data was invented. One manual retry is available.
+              </p>
+              <div className="mt-4">
+                <Button onClick={() => void retryVoice()} disabled={actionLocked}>
+                  {busy === "retry" ? "Retrying…" : "Retry voice outreach once"}
+                </Button>
+              </div>
             </Card>
           ) : null}
 
@@ -467,7 +528,7 @@ export default function DemoPage() {
             </Card>
           ) : null}
 
-          {showConcerning && securityEvent ? (
+          {securityEvent ? (
             <Card className="border-rose-200 bg-rose-50/70 p-4">
               <h2 className="text-xl font-semibold tracking-tight text-rose-900">
                 BLOCKED BY MODEL ARMOR
@@ -483,7 +544,13 @@ export default function DemoPage() {
 
           {showConcerning ? (
             <Card className="p-4">
-              <h2 className="text-xl font-semibold text-slate-900">Simulate concerning patient response</h2>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Backup demo control
+              </p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-900">Simulate concerning patient response</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Use only if the live phone call is unavailable during recording.
+              </p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm">Pain score: 8/10</div>
                 <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm">Reported issue: swelling</div>
@@ -545,10 +612,10 @@ export default function DemoPage() {
             <Card className="border-emerald-300 bg-emerald-50/80 p-5">
               <h2 className="text-2xl font-semibold text-emerald-950">EIR recovery loop completed</h2>
               <ul className="mt-3 space-y-1 text-sm text-emerald-900">
-                <li>proactive outreach completed</li>
+                <li>live phone follow-up completed</li>
                 <li>Gemini + ADK tools executed</li>
                 <li>Model Armor blocked unsafe input</li>
-                <li>concerning signal escalated</li>
+                <li>spoken recovery signal escalated</li>
                 <li>clinician reviewed the case</li>
               </ul>
               <div className="mt-5 flex flex-wrap gap-2">
