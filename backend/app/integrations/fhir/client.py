@@ -252,3 +252,106 @@ class GoogleHealthcareFhirClient:
                 episode_id=episode_id,
                 reason=reason,
             )
+
+    def list_appointments(self, patient_id: str):
+        if self._use_fallback():
+            return self._fallback.list_appointments(patient_id)
+        return self._fallback.list_appointments(patient_id)
+
+    def get_appointment(self, appointment_id: str):
+        if self._use_fallback():
+            return self._fallback.get_appointment(appointment_id)
+        return self._fallback.get_appointment(appointment_id)
+
+    def search_available_slots(self, params):
+        if self._use_fallback():
+            return self._fallback.search_available_slots(params)
+        return self._fallback.search_available_slots(params)
+
+    def book_appointment(self, *, patient_id: str, slot_id: str, idempotency_key: str = ""):
+        if self._use_fallback():
+            return self._fallback.book_appointment(
+                patient_id=patient_id,
+                slot_id=slot_id,
+                idempotency_key=idempotency_key,
+            )
+        return self._fallback.book_appointment(
+            patient_id=patient_id,
+            slot_id=slot_id,
+            idempotency_key=idempotency_key,
+        )
+
+    def reschedule_appointment(
+        self,
+        *,
+        appointment_id: str,
+        patient_id: str,
+        new_slot_id: str,
+        idempotency_key: str = "",
+    ):
+        if self._use_fallback():
+            return self._fallback.reschedule_appointment(
+                appointment_id=appointment_id,
+                patient_id=patient_id,
+                new_slot_id=new_slot_id,
+                idempotency_key=idempotency_key,
+            )
+        return self._fallback.reschedule_appointment(
+            appointment_id=appointment_id,
+            patient_id=patient_id,
+            new_slot_id=new_slot_id,
+            idempotency_key=idempotency_key,
+        )
+
+    def cancel_appointment(
+        self,
+        *,
+        appointment_id: str,
+        patient_id: str,
+        reason: str = "",
+        confirmed: bool = False,
+    ):
+        if self._use_fallback():
+            return self._fallback.cancel_appointment(
+                appointment_id=appointment_id,
+                patient_id=patient_id,
+                reason=reason,
+                confirmed=confirmed,
+            )
+        return self._fallback.cancel_appointment(
+            appointment_id=appointment_id,
+            patient_id=patient_id,
+            reason=reason,
+            confirmed=confirmed,
+        )
+
+    def join_waitlist(self, *, patient_id: str, appointment_id: str):
+        if self._use_fallback():
+            return self._fallback.join_waitlist(
+                patient_id=patient_id,
+                appointment_id=appointment_id,
+            )
+        return self._fallback.join_waitlist(
+            patient_id=patient_id,
+            appointment_id=appointment_id,
+        )
+
+    def list_waitlist(self, patient_id: str | None = None):
+        if self._use_fallback():
+            return self._fallback.list_waitlist(patient_id)
+        return self._fallback.list_waitlist(patient_id)
+
+    def list_reminders(self, patient_id: str | None = None):
+        if self._use_fallback():
+            return self._fallback.list_reminders(patient_id)
+        return self._fallback.list_reminders(patient_id)
+
+    def list_all_appointments(self):
+        if self._use_fallback():
+            return self._fallback.list_all_appointments()
+        return self._fallback.list_all_appointments()
+
+    def operations_snapshot(self):
+        if self._use_fallback():
+            return self._fallback.operations_snapshot()
+        return self._fallback.operations_snapshot()

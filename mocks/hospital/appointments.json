@@ -1,0 +1,32 @@
+[
+  {
+    "id": "appt-alex-cardio-2026-08-27",
+    "patient_id": "patient-synthetic-001",
+    "status": "booked",
+    "specialty": "Cardiology",
+    "service_name": "Cardiology",
+    "practitioner_id": "practitioner-maya-chen",
+    "practitioner_name": "Dr. Maya Chen",
+    "location_id": "location-main-clinic",
+    "location_name": "Main Clinic",
+    "start": "2026-08-27T10:00:00-05:00",
+    "end": "2026-08-27T10:30:00-05:00",
+    "slot_id": "slot-cardio-2026-08-27-1000",
+    "appointment_type": "routine"
+  },
+  {
+    "id": "appt-jordan-primary-2026-08-21",
+    "patient_id": "patient-synthetic-002",
+    "status": "booked",
+    "specialty": "Primary Care",
+    "service_name": "Primary Care",
+    "practitioner_id": "practitioner-sam-ortiz",
+    "practitioner_name": "Dr. Sam Ortiz",
+    "location_id": "location-main-clinic",
+    "location_name": "Main Clinic",
+    "start": "2026-08-21T11:00:00-05:00",
+    "end": "2026-08-21T11:30:00-05:00",
+    "slot_id": "slot-primary-2026-08-21-1100",
+    "appointment_type": "routine"
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "service-primary-care",
+    "resourceType": "HealthcareService",
+    "name": "Primary Care",
+    "specialty": [{ "text": "Primary Care" }],
+    "location": [{ "reference": "Location/location-main-clinic" }]
+  },
+  {
+    "id": "service-cardiology",
+    "resourceType": "HealthcareService",
+    "name": "Cardiology",
+    "specialty": [{ "text": "Cardiology" }],
+    "location": [{ "reference": "Location/location-main-clinic" }]
+  },
+  {
+    "id": "service-orthopedics",
+    "resourceType": "HealthcareService",
+    "name": "Orthopedics",
+    "specialty": [{ "text": "Orthopedics" }],
+    "location": [{ "reference": "Location/location-north-clinic" }]
+  }
+]

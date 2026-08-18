@@ -1,0 +1,14 @@
+[
+  {
+    "id": "location-main-clinic",
+    "resourceType": "Location",
+    "name": "Main Clinic",
+    "address": { "text": "100 Harbor Way" }
+  },
+  {
+    "id": "location-north-clinic",
+    "resourceType": "Location",
+    "name": "North Clinic",
+    "address": { "text": "480 North Ridge Ave" }
+  }
+]

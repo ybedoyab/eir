@@ -1,0 +1,20 @@
+[
+  {
+    "id": "practitioner-maya-chen",
+    "resourceType": "Practitioner",
+    "name": [{ "text": "Dr. Maya Chen" }],
+    "qualification": [{ "code": { "text": "Cardiology" } }]
+  },
+  {
+    "id": "practitioner-sam-ortiz",
+    "resourceType": "Practitioner",
+    "name": [{ "text": "Dr. Sam Ortiz" }],
+    "qualification": [{ "code": { "text": "Primary Care" } }]
+  },
+  {
+    "id": "practitioner-lee-park",
+    "resourceType": "Practitioner",
+    "name": [{ "text": "Dr. Lee Park" }],
+    "qualification": [{ "code": { "text": "Orthopedics" } }]
+  }
+]

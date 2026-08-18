@@ -1,0 +1,29 @@
+[
+  {
+    "id": "schedule-cardiology-main",
+    "resourceType": "Schedule",
+    "serviceCategory": [{ "text": "Cardiology" }],
+    "actor": [
+      { "reference": "Practitioner/practitioner-maya-chen" },
+      { "reference": "Location/location-main-clinic" }
+    ]
+  },
+  {
+    "id": "schedule-primary-main",
+    "resourceType": "Schedule",
+    "serviceCategory": [{ "text": "Primary Care" }],
+    "actor": [
+      { "reference": "Practitioner/practitioner-sam-ortiz" },
+      { "reference": "Location/location-main-clinic" }
+    ]
+  },
+  {
+    "id": "schedule-ortho-north",
+    "resourceType": "Schedule",
+    "serviceCategory": [{ "text": "Orthopedics" }],
+    "actor": [
+      { "reference": "Practitioner/practitioner-lee-park" },
+      { "reference": "Location/location-north-clinic" }
+    ]
+  }
+]
