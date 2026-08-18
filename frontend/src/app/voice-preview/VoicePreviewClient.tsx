@@ -595,7 +595,7 @@ export default function VoicePreviewClient() {
         <Card>
           <CardHeader
             title="Live transcript"
-            description="Turns build up as Gemini hears and speaks. The full transcript is saved on the episode when the check-in completes."
+            description="Turns build up as Gemini hears and speaks. Transcript stays in this browser session only and is not saved to the episode."
             action={
               episodeId ? (
                 <a className="text-sm font-medium text-teal-700 hover:text-teal-800" href={`/recovery/${episodeId}`}>

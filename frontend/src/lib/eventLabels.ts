@@ -72,9 +72,13 @@ export function eventOutcome(event: { event_type: string; payload: Record<string
     return `Blocked by ${String(event.payload.adapter ?? "content guard")} (${category})`;
   }
   if (event.event_type === "PatientResponded") {
-    const transcript = String(event.payload.transcript ?? "").trim();
-    return transcript
-      ? `Channel: ${String(event.payload.channel ?? "unknown")} · transcript saved`
+    const pain = event.payload.pain_score;
+    const issue = String(event.payload.issue_summary ?? "").trim();
+    if (pain !== undefined && pain !== null) {
+      return `Channel: ${String(event.payload.channel ?? "unknown")} · pain ${String(pain)}/10`;
+    }
+    return issue
+      ? `Channel: ${String(event.payload.channel ?? "unknown")} · ${issue}`
       : `Channel: ${String(event.payload.channel ?? "unknown")}`;
   }
   if (event.event_type === "RiskEscalated") {
@@ -87,8 +91,11 @@ export function eventOutcome(event: { event_type: string; payload: Record<string
     return `Provider: ${String(event.payload.provider ?? "unknown")}`;
   }
   if (event.event_type === "VoiceCallCompleted") {
-    const transcript = String(event.payload.transcript ?? "").trim();
-    return transcript ? "Structured check-in and transcript received" : "Structured check-in received";
+    const pain = event.payload.pain_score;
+    if (pain !== undefined && pain !== null) {
+      return `Structured check-in received · pain ${String(pain)}/10`;
+    }
+    return "Structured check-in received";
   }
   if (event.event_type === "VoiceCallFailed") {
     return `Outcome: ${String(event.payload.failure_reason ?? event.payload.state ?? "failed")}`;

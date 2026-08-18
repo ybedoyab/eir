@@ -206,12 +206,12 @@ export default function RecoveryEpisodePage({
                   )}
                 </div>
               </dl>
-              {String(latestContact?.payload.transcript ?? voiceCompleted?.payload.transcript ?? "").trim() ? (
+              {latestContact?.payload.issue_summary || voiceCompleted?.payload.issue_summary ? (
                 <div className="mt-4 rounded-xl bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Saved transcript</p>
-                  <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-6 text-slate-800">
-                    {String(latestContact?.payload.transcript ?? voiceCompleted?.payload.transcript ?? "")}
-                  </pre>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Structured summary</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-800">
+                    {String(latestContact?.payload.issue_summary ?? voiceCompleted?.payload.issue_summary ?? "")}
+                  </p>
                 </div>
               ) : null}
             </Card>

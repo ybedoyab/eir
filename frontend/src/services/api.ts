@@ -1,17 +1,39 @@
+import { loadSession } from "@/lib/auth";
+import type {
+  AccessMessageResponse,
+  AccessSession,
+  AdminSnapshot,
+  Appointment,
+  AuthSession,
+  SlotOption,
+} from "@/lib/auth";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
-async function getJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store" });
+function authHeaders(): Record<string, string> {
+  const session = typeof window !== "undefined" ? loadSession() : null;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (session?.token) {
+    headers.Authorization = `Bearer ${session.token}`;
+  }
+  return headers;
+}
+
+async function getJson<T>(path: string, authenticated = false): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    cache: "no-store",
+    headers: authenticated ? authHeaders() : undefined,
+  });
   if (!response.ok) {
     throw new Error(`${path} failed (${response.status})`);
   }
   return response.json();
 }
 
-async function postJson<T>(path: string, body: unknown): Promise<T> {
+async function postJson<T>(path: string, body: unknown, authenticated = false): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authenticated ? authHeaders() : undefined,
     body: JSON.stringify(body),
   });
   if (!response.ok) {
@@ -24,12 +46,91 @@ export async function getHealth(): Promise<{ status: string }> {
   return getJson("/health");
 }
 
+export async function loginDemo(username: string, password: string): Promise<AuthSession> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!response.ok) {
+    throw new Error("Login failed");
+  }
+  const body = await response.json();
+  return {
+    token: body.token,
+    role: body.role,
+    display_name: body.display_name,
+    patient_id: body.patient_id,
+  };
+}
+
+export async function listDemoUsers() {
+  return getJson<
+    Array<{
+      username: string;
+      display_name: string;
+      role: string;
+      password_hint: string;
+    }>
+  >("/api/v1/auth/demo-users");
+}
+
 export async function listPatients() {
   return getJson<import("@/types").Patient[]>("/api/v1/patients");
 }
 
 export async function getPatient(id: string) {
   return getJson<import("@/types").Patient>(`/api/v1/patients/${id}`);
+}
+
+export async function listAppointments() {
+  return getJson<Appointment[]>("/api/v1/appointments", true);
+}
+
+export async function searchAvailability(params: {
+  specialty?: string;
+  time_of_day?: string;
+}) {
+  const query = new URLSearchParams();
+  if (params.specialty) query.set("specialty", params.specialty);
+  if (params.time_of_day) query.set("time_of_day", params.time_of_day);
+  return getJson<SlotOption[]>(`/api/v1/appointments/availability?${query.toString()}`, true);
+}
+
+export async function bookAppointment(slotId: string) {
+  return postJson<Appointment>("/api/v1/appointments", { slot_id: slotId }, true);
+}
+
+export async function rescheduleAppointment(appointmentId: string, slotId: string) {
+  return postJson<Appointment>(
+    `/api/v1/appointments/${appointmentId}/reschedule`,
+    { slot_id: slotId },
+    true,
+  );
+}
+
+export async function cancelAppointment(appointmentId: string, reason: string) {
+  return postJson<Appointment>(
+    `/api/v1/appointments/${appointmentId}/cancel`,
+    { confirmed: true, reason },
+    true,
+  );
+}
+
+export async function createAccessSession() {
+  return postJson<AccessSession>("/api/v1/access/sessions", { channel: "web" }, true);
+}
+
+export async function sendAccessMessage(sessionId: string, message: string) {
+  return postJson<AccessMessageResponse>(
+    `/api/v1/access/sessions/${sessionId}/message`,
+    { message },
+    true,
+  );
+}
+
+export async function getAdminSnapshot() {
+  return getJson<AdminSnapshot>("/api/v1/admin/snapshot", true);
 }
 
 export async function listRecovery() {
