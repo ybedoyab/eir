@@ -32,8 +32,9 @@ EIR implements a recovery workflow platform with **synthetic FHIR data only**. T
 | Vertex Gemini (`gemini-3.5-flash`) orchestration | **REAL** when `GOOGLE_GENAI_USE_VERTEXAI=TRUE` and IAM permits `aiplatform.endpoints.predict` |
 | Google ADK | **REAL** when `ADK_RUNNER_MODE=adk` |
 | Voximplant PSTN | **REAL** when `VOICE_PROVIDER=voximplant` |
+| Voximplant Web Softphone preview | **REAL Gemini/VoxEngine audio**, CLI-only (`callUser`); not production `/demo` |
 | Gemini Live native audio (`gemini-live-2.5-flash-native-audio`) | **REAL** on the Voximplant call path (Vertex `us-central1`) |
-| Voice conversation | **REAL** outbound PSTN to the demo phone secret |
+| Voice conversation | **REAL** outbound PSTN to the demo phone secret once Caller ID exists; preview uses application user |
 | `SyntheticVoiceProvider` | **FALLBACK/local** (`VOICE_PROVIDER=synthetic` or tests) |
 | Cloud Scheduler | **REAL** after `infra/gcp/provision.py` (API must be enabled; job targets `/api/v1/recovery/process-due-follow-ups`) |
 | Agent memory | **Fallback**: Firestore (`FirestoreAgentMemoryFallback`) — not Agent Engine Memory Bank yet |

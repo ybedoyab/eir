@@ -26,6 +26,8 @@ APP_NAME = "eir-recovery"
 SCENARIO_NAME = "eir-gemini-outbound"
 RULE_NAME = "eir-outbound"
 RUNTIME_KEY_NAME = "eir-runtime-caller"
+PREVIEW_USER = "eir-preview-user"
+PREVIEW_ENV = ROOT / ".voximplant-preview.env"
 GOOGLE_SA = "eir-voximplant-live"
 GOOGLE_PROJECT = "eir-ata"
 VERTEX_ROLE = "roles/aiplatform.user"
@@ -482,6 +484,12 @@ def ensure_runtime_key(api: VoximplantAPI) -> list[str]:
 
 
 def ensure_google_live_sa(api: VoximplantAPI, application_id: int) -> list[str]:
+    existing = next(
+        (item for item in _secrets(api, application_id) if item.get("secret_name") == SECRET_VERTEX),
+        None,
+    )
+    if existing is not None:
+        return []
     sa_email = f"{GOOGLE_SA}@{GOOGLE_PROJECT}.iam.gserviceaccount.com"
     try:
         describe = _gcloud_run(
@@ -548,6 +556,89 @@ def ensure_google_live_sa(api: VoximplantAPI, application_id: int) -> list[str]:
     return []
 
 
+def _preview_password() -> str:
+    return f"{secrets.token_urlsafe(18)}Aa1!"
+
+
+def _read_preview_password() -> str:
+    if not PREVIEW_ENV.is_file():
+        return ""
+    for line in PREVIEW_ENV.read_text(encoding="utf-8").splitlines():
+        if line.startswith("VOXIMPLANT_PREVIEW_PASSWORD="):
+            return line.split("=", 1)[1].strip()
+    return ""
+
+
+def preview_login(account_name: str) -> str:
+    account = str(account_name).split("@")[0]
+    return f"{PREVIEW_USER}@{APP_NAME}.{account}.voximplant.com"
+
+
+def _write_preview_env(*, login: str, password: str) -> None:
+    PREVIEW_ENV.write_text(
+        "\n".join(
+            [
+                f"VOXIMPLANT_PREVIEW_USER={PREVIEW_USER}",
+                f"VOXIMPLANT_PREVIEW_LOGIN={login}",
+                f"VOXIMPLANT_PREVIEW_PASSWORD={password}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def ensure_preview_user(api: VoximplantAPI, application_id: int, account_name: str) -> list[str]:
+    payload = api.call("GetUsers", application_id=application_id, user_name=PREVIEW_USER)
+    users = _as_list(_result(payload)) if "error" not in payload else []
+    existing = next(
+        (
+            item
+            for item in users
+            if str(item.get("user_name") or "").split("@")[0] == PREVIEW_USER
+        ),
+        None,
+    )
+    stored = _read_preview_password()
+    password = stored or _preview_password()
+    login = preview_login(account_name)
+    if existing is None:
+        created = api.call(
+            "AddUser",
+            user_name=PREVIEW_USER,
+            user_display_name="EIR preview",
+            user_password=password,
+            application_id=application_id,
+            user_active="true",
+            parent_accounting="true",
+        )
+        if "error" in created:
+            return [
+                "Voximplant Control Panel -> Applications -> eir-recovery -> Users -> Add\n"
+                f"username: {PREVIEW_USER}\n"
+                "Generate a strong password and save it locally as .voximplant-preview.env. "
+                "Do not paste the password into chat."
+            ]
+    elif not stored:
+        user_id = existing.get("user_id")
+        updated = api.call(
+            "SetUserInfo",
+            user_id=user_id,
+            application_id=application_id,
+            user_name=PREVIEW_USER,
+            user_password=password,
+            user_active="true",
+        )
+        if "error" in updated:
+            return [
+                "Could not reset the preview user password via API.\n"
+                f"Voximplant Control Panel -> Applications -> eir-recovery -> Users -> {PREVIEW_USER}\n"
+                "Set a password and save it to .voximplant-preview.env. Do not paste it into chat."
+            ]
+    _write_preview_env(login=login, password=password)
+    return []
+
+
 def route_price(api: VoximplantAPI, destination: str) -> dict[str, Any]:
     prefix = "".join(ch for ch in destination if ch.isdigit())[:4] or destination
     payload = api.call("GetResourcePrice", resource_type="1", resource_param=prefix)
@@ -569,6 +660,8 @@ def _write_runtime_env(application_id: int, rule_id: int) -> None:
                 "GEMINI_LIVE_MODEL=gemini-live-2.5-flash-native-audio",
                 "GEMINI_LIVE_LOCATION=us-central1",
                 "GEMINI_LIVE_VOICE=Sulafat",
+                "VOXIMPLANT_VOICE_TRANSPORT=pstn",
+    "VOXIMPLANT_VOICE_TRANSPORT=pstn",
             ]
         )
         + "\n",
@@ -607,6 +700,7 @@ def main() -> int:
     scenario_id = ensure_scenario(api, application_id)
     rule_id = ensure_rule(api, application_id, scenario_id)
     manuals = ensure_callback_token(api, application_id)
+    manuals.extend(ensure_preview_user(api, application_id, str(info["account_name"])))
     manuals.extend(ensure_phone_secrets(api, application_id))
     manuals.extend(ensure_runtime_key(api))
     manuals.extend(ensure_google_live_sa(api, application_id))
@@ -618,6 +712,8 @@ def main() -> int:
     print(f"  application: {APP_NAME} ({application_id})")
     print(f"  scenario: {SCENARIO_NAME} ({scenario_id})")
     print(f"  rule: {RULE_NAME} ({rule_id})")
+    print(f"  preview_user: {PREVIEW_USER}")
+    print("  preview credentials: .voximplant-preview.env")
     print(f"  verified_caller_ids: {len(verified)}")
     print("  runtime env: .cursor/voximplant-runtime.env")
 

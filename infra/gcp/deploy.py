@@ -51,6 +51,7 @@ BASE_ENV = [
     "ADK_RUNNER_MODE=adk",
     "ADK_ALLOW_DIRECT_FALLBACK=false",
     "VOICE_PROVIDER=synthetic",
+    "VOXIMPLANT_VOICE_TRANSPORT=pstn",
     "GEMINI_LIVE_MODEL=gemini-live-2.5-flash-native-audio",
     "GEMINI_LIVE_LOCATION=us-central1",
     "GEMINI_LIVE_VOICE=Sulafat",

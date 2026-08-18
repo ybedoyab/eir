@@ -78,7 +78,7 @@ Stay on `/demo`. Point at **Agent chain** (this episode only). Expect something 
 
 outreach_agent → risk_agent → escalation_agent → content_guard
 
-Show the compact runtime strip: Gemini 3.5 Flash LIVE, Google ADK LIVE, Voximplant PSTN LIVE, Gemini Live LIVE, Direct fallback OFF, Model Armor MANAGED.
+Do **not** treat Fast-forward as finished until PSTN Caller ID + demo phone secrets exist. Until then, Gemini Live audio is validated with the Web Softphone preview (`infra/voximplant/smoke_test.py --transport user`), not `/demo`.
 
 Optionally click **Open observability** and say:
 

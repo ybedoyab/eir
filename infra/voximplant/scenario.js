@@ -1,10 +1,10 @@
 /**
- * EIR outbound PSTN recovery check-in.
- * Voximplant → Gemini Live (Vertex AI) → authenticated EIR callback.
+ * EIR outbound recovery check-in.
+ * Transport is selected from compact custom data; Gemini Live is shared.
  *
- * Custom data (max 200 bytes): {"eid","cid","n"}
- * Destination, caller ID, callback token, and Vertex credentials come from
- * VoxEngine secret storage. Do not log phones, tokens, or transcripts.
+ * Custom data (max 200 bytes): {"eid","cid","n"[, "t":"user","u":"eir-preview-user"]}
+ * PSTN destination and Caller ID come from VoxEngine secret storage only.
+ * Do not log phones, tokens, passwords, or transcripts.
  */
 require(Modules.Gemini);
 
@@ -12,6 +12,7 @@ var GEMINI_LIVE_MODEL = 'gemini-live-2.5-flash-native-audio';
 var GEMINI_LIVE_VOICE = 'Sulafat';
 var VERTEX_PROJECT = 'eir-ata';
 var VERTEX_LOCATION = 'us-central1';
+var PREVIEW_USERNAME = 'eir-preview-user';
 var NO_ANSWER_CODES = {408: true, 480: true, 487: true};
 
 var SYSTEM_PROMPT =
@@ -70,17 +71,43 @@ function secret(name) {
   return value;
 }
 
+function previewUsername(raw) {
+  var user = String(raw || PREVIEW_USERNAME);
+  if (!user || user.charAt(0) === '+' || user.indexOf('@') !== -1 || /^\d+$/.test(user)) {
+    return PREVIEW_USERNAME;
+  }
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{1,49}$/.test(user)) {
+    return PREVIEW_USERNAME;
+  }
+  return user.slice(0, 40);
+}
+
 function parseCustomData() {
   var raw = VoxEngine.customData() || '{}';
   var data = JSON.parse(raw);
   if (!data.eid || !data.cid) {
     throw new Error('invalid_custom_data');
   }
+  var transport =
+    data.t === 'user' || data.transport === 'voximplant_user' ? 'voximplant_user' : 'pstn';
   return {
     episodeId: String(data.eid),
     correlationId: String(data.cid),
     displayName: String(data.n || 'Alex').slice(0, 24),
+    transport: transport,
+    destinationUser: previewUsername(data.u || PREVIEW_USERNAME),
   };
+}
+
+function startDestinationCall(session) {
+  if (session.transport === 'voximplant_user') {
+    return VoxEngine.callUser({
+      username: session.destinationUser,
+      callerid: 'eir',
+      displayName: 'EIR Recovery',
+    });
+  }
+  return VoxEngine.callPSTN(session.destination, session.callerId);
 }
 
 function notify(session, state, extra) {
@@ -145,6 +172,94 @@ function validateCheckin(args) {
   };
 }
 
+function startGeminiLive(session, call, onSubmitted) {
+  var credentials = JSON.parse(secret('EIR_GEMINI_VERTEX_CREDENTIALS'));
+  return Gemini.createLiveAPIClient({
+    credentials: credentials,
+    model: GEMINI_LIVE_MODEL,
+    backend: Gemini.Backend.VERTEX_AI,
+    project: VERTEX_PROJECT,
+    location: VERTEX_LOCATION,
+    connectConfig: {
+      responseModalities: ['AUDIO'],
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {voiceName: GEMINI_LIVE_VOICE},
+        },
+      },
+      systemInstruction: {parts: [{text: SYSTEM_PROMPT}]},
+      tools: TOOLS,
+      inputAudioTranscription: {},
+    },
+    onWebSocketClose: function () {
+      if (!onSubmitted()) {
+        notify(session, 'CALL_FAILED', {failure_reason: 'gemini_closed'}).then(function () {
+          VoxEngine.terminate();
+        });
+      }
+    },
+  }).then(function (voiceAIClient) {
+    voiceAIClient.addEventListener(Gemini.LiveAPIEvents.SetupComplete, function () {
+      VoxEngine.sendMediaBetween(call, voiceAIClient);
+      var intro =
+        'Hi ' +
+        session.displayName +
+        ', this is EIR, the automated recovery assistant following up after your recent visit. ' +
+        'Is now a good time for a quick recovery check-in?';
+      voiceAIClient.sendClientContent({
+        turns: [{role: 'user', parts: [{text: 'Begin the call by saying: ' + intro}]}],
+        turnComplete: true,
+      });
+    });
+
+    voiceAIClient.addEventListener(Gemini.LiveAPIEvents.ServerContent, function (event) {
+      var payload = (event && event.data && event.data.payload) || {};
+      if (payload.interrupted && voiceAIClient.clearMediaBuffer) {
+        voiceAIClient.clearMediaBuffer();
+      }
+    });
+
+    voiceAIClient.addEventListener(Gemini.LiveAPIEvents.ToolCall, function (event) {
+      var functionCalls =
+        (event && event.data && event.data.payload && event.data.payload.functionCalls) || [];
+      var responses = [];
+      functionCalls.forEach(function (fn) {
+        if (!fn || !fn.id || !fn.name) {
+          return;
+        }
+        if (fn.name !== 'submit_recovery_checkin') {
+          responses.push({id: fn.id, name: fn.name, response: {error: 'unsupported_tool'}});
+          return;
+        }
+        var checkin = validateCheckin(fn.args || {});
+        if (!checkin) {
+          responses.push({id: fn.id, name: fn.name, response: {error: 'invalid_arguments'}});
+          return;
+        }
+        onSubmitted(true);
+        notify(session, 'CALL_COMPLETED', checkin).then(function () {
+          setTimeout(function () {
+            try {
+              call.hangup();
+            } catch (error) {
+              VoxEngine.terminate();
+            }
+          }, 4000);
+        });
+        responses.push({
+          id: fn.id,
+          name: fn.name,
+          response: {output: {ok: true, next: 'Give a brief closing statement, then end.'}},
+        });
+      });
+      if (responses.length) {
+        voiceAIClient.sendToolResponse({functionResponses: responses});
+      }
+    });
+    return voiceAIClient;
+  });
+}
+
 VoxEngine.addEventListener(AppEvents.Started, async function () {
   var session;
   var call;
@@ -167,21 +282,38 @@ VoxEngine.addEventListener(AppEvents.Started, async function () {
     VoxEngine.terminate();
   }
 
+  function markSubmitted(value) {
+    if (value === true) {
+      submitted = true;
+    }
+    return submitted;
+  }
+
   try {
     var custom = parseCustomData();
     session = {
       episodeId: custom.episodeId,
       correlationId: custom.correlationId,
       displayName: custom.displayName,
+      transport: custom.transport,
+      destinationUser: custom.destinationUser,
       callbackUrl: secret('EIR_CALLBACK_URL'),
       callbackToken: secret('EIR_CALLBACK_TOKEN'),
-      destination: secret('EIR_DEMO_PHONE_E164'),
-      callerId: secret('VOXIMPLANT_CALLER_ID_E164'),
+      destination: '',
+      callerId: '',
       callId: '',
     };
 
-    call = VoxEngine.callPSTN(session.destination, session.callerId);
+    if (session.transport !== 'voximplant_user') {
+      session.destination = secret('EIR_DEMO_PHONE_E164');
+      session.callerId = secret('VOXIMPLANT_CALLER_ID_E164');
+    }
+
+    call = startDestinationCall(session);
     session.callId = call.id();
+    if (session.transport === 'voximplant_user') {
+      notify(session, 'CALL_STARTED');
+    }
 
     call.addEventListener(CallEvents.Failed, function (event) {
       var code = event && event.code;
@@ -199,88 +331,7 @@ VoxEngine.addEventListener(AppEvents.Started, async function () {
 
     call.addEventListener(CallEvents.Connected, async function () {
       await notify(session, 'CALL_CONNECTED');
-      var credentials = JSON.parse(secret('EIR_GEMINI_VERTEX_CREDENTIALS'));
-      voiceAIClient = await Gemini.createLiveAPIClient({
-        credentials: credentials,
-        model: GEMINI_LIVE_MODEL,
-        backend: Gemini.Backend.VERTEX_AI,
-        project: VERTEX_PROJECT,
-        location: VERTEX_LOCATION,
-        connectConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {voiceName: GEMINI_LIVE_VOICE},
-            },
-          },
-          systemInstruction: {parts: [{text: SYSTEM_PROMPT}]},
-          tools: TOOLS,
-          inputAudioTranscription: {},
-        },
-        onWebSocketClose: function () {
-          if (!submitted) {
-            notify(session, 'CALL_FAILED', {failure_reason: 'gemini_closed'}).then(finish);
-          }
-        },
-      });
-
-      voiceAIClient.addEventListener(Gemini.LiveAPIEvents.SetupComplete, function () {
-        VoxEngine.sendMediaBetween(call, voiceAIClient);
-        var intro =
-          'Hi ' +
-          session.displayName +
-          ", this is EIR, the automated recovery assistant following up after your recent visit. " +
-          'Is now a good time for a quick recovery check-in?';
-        voiceAIClient.sendClientContent({
-          turns: [{role: 'user', parts: [{text: 'Begin the call by saying: ' + intro}]}],
-          turnComplete: true,
-        });
-      });
-
-      voiceAIClient.addEventListener(Gemini.LiveAPIEvents.ServerContent, function (event) {
-        var payload = (event && event.data && event.data.payload) || {};
-        if (payload.interrupted && voiceAIClient.clearMediaBuffer) {
-          voiceAIClient.clearMediaBuffer();
-        }
-      });
-
-      voiceAIClient.addEventListener(Gemini.LiveAPIEvents.ToolCall, function (event) {
-        var functionCalls = (event && event.data && event.data.payload && event.data.payload.functionCalls) || [];
-        var responses = [];
-        functionCalls.forEach(function (fn) {
-          if (!fn || !fn.id || !fn.name) {
-            return;
-          }
-          if (fn.name !== 'submit_recovery_checkin') {
-            responses.push({id: fn.id, name: fn.name, response: {error: 'unsupported_tool'}});
-            return;
-          }
-          var checkin = validateCheckin(fn.args || {});
-          if (!checkin) {
-            responses.push({id: fn.id, name: fn.name, response: {error: 'invalid_arguments'}});
-            return;
-          }
-          submitted = true;
-          notify(session, 'CALL_COMPLETED', checkin).then(function () {
-            setTimeout(function () {
-              try {
-                call.hangup();
-              } catch (error) {
-                finish();
-              }
-            }, 4000);
-          });
-          responses.push({
-            id: fn.id,
-            name: fn.name,
-            response: {output: {ok: true, next: 'Give a brief closing statement, then end.'}},
-          });
-        });
-        if (responses.length) {
-          voiceAIClient.sendToolResponse({functionResponses: responses});
-        }
-      });
-
+      voiceAIClient = await startGeminiLive(session, call, markSubmitted);
       setTimeout(function () {
         if (!submitted) {
           notify(session, 'CALL_FAILED', {failure_reason: 'timeout'}).then(function () {

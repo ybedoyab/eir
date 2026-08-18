@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     gemini_live_location: str = "us-central1"
     gemini_live_voice: str = "Sulafat"
     voice_allow_non_synthetic: bool = False
+    voximplant_voice_transport: str = "pstn"
     event_bus: str = "memory"
     episode_store: str = "memory"
     fhir_mode: str = "local"

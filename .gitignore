@@ -85,6 +85,7 @@ gcloud-service-key.json
 application_default_credentials.json
 voximplant-credentials.json
 *voximplant*credentials*.json
+.voximplant-preview.env
 *_private.json
 .gcloud/
 secrets/

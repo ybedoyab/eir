@@ -359,6 +359,7 @@ def _voice_status(*, testing: bool, voice: Any) -> dict[str, Any]:
         else False,
         "destination_configured": bool(settings.eir_demo_phone_e164) if not testing else False,
         "caller_id_configured": bool(settings.voximplant_caller_id_e164) if not testing else False,
+        "voice_transport": "pstn" if testing else (settings.voximplant_voice_transport or "pstn"),
     }
 
 

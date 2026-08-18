@@ -130,7 +130,7 @@ Or: `make lint`
 - Pre-approval gate: only `observation.write` requires clinician approval **before** tools run; outreach/escalation run automatically and pause via post-action reviews when needed
 - Episode state `WAITING_FOR_NEXT_FOLLOWUP` supports recurring scheduler-driven follow-ups
 - Cloud Scheduler target: authenticated `POST /api/v1/recovery/process-due-follow-ups` (Secret Manager `eir-scheduler-secret` + OIDC)
-- Production voice: Voximplant PSTN + Vertex Gemini Live (`gemini-live-2.5-flash-native-audio`). Orchestration remains `gemini-3.5-flash`. `SyntheticVoiceProvider` is local/test fallback.
+- Production voice: Voximplant PSTN + Vertex Gemini Live (`gemini-live-2.5-flash-native-audio`). Orchestration remains `gemini-3.5-flash`. `SyntheticVoiceProvider` is local/test fallback. A Web Softphone preview transport (`VOXIMPLANT_VOICE_TRANSPORT` / `callUser`) can validate Gemini Live without PSTN; production Cloud Run stays on PSTN.
 - Authenticated async callback `POST /api/v1/voice/voximplant/callback` publishes `PatientResponded` on the existing EventBus
 - Synthetic FHIR including Appointment creation on schedule requests
 - Optional Vertex Gemini (`gemini-3.5-flash`, `ADK_RUNNER_MODE=adk`, `ADK_ALLOW_DIRECT_FALLBACK=false` in production)

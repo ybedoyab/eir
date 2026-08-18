@@ -90,6 +90,28 @@ def test_admin_credentials_not_used_by_runtime_factory(monkeypatch) -> None:
         assert "VOXIMPLANT_RUNTIME_CREDENTIALS" in str(exc)
 
 
+def test_production_voximplant_still_requires_phone_secrets() -> None:
+    provider = VoximplantVoiceProvider(
+        api=FakeVoxAPI(),
+        rule_id=1,
+        demo_phone_e164="",
+        caller_id_e164="",
+    )
+    import asyncio
+
+    try:
+        asyncio.run(
+            provider.start_outbound_call(
+                to="synthetic:patient-synthetic-001",
+                episode_id="ep-1",
+                patient_id="patient-synthetic-001",
+            )
+        )
+        raise AssertionError("production PSTN must require destination and caller ID")
+    except RuntimeError as exc:
+        assert "not configured" in str(exc)
+
+
 def test_synthetic_only_restriction() -> None:
     provider = VoximplantVoiceProvider(
         api=FakeVoxAPI(),
@@ -266,5 +288,6 @@ def test_runtime_status_exposes_voice_honestly() -> None:
         assert voice["active_provider"] == "mock"
         assert voice["admin_credentials_used_at_runtime"] is False
         assert voice["synthetic_patients_only"] is True
+        assert voice["voice_transport"] == "pstn"
         assert "destination" not in voice
         assert DEMO_PHONE not in json.dumps(voice)

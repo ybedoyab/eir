@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 from uuid import uuid4
 
 from eir_agents.outreach.voice import MockVoiceProvider, VoiceLaunchResult, VoiceMode
+
+from app.integrations.voice.voximplant_custom import encode_script_custom_data
 
 SYNTHETIC_PREFIX = "patient-synthetic-"
 
@@ -84,13 +85,11 @@ class VoximplantVoiceProvider:
             raise RuntimeError("demo destination or caller ID is not configured")
         correlation_id = str(uuid4())
         display = str((metadata or {}).get("patient_display_name") or "Alex")
-        custom = json.dumps(
-            {
-                "eid": episode_id,
-                "cid": correlation_id,
-                "n": display[:24],
-            },
-            separators=(",", ":"),
+        custom = encode_script_custom_data(
+            episode_id=episode_id,
+            correlation_id=correlation_id,
+            display_name=display,
+            transport="pstn",
         )
         params: dict[str, Any] = {
             "rule_id": self._rule_id,
