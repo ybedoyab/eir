@@ -1,0 +1,66 @@
+```mermaid
+flowchart TB
+  subgraph Channels["Patient Channels"]
+    Web["Web Portal"]
+    Voice["Voximplant Voice (preview)"]
+  end
+
+  subgraph Edge["Google Cloud Edge"]
+    UI["Cloud Run eir-ui"]
+    API["Cloud Run eir-api"]
+    Worker["Cloud Run eir-worker"]
+  end
+
+  subgraph Agents["Agent Platform (target)"]
+    Registry["Agent Registry"]
+    Runtime["Agent Runtime"]
+    Memory["Memory Bank"]
+    Identity["Agent Identity"]
+    Gateway["Agent Gateway"]
+    Armor["Model Armor eir-agent-guard"]
+  end
+
+  subgraph AI["AI"]
+    Gemini["Gemini 3.5 Flash"]
+    Live["Gemini Live"]
+  end
+
+  subgraph Data["Data Plane"]
+    FHIR["Healthcare API FHIR R4"]
+    FS["Firestore"]
+  end
+
+  subgraph Async["Async"]
+    PS["Pub/Sub eir-recovery-events"]
+    Sched["Cloud Scheduler"]
+  end
+
+  subgraph Obs["Observability"]
+    OTel["OpenTelemetry / ADK"]
+    Trace["Cloud Trace"]
+    Log["Cloud Logging"]
+    Mon["Cloud Monitoring"]
+  end
+
+  Web --> UI --> API
+  Voice -.-> API
+  API --> Worker
+  Worker --> PS
+  PS --> Worker
+  API --> FHIR
+  API --> FS
+  Worker --> FHIR
+  Worker --> FS
+  API --> Armor
+  API --> Gemini
+  Voice -.-> Live
+  API --> OTel --> Trace
+  OTel --> Log
+  OTel --> Mon
+  Sched --> API
+  Registry -.-> Runtime
+  Runtime -.-> Memory
+  Gateway -.-> Armor
+```
+
+Solid lines are verified today. Dotted lines are configured or planned managed-platform paths.

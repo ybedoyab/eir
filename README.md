@@ -75,8 +75,33 @@ Demo sign-in users (`password` = `demo-<username>`):
 uv run --package eir-backend --group dev pytest backend/tests
 uv run --package eir-agents --group dev pytest agents/tests
 uv run ruff check shared backend agents
-cd frontend && pnpm typecheck && pnpm lint
+cd frontend && pnpm typecheck && pnpm lint && pnpm build
 ```
+
+## Terraform (GCP source of truth)
+
+```bash
+cd infra/terraform/bootstrap && ./bootstrap.sh
+cd .. && terraform init
+terraform fmt -check
+terraform validate
+# Import existing resources using imports.tf, then terraform plan
+```
+
+See [infra/terraform/README.md](infra/terraform/README.md).
+
+## Production deploy
+
+GitHub Actions on `main` uses Workload Identity Federation (`eir-deploy-ci`) — no long-lived JSON key required after migration.
+
+```bash
+GITHUB_SHA=$(git rev-parse HEAD) uv run python infra/gcp/deploy.py --services-only
+uv run --package eir-backend python -m app.seed_fhir
+uv run python infra/gcp/smoke_production.py
+uv run python infra/gcp/provision.py   # verify + refresh scheduler target
+```
+
+Architecture diagram source: [docs/architecture/eir-gcp.mmd](docs/architecture/eir-gcp.mmd).
 
 ## Current status
 
