@@ -123,10 +123,31 @@ def _rewrite_references(value: Any, urn_for_id: dict[str, str]) -> Any:
 
 
 def _transaction_bundle(resources: list[dict[str, Any]], *, upsert: bool = False) -> dict[str, Any]:
-    urn_for_id = {str(resource["id"]): f"urn:uuid:{resource['id']}" for resource in resources}
+    priority = {
+        "Patient": 0,
+        "Practitioner": 1,
+        "Location": 1,
+        "HealthcareService": 1,
+        "Schedule": 2,
+        "Slot": 3,
+        "Appointment": 4,
+        "Encounter": 5,
+        "MedicationRequest": 6,
+        "Observation": 7,
+        "CarePlan": 8,
+    }
+    ordered = sorted(
+        resources,
+        key=lambda item: (priority.get(str(item.get("resourceType")), 99), str(item.get("id", ""))),
+    )
+    urn_for_id = {str(resource["id"]): f"urn:uuid:{resource['id']}" for resource in ordered}
     entries = []
-    for resource in resources:
-        body = _rewrite_references(copy.deepcopy(resource), urn_for_id)
+    for resource in ordered:
+        body = (
+            copy.deepcopy(resource)
+            if upsert
+            else _rewrite_references(copy.deepcopy(resource), urn_for_id)
+        )
         resource_type = resource["resourceType"]
         resource_id = str(resource["id"])
         if upsert:
