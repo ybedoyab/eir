@@ -38,6 +38,31 @@ def test_safety_gate_uses_content_guard() -> None:
     assert decision.allowed is False
 
 
+def test_patient_contact_does_not_require_pre_approval() -> None:
+    gate = SafetyGate(armor=RegexContentGuardFallback())
+    decision = gate.authorize(
+        identity=AgentIdentity(name="outreach", granted_capabilities=[Capability.PATIENT_CONTACT]),
+        capability=Capability.PATIENT_CONTACT,
+        context={"event_type": "FollowUpDue", "payload": {"note": "routine check-in"}},
+    )
+    assert decision.allowed is True
+    assert decision.requires_human_approval is False
+
+
+def test_escalation_request_does_not_require_pre_approval() -> None:
+    gate = SafetyGate(armor=RegexContentGuardFallback())
+    decision = gate.authorize(
+        identity=AgentIdentity(
+            name="escalation",
+            granted_capabilities=[Capability.ESCALATION_REQUEST],
+        ),
+        capability=Capability.ESCALATION_REQUEST,
+        context={"event_type": "RiskEscalated", "payload": {"reason": "high pain"}},
+    )
+    assert decision.allowed is True
+    assert decision.requires_human_approval is False
+
+
 def test_adk_runner_disallows_silent_fallback() -> None:
     runner = AdkAgentRunner(mode="adk", allow_direct_fallback=False)
     ctx = InvocationContext(

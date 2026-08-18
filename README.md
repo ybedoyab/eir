@@ -127,9 +127,9 @@ Or: `make lint`
 
 - FastAPI health (includes ADK/runtime verification), patients, recovery episodes, events, follow-up trigger, reviews, agents, traces
 - ADK runtime executes specialists via **domain tools** (`conduct_outreach`, FHIR reads/writes, scheduling, adherence, escalation)
-- Pre-approval gate: high-risk capabilities create a pending review **before** tools run; clinician resolve executes the deferred action
+- Pre-approval gate: only `observation.write` requires clinician approval **before** tools run; outreach/escalation run automatically and pause via post-action reviews when needed
 - Episode state `WAITING_FOR_NEXT_FOLLOWUP` supports recurring scheduler-driven follow-ups
-- Cloud Scheduler target: authenticated `POST /api/v1/recovery/process-due-follow-ups`
+- Cloud Scheduler target: authenticated `POST /api/v1/recovery/process-due-follow-ups` (Secret Manager `eir-scheduler-secret` + OIDC)
 - Synthetic voice via `SyntheticVoiceProvider` (not Gemini Live)
 - Synthetic FHIR including Appointment creation on schedule requests
 - Optional Vertex Gemini (`gemini-3.5-flash`, `ADK_RUNNER_MODE=adk`, `ADK_ALLOW_DIRECT_FALLBACK=false` in production)
@@ -137,7 +137,7 @@ Or: `make lint`
 **Explicit fallbacks (labeled in code/docs)**
 
 - Firestore agent memory (`FirestoreAgentMemoryFallback`) — not Agent Engine Memory Bank
-- Regex content guard (`RegexContentGuardFallback`) — Vertex Model Armor adapter attempts managed client first
+- Regex content guard (`RegexContentGuardFallback`) — managed Model Armor is **not** active until a real API inspection path is wired
 - Synthetic voice — not telephony / Gemini Live
 
 See [docs/hackathon-compliance.md](docs/hackathon-compliance.md) for the REAL vs fallback matrix.

@@ -15,6 +15,7 @@ DATASET = "eir"
 FHIR_STORE = "fhir-r4"
 RUNTIME_SA = f"eir-runtime@{PROJECT}.iam.gserviceaccount.com"
 SCHEDULER_JOB = "eir-process-due-follow-ups"
+SCHEDULER_SECRET_NAME = "eir-scheduler-secret"
 API_SERVICE = "eir-api"
 
 
@@ -67,6 +68,7 @@ def _grant_runtime_roles() -> None:
         "roles/pubsub.publisher",
         "roles/healthcare.fhirResourceEditor",
         "roles/logging.logWriter",
+        "roles/secretmanager.secretAccessor",
     ):
         _run(
             [
@@ -106,9 +108,44 @@ print(model, (response.text or '').strip())
     return completed.returncode
 
 
+def _scheduler_secret() -> str:
+    token = os.environ.get("SCHEDULER_SECRET", "").strip()
+    if token:
+        return token
+    value = _gcloud_output(
+        [
+            "gcloud",
+            "secrets",
+            "versions",
+            "access",
+            "latest",
+            f"--secret={SCHEDULER_SECRET_NAME}",
+            f"--project={PROJECT}",
+        ]
+    )
+    if not value:
+        print(
+            f"warning: {SCHEDULER_SECRET_NAME} unavailable; scheduler header auth may fail",
+            file=sys.stderr,
+        )
+        return ""
+    return value
+
+
 def _ensure_scheduler(api_url: str) -> None:
     target = f"{api_url}/api/v1/recovery/process-due-follow-ups"
-    token = os.environ.get("SCHEDULER_SECRET", "change-me-in-cloud-run")
+    token = _scheduler_secret()
+    common = [
+        f"--location={LOCATION}",
+        f"--schedule=*/15 * * * *",
+        f"--uri={target}",
+        "--http-method=POST",
+        f"--oidc-service-account-email={RUNTIME_SA}",
+        f"--oidc-token-audience={api_url}",
+        f"--project={PROJECT}",
+    ]
+    if token:
+        common.append(f"--headers=X-Scheduler-Token={token}")
     describe = _run(
         [
             "gcloud",
@@ -121,25 +158,26 @@ def _ensure_scheduler(api_url: str) -> None:
         ],
         ok_codes={0, 1},
     )
-    args = [
-        "gcloud",
-        "scheduler",
-        "jobs",
-        "update",
-        "http",
-        SCHEDULER_JOB,
-        f"--location={LOCATION}",
-        f"--schedule=*/15 * * * *",
-        f"--uri={target}",
-        "--http-method=POST",
-        f"--oidc-service-account-email={RUNTIME_SA}",
-        f"--oidc-token-audience={api_url}",
-        f"--headers=X-Scheduler-Token={token}",
-        f"--project={PROJECT}",
-    ]
-    if describe != 0:
-        args[4] = "create"
-        args.pop(5)
+    if describe == 0:
+        args = [
+            "gcloud",
+            "scheduler",
+            "jobs",
+            "update",
+            "http",
+            SCHEDULER_JOB,
+            *common,
+        ]
+    else:
+        args = [
+            "gcloud",
+            "scheduler",
+            "jobs",
+            "create",
+            "http",
+            SCHEDULER_JOB,
+            *common,
+        ]
     _run(args, ok_codes={0, 1})
     print(json.dumps({"scheduler_job": SCHEDULER_JOB, "target": target}))
 

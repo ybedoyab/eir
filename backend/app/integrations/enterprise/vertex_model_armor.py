@@ -19,7 +19,7 @@ class ContentGuard(Protocol):
 
 
 class VertexModelArmorAdapter:
-    """Attempts Vertex AI safety screening; falls back to regex guard when unavailable."""
+    """Attempts managed Model Armor when configured; otherwise uses regex fallback."""
 
     adapter_name = "vertex_model_armor"
 
@@ -27,34 +27,44 @@ class VertexModelArmorAdapter:
         self._project = project
         self._location = location
         self._fallback = fallback
-        self._available: bool | None = None
+        self._managed_checked = False
+        self._managed_available = False
 
     def inspect_ingress(self, text: str) -> ArmorDecision:
-        if not self._try_vertex(text):
-            return self._fallback.inspect_ingress(text)
-        return ArmorDecision(allowed=True, sanitized_text=text.strip(), adapter=self.adapter_name)
+        managed = self._inspect_managed(text)
+        if managed is not None:
+            return managed
+        return self._fallback.inspect_ingress(text)
 
     def inspect_egress(self, text: str) -> ArmorDecision:
         fallback = self._fallback.inspect_egress(text)
         if not fallback.allowed:
             return fallback
-        if not self._try_vertex(text):
-            return fallback
-        return ArmorDecision(allowed=True, sanitized_text=text.strip(), adapter=self.adapter_name)
+        managed = self._inspect_managed(text)
+        if managed is not None:
+            return managed
+        return fallback
 
-    def _try_vertex(self, text: str) -> bool:
-        if self._available is False:
-            return False
+    def _inspect_managed(self, text: str) -> ArmorDecision | None:
+        if self._managed_checked and not self._managed_available:
+            return None
         try:
-            from google.cloud import modelarmor_v1
-
-            _ = modelarmor_v1  # noqa: F841 — import proves API client availability
-            self._available = True
-            return True
+            from google.cloud import modelarmor_v1  # noqa: F401
         except Exception:
-            logger.info("Vertex Model Armor client unavailable; using regex fallback")
-            self._available = False
-            return False
+            if not self._managed_checked:
+                logger.info("Vertex Model Armor client unavailable; using regex fallback")
+            self._managed_checked = True
+            self._managed_available = False
+            return None
+
+        # Import success alone does not prove managed screening is configured.
+        self._managed_checked = True
+        self._managed_available = False
+        logger.info(
+            "Vertex Model Armor SDK present but managed inspection is not wired; "
+            "using regex fallback"
+        )
+        return None
 
 
 def build_content_guard(

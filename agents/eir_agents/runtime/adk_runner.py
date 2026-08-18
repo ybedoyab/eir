@@ -170,7 +170,7 @@ class AdkAgentRunner:
             model=resolve_gemini_model(),
             mode="adk",
             adk_invocation_succeeded=True,
-            enterprise_endpoint_active=True,
+            enterprise_endpoint_active=False,
             tools_invoked=list(toolkit.tools_invoked),
         )
         self.tool_audit.extend(toolkit.tools_invoked)

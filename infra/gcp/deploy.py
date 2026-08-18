@@ -18,6 +18,11 @@ API_SERVICE = "eir-api"
 WORKER_SERVICE = "eir-worker"
 UI_SERVICE = "eir-ui"
 RUNTIME_SA = f"eir-runtime@{PROJECT}.iam.gserviceaccount.com"
+SCHEDULER_SECRET_NAME = "eir-scheduler-secret"
+DEPLOY_SECRETS = (
+    "GOOGLE_API_KEY=eir-gemini-api-key:latest,"
+    f"SCHEDULER_SECRET={SCHEDULER_SECRET_NAME}:latest"
+)
 
 BASE_ENV = [
     "GOOGLE_CLOUD_PROJECT=eir-ata",
@@ -39,7 +44,6 @@ BASE_ENV = [
     "ADK_RUNNER_MODE=adk",
     "ADK_ALLOW_DIRECT_FALLBACK=false",
     "VOICE_PROVIDER=synthetic",
-    "SCHEDULER_SECRET=set-in-cloud-run-console",
     "ENVIRONMENT=production",
 ]
 
@@ -160,10 +164,13 @@ def _ensure_runtime_service_account() -> int:
             ]
         )
     for role in (
+        "roles/aiplatform.user",
         "roles/datastore.user",
         "roles/pubsub.publisher",
         "roles/pubsub.subscriber",
         "roles/healthcare.fhirResourceEditor",
+        "roles/logging.logWriter",
+        "roles/secretmanager.secretAccessor",
     ):
         _run(
             [
@@ -224,6 +231,52 @@ def _ensure_secret() -> int:
             "secrets",
             "add-iam-policy-binding",
             name,
+            f"--project={PROJECT}",
+            f"--member=serviceAccount:{RUNTIME_SA}",
+            "--role=roles/secretmanager.secretAccessor",
+        ]
+    )
+    return 0
+
+
+def _ensure_scheduler_secret() -> int:
+    if _run(["gcloud", "secrets", "describe", SCHEDULER_SECRET_NAME, f"--project={PROJECT}"]) != 0:
+        if _run(["gcloud", "secrets", "create", SCHEDULER_SECRET_NAME, f"--project={PROJECT}"]) != 0:
+            return 1
+
+    versions = subprocess.run(
+        [_gcloud(), "secrets", "versions", "list", SCHEDULER_SECRET_NAME, f"--project={PROJECT}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if versions.returncode != 0 or not versions.stdout.strip():
+        import secrets
+
+        token = secrets.token_urlsafe(32)
+        tmp = Path(".cursor/eir-scheduler-secret.tmp")
+        tmp.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(token, encoding="utf-8")
+        code = _run(
+            [
+                "gcloud",
+                "secrets",
+                "versions",
+                "add",
+                SCHEDULER_SECRET_NAME,
+                f"--project={PROJECT}",
+                f"--data-file={tmp}",
+            ]
+        )
+        tmp.unlink(missing_ok=True)
+        if code != 0:
+            return code
+    _run(
+        [
+            "gcloud",
+            "secrets",
+            "add-iam-policy-binding",
+            SCHEDULER_SECRET_NAME,
             f"--project={PROJECT}",
             f"--member=serviceAccount:{RUNTIME_SA}",
             "--role=roles/secretmanager.secretAccessor",
@@ -323,7 +376,7 @@ def _deploy_api(shared_env: list[str]) -> int:
             "--max-instances=3",
             f"--env-vars-file={env_file}",
             "--set-secrets",
-            "GOOGLE_API_KEY=eir-gemini-api-key:latest",
+            DEPLOY_SECRETS,
         ]
     )
 
@@ -352,7 +405,7 @@ def _deploy_worker(shared_env: list[str]) -> int:
             "--no-cpu-throttling",
             f"--env-vars-file={env_file}",
             "--set-secrets",
-            "GOOGLE_API_KEY=eir-gemini-api-key:latest",
+            DEPLOY_SECRETS,
         ]
     )
 
@@ -382,7 +435,7 @@ def main() -> int:
     parser.add_argument(
         "--services-only",
         action="store_true",
-        help="Skip provision steps (artifact registry, IAM, secrets). Use in CI.",
+        help="Skip artifact registry and secret bootstrap. IAM roles still applied. Use in CI.",
     )
     args = parser.parse_args()
 
@@ -390,9 +443,9 @@ def main() -> int:
     api_url = _service_url(API_SERVICE, project_number)
     shared_env = _shared_env(project_number)
 
-    steps = []
+    steps: list = [_ensure_runtime_service_account]
     if not args.services_only:
-        steps.extend([_ensure_artifact_registry, _ensure_runtime_service_account, _ensure_secret])
+        steps.extend([_ensure_artifact_registry, _ensure_secret, _ensure_scheduler_secret])
     steps.extend(
         [
             _build_backend_image,

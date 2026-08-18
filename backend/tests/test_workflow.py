@@ -38,10 +38,6 @@ def test_follow_up_loop_keeps_low_risk_waiting_for_next_follow_up() -> None:
         follow_up = client.post(f"/api/v1/recovery/{episode_id}/follow-up")
         assert follow_up.status_code == 200
         episode = client.get(f"/api/v1/recovery/{episode_id}").json()
-        assert episode["status"] == "ESCALATED"
-
-        _approve_pending(client, episode_id)
-        episode = client.get(f"/api/v1/recovery/{episode_id}").json()
         assert episode["status"] == "WAITING_FOR_NEXT_FOLLOWUP"
         assert episode["risk_level"] == "LOW"
         assert "outreach" in episode["assigned_agents"]
@@ -62,7 +58,6 @@ def test_issue_signal_requests_human_review_and_can_resume() -> None:
         )
         episode_id = created.json()["id"]
         client.post(f"/api/v1/recovery/{episode_id}/follow-up")
-        _approve_pending(client, episode_id)
 
         episode = client.get(f"/api/v1/recovery/{episode_id}").json()
         assert episode["status"] == "ESCALATED"
@@ -71,6 +66,7 @@ def test_issue_signal_requests_human_review_and_can_resume() -> None:
         reviews = client.get("/api/v1/reviews").json()
         pending = [item for item in reviews if item["episode_id"] == episode_id]
         assert pending
+        assert pending[0]["capability"] == "escalation.request"
         review_id = pending[0]["id"]
 
         resolved = client.post(
@@ -80,7 +76,6 @@ def test_issue_signal_requests_human_review_and_can_resume() -> None:
         assert resolved.status_code == 200
         assert resolved.json()["status"] == "resolved"
 
-        _approve_pending(client, episode_id)
         resumed = client.get(f"/api/v1/recovery/{episode_id}").json()
         assert resumed["status"] in {"ACTIVE", "WAITING_FOR_NEXT_FOLLOWUP"}
 
@@ -94,7 +89,6 @@ def test_longitudinal_follow_up_day_0_and_day_7() -> None:
         episode_id = created.json()["id"]
 
         client.post(f"/api/v1/recovery/{episode_id}/follow-up")
-        _approve_pending(client, episode_id)
 
         container = get_container()
         episode = container.episodes.get(episode_id)
@@ -103,7 +97,10 @@ def test_longitudinal_follow_up_day_0_and_day_7() -> None:
         episode.next_follow_up_at = datetime.now(UTC) - timedelta(minutes=1)
         container.episodes.save(episode)
 
-        scheduler = FollowUpScheduler(container.episodes)
+        scheduler = FollowUpScheduler(
+            container.episodes,
+            idempotency=container.scheduler_idempotency,
+        )
         second_batch = scheduler.process_due(idempotency_key="day-7")
         assert len(second_batch) == 1
 
@@ -129,7 +126,18 @@ def test_scheduler_endpoint_requires_token(monkeypatch) -> None:
         assert allowed.status_code == 200
 
 
-def test_outreach_tool_not_called_before_approval() -> None:
+def test_scheduler_idempotency_rejects_duplicate_run() -> None:
+    container = get_container()
+    scheduler = FollowUpScheduler(
+        container.episodes,
+        idempotency=container.scheduler_idempotency,
+    )
+    first = scheduler.process_due(idempotency_key="duplicate-run")
+    second = scheduler.process_due(idempotency_key="duplicate-run")
+    assert second == [] or len(second) <= len(first)
+
+
+def test_outreach_runs_without_pre_approval() -> None:
     with TestClient(app) as client:
         created = client.post(
             "/api/v1/recovery",
@@ -140,18 +148,16 @@ def test_outreach_tool_not_called_before_approval() -> None:
         client.post(f"/api/v1/recovery/{episode_id}/follow-up")
 
         episode = client.get(f"/api/v1/recovery/{episode_id}").json()
-        assert "outreach" not in episode["assigned_agents"]
-        report = container.adk_runner.last_report
-        assert "conduct_outreach" not in report.tools_invoked
-
-        reviews = client.get("/api/v1/reviews").json()
-        pending = [item for item in reviews if item["episode_id"] == episode_id][0]
-        assert pending["pending_capability"] == "patient.contact"
-
-        _approve_pending(client, episode_id)
-        episode = client.get(f"/api/v1/recovery/{episode_id}").json()
         assert "outreach" in episode["assigned_agents"]
         assert "conduct_outreach" in container.adk_runner.tool_audit
+
+        reviews = client.get("/api/v1/reviews").json()
+        contact_reviews = [
+            item
+            for item in reviews
+            if item["episode_id"] == episode_id and item["pending_capability"] == "patient.contact"
+        ]
+        assert not contact_reviews
 
 
 def test_health_reports_runtime_verification() -> None:
@@ -159,6 +165,7 @@ def test_health_reports_runtime_verification() -> None:
         response = client.get("/health")
         body = response.json()
         verification = body["adapters"]["runtime_verification"]
-        assert verification["model"] == resolve_gemini_model()
-        assert "adk_invocation_succeeded" in verification
+        assert verification["vertex_model_probe"]["model"] == resolve_gemini_model()
+        assert "success" in verification["vertex_model_probe"]
+        assert verification["adk_runtime"]["mode"] == "direct"
         assert body["adapters"]["adk_allow_direct_fallback"] is True

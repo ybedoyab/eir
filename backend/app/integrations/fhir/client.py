@@ -217,8 +217,6 @@ class GoogleHealthcareFhirClient:
         episode_id: str,
         reason: str,
     ) -> dict[str, Any]:
-        from uuid import uuid4
-
         patient = self._resolve_patient(patient_id)
         if patient and patient.get("id"):
             patient_ref = f"Patient/{patient['id']}"
@@ -226,7 +224,6 @@ class GoogleHealthcareFhirClient:
             patient_ref = f"Patient/{patient_id}"
         resource = {
             "resourceType": "Appointment",
-            "id": f"appt-{uuid4().hex[:12]}",
             "status": "proposed",
             "description": reason,
             "participant": [{"actor": {"reference": patient_ref}, "status": "needs-action"}],

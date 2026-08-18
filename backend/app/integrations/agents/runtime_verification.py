@@ -1,4 +1,4 @@
-"""Runtime verification for ADK / Vertex enterprise configuration."""
+"""Runtime verification for Vertex model access and ADK configuration."""
 
 from __future__ import annotations
 
@@ -18,8 +18,10 @@ logger = logging.getLogger("eir.runtime_verification")
 @dataclass(frozen=True)
 class RuntimeVerification:
     model: str
-    adk_invocation_succeeded: bool
-    enterprise_endpoint_active: bool
+    vertex_model_probe_success: bool
+    vertex_configured: bool
+    enterprise_configured: bool
+    managed_agent_runtime_verified: bool
     adk_runner_mode: str
     adk_allow_direct_fallback: bool
     probe_error: str | None = None
@@ -40,8 +42,10 @@ def verify_runtime(
     if skip_probe or adk_runner_mode == "direct":
         return RuntimeVerification(
             model=model,
-            adk_invocation_succeeded=adk_runner_mode == "direct",
-            enterprise_endpoint_active=False,
+            vertex_model_probe_success=adk_runner_mode == "direct",
+            vertex_configured=use_vertexai,
+            enterprise_configured=use_enterprise,
+            managed_agent_runtime_verified=False,
             adk_runner_mode=adk_runner_mode,
             adk_allow_direct_fallback=adk_allow_direct_fallback,
         )
@@ -66,8 +70,10 @@ def verify_runtime(
             logger.warning("Gemini probe unexpected response: %s", response.text)
         return RuntimeVerification(
             model=model,
-            adk_invocation_succeeded=True,
-            enterprise_endpoint_active=use_vertexai,
+            vertex_model_probe_success=True,
+            vertex_configured=use_vertexai,
+            enterprise_configured=use_enterprise,
+            managed_agent_runtime_verified=False,
             adk_runner_mode=adk_runner_mode,
             adk_allow_direct_fallback=adk_allow_direct_fallback,
         )
@@ -75,8 +81,10 @@ def verify_runtime(
         logger.exception("Runtime verification probe failed")
         return RuntimeVerification(
             model=model or DEFAULT_GEMINI_MODEL,
-            adk_invocation_succeeded=False,
-            enterprise_endpoint_active=False,
+            vertex_model_probe_success=False,
+            vertex_configured=use_vertexai,
+            enterprise_configured=use_enterprise,
+            managed_agent_runtime_verified=False,
             adk_runner_mode=adk_runner_mode,
             adk_allow_direct_fallback=adk_allow_direct_fallback,
             probe_error=str(exc),

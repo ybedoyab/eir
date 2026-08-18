@@ -37,7 +37,10 @@ async def create_recovery(body: CreateRecoveryRequest) -> RecoveryEpisode:
         next_follow_up_at=body.next_follow_up_at,
         assigned_agents=body.assigned_agents,
     )
-    FollowUpScheduler(container.episodes).ensure_schedule(episode)
+    FollowUpScheduler(
+        container.episodes,
+        idempotency=container.scheduler_idempotency,
+    ).ensure_schedule(episode)
     # Publish and return. Do not run the multi-day workflow in this request.
     await container.event_bus.publish(event)
     return episode
@@ -85,7 +88,10 @@ async def process_due_follow_ups(
     if settings.scheduler_secret and scheduler_token != settings.scheduler_secret:
         raise HTTPException(status_code=401, detail="Invalid scheduler token")
     container = get_container()
-    scheduler = FollowUpScheduler(container.episodes)
+    scheduler = FollowUpScheduler(
+        container.episodes,
+        idempotency=container.scheduler_idempotency,
+    )
     events = scheduler.process_due(idempotency_key=idempotency_key)
     for event in events:
         await container.event_bus.publish(event)

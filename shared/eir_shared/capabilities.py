@@ -22,15 +22,15 @@ class Capability(StrEnum):
     RECOVERY_ORCHESTRATE = "recovery.orchestrate"
 
 
-# Capabilities that must pass the safety gate and may require human approval.
-HIGH_RISK_CAPABILITIES: frozenset[str] = frozenset(
+# Capabilities that require clinician PRE-approval before domain tools run.
+PRE_APPROVAL_CAPABILITIES: frozenset[str] = frozenset(
     {
-        Capability.PATIENT_CONTACT,
         Capability.OBSERVATION_WRITE,
-        Capability.APPOINTMENT_SCHEDULE,
-        Capability.ESCALATION_REQUEST,
     }
 )
+
+# Backward-compatible alias for docs and policy references.
+HIGH_RISK_CAPABILITIES = PRE_APPROVAL_CAPABILITIES
 
 # These pause the episode until a clinician resolves a review.
 BLOCKING_CAPABILITIES: frozenset[str] = frozenset(

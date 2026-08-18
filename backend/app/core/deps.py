@@ -42,6 +42,7 @@ from app.repositories.recovery_repository import (
     RecoveryEpisodeRepository,
 )
 from app.repositories.review_repository import InMemoryReviewRepository
+from app.repositories.scheduler_idempotency import build_scheduler_idempotency_store
 
 MOCKS_DIR = Path(__file__).resolve().parents[3] / "mocks"
 logger = logging.getLogger("eir.deps")
@@ -147,12 +148,17 @@ class Container:
             self.logger = StructuredLogger("eir")
 
         self.store_mode = store_mode if not testing else "memory"
+        self.scheduler_idempotency = build_scheduler_idempotency_store(
+            firestore_client=firestore_client,
+            testing=testing,
+        )
         prefer_managed = settings.environment == "production" and not testing
         armor = build_content_guard(
             project=settings.google_cloud_project,
             location=settings.google_cloud_location,
             prefer_vertex=prefer_managed and settings.google_genai_use_vertexai,
         )
+        self.content_guard = armor
         self.agent_memory = build_agent_memory(
             firestore_client=firestore_client,
             prefer_agent_engine=prefer_managed and settings.google_genai_use_enterprise,
@@ -230,16 +236,25 @@ class Container:
             "pubsub_sink": self.pubsub_sink,
             "pubsub_handle": self.pubsub_handle,
             "agent_memory_adapter": getattr(self.agent_memory, "adapter_name", "unknown"),
+            "content_guard_adapter": getattr(self.content_guard, "adapter_name", "unknown"),
             "runtime_verification": {
-                "model": verification.model,
-                "adk_invocation_succeeded": verification.adk_invocation_succeeded,
-                "enterprise_endpoint_active": verification.enterprise_endpoint_active,
-                "probe_error": verification.probe_error,
+                "vertex_model_probe": {
+                    "model": verification.model,
+                    "success": verification.vertex_model_probe_success,
+                    "error": verification.probe_error,
+                },
+                "adk_runtime": {
+                    "mode": verification.adk_runner_mode,
+                    "allow_direct_fallback": verification.adk_allow_direct_fallback,
+                },
+                "enterprise": {
+                    "configured": verification.enterprise_configured,
+                    "managed_agent_runtime_verified": verification.managed_agent_runtime_verified,
+                },
             },
             "last_adk_run": {
                 "mode": report.mode,
-                "adk_invocation_succeeded": report.adk_invocation_succeeded,
-                "enterprise_endpoint_active": report.enterprise_endpoint_active,
+                "last_invocation_success": report.adk_invocation_succeeded,
                 "tools_invoked": report.tools_invoked,
                 "used_direct_fallback": report.used_direct_fallback,
                 "error": report.error,

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from eir_shared.capabilities import HIGH_RISK_CAPABILITIES
+from eir_shared.capabilities import PRE_APPROVAL_CAPABILITIES
 from eir_shared.identity import AgentIdentity, AuthorizationPolicy, PolicyDecision
 
 
@@ -41,7 +41,7 @@ class SafetyGate:
         if not decision.allowed:
             return decision
 
-        if capability in HIGH_RISK_CAPABILITIES:
+        if capability in PRE_APPROVAL_CAPABILITIES:
             return PolicyDecision(
                 allowed=True,
                 requires_human_approval=True,
