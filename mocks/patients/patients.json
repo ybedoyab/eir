@@ -12,5 +12,75 @@
     "date_of_birth": "1975-11-03",
     "preferred_language": "en",
     "preferred_contact_channel": "sms"
+  },
+  {
+    "id": "patient-synthetic-003",
+    "name": "Sofia Martinez",
+    "date_of_birth": "1991-06-18",
+    "preferred_language": "en",
+    "preferred_contact_channel": "email"
+  },
+  {
+    "id": "patient-synthetic-004",
+    "name": "Marcus Thompson",
+    "date_of_birth": "1968-02-09",
+    "preferred_language": "en",
+    "preferred_contact_channel": "voice"
+  },
+  {
+    "id": "patient-synthetic-005",
+    "name": "Priya Shah",
+    "date_of_birth": "1984-09-27",
+    "preferred_language": "en",
+    "preferred_contact_channel": "sms"
+  },
+  {
+    "id": "patient-synthetic-006",
+    "name": "Elena Garcia",
+    "date_of_birth": "1959-12-01",
+    "preferred_language": "en",
+    "preferred_contact_channel": "voice"
+  },
+  {
+    "id": "patient-synthetic-007",
+    "name": "Noah Williams",
+    "date_of_birth": "1996-03-22",
+    "preferred_language": "en",
+    "preferred_contact_channel": "email"
+  },
+  {
+    "id": "patient-synthetic-008",
+    "name": "Mei Chen",
+    "date_of_birth": "1980-07-14",
+    "preferred_language": "en",
+    "preferred_contact_channel": "sms"
+  },
+  {
+    "id": "patient-synthetic-009",
+    "name": "Amina Hassan",
+    "date_of_birth": "1972-01-30",
+    "preferred_language": "en",
+    "preferred_contact_channel": "email"
+  },
+  {
+    "id": "patient-synthetic-010",
+    "name": "Daniel Brooks",
+    "date_of_birth": "1964-05-08",
+    "preferred_language": "en",
+    "preferred_contact_channel": "voice"
+  },
+  {
+    "id": "patient-synthetic-011",
+    "name": "Leah Okonkwo",
+    "date_of_birth": "1993-10-05",
+    "preferred_language": "en",
+    "preferred_contact_channel": "sms"
+  },
+  {
+    "id": "patient-synthetic-012",
+    "name": "Henrik Larsen",
+    "date_of_birth": "1986-08-19",
+    "preferred_language": "en",
+    "preferred_contact_channel": "email"
   }
 ]

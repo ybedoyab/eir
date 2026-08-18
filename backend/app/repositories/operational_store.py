@@ -54,6 +54,24 @@ class InMemoryOperationalSchedulingStore:
             return [item for item in items if item.patient_id == patient_id]
         return items
 
+    def upsert_waitlist(self, request: WaitlistRequest) -> WaitlistRequest:
+        payload = request.model_dump(mode="json")
+        for index, item in enumerate(self._waitlist):
+            if item.get("id") == request.id:
+                self._waitlist[index] = payload
+                return request
+        self._waitlist.append(payload)
+        return request
+
+    def upsert_reminder(self, reminder: AppointmentReminder) -> AppointmentReminder:
+        payload = reminder.model_dump(mode="json")
+        for index, item in enumerate(self._reminders):
+            if item.get("id") == reminder.id:
+                self._reminders[index] = payload
+                return reminder
+        self._reminders.append(payload)
+        return reminder
+
 
 class FirestoreOperationalSchedulingStore:
     def __init__(self, client: Any) -> None:
@@ -101,3 +119,11 @@ class FirestoreOperationalSchedulingStore:
         else:
             docs = self._reminders.stream()
         return [AppointmentReminder.model_validate(doc.to_dict() or {}) for doc in docs]
+
+    def upsert_waitlist(self, request: WaitlistRequest) -> WaitlistRequest:
+        self._waitlist.document(request.id).set(request.model_dump(mode="json"))
+        return request
+
+    def upsert_reminder(self, reminder: AppointmentReminder) -> AppointmentReminder:
+        self._reminders.document(reminder.id).set(reminder.model_dump(mode="json"))
+        return reminder

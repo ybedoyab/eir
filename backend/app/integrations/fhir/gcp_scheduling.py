@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -495,9 +495,18 @@ class GcpSchedulingClient:
         appointments = self.list_all_appointments()
         slots = self._search("Slot", {"status": SlotStatus.FREE.value})
         today = datetime.now(UTC).date()
+        week = today + timedelta(days=7)
         return {
             "today_appointments": len(
                 [item for item in appointments if item.start.date() == today]
+            ),
+            "next_7_days": len(
+                [
+                    item
+                    for item in appointments
+                    if item.status != AppointmentStatus.CANCELLED
+                    and today <= item.start.date() <= week
+                ]
             ),
             "open_slots": len(slots),
             "rescheduled_today": 0,

@@ -58,7 +58,7 @@ def search_availability(
     location_id: str = "",
     practitioner_id: str = "",
     time_of_day: str = "any",
-    limit: int = 6,
+    limit: int = 24,
 ) -> list[dict]:
     params = SlotSearchParams(
         patient_id=str(claims["patient_id"]),

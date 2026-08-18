@@ -8,11 +8,21 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from eir_shared.demo_hospital import (
+    PATIENTS,
+    build_appointments,
+    build_slots,
+    location_fhir,
+    patient_fhir,
+    practitioner_fhir,
+    practitioner_role_fhir,
+    schedule_fhir,
+    service_fhir,
+)
 from eir_shared.env import load_root_env, repo_root
 
 from app.core.config import settings
 from app.integrations.fhir.client import GoogleHealthcareFhirClient
-from app.integrations.fhir.gcp_scheduling import _with_extensions
 
 _SEED_ORDER = (
     "patient.json",
@@ -45,16 +55,19 @@ def _load_json_list(path: Path) -> list[dict[str, Any]]:
     return payload if isinstance(payload, list) else []
 
 
-def _hospital_resources(hospital_dir: Path) -> list[dict[str, Any]]:
+def _hospital_resources(_hospital_dir: Path) -> list[dict[str, Any]]:
+    from app.integrations.fhir.gcp_scheduling import _with_extensions
+
     resources: list[dict[str, Any]] = []
-    for filename in (
-        "practitioners.json",
-        "locations.json",
-        "healthcare-services.json",
-        "schedules.json",
-    ):
-        resources.extend(_load_json_list(hospital_dir / filename))
-    for raw in _load_json_list(hospital_dir / "slots.json"):
+    resources.extend(patient_fhir(item) for item in PATIENTS)
+    resources.extend(practitioner_fhir())
+    resources.extend(location_fhir())
+    resources.extend(service_fhir())
+    resources.extend(practitioner_role_fhir())
+    resources.extend(schedule_fhir())
+    slots = build_slots()
+    appointments = build_appointments(slots)
+    for raw in slots:
         slot = {
             "resourceType": "Slot",
             "id": raw["id"],
@@ -74,7 +87,7 @@ def _hospital_resources(hospital_dir: Path) -> list[dict[str, Any]]:
             appointment_type=str(raw.get("appointment_type", "routine")),
         )
         resources.append(slot)
-    for raw in _load_json_list(hospital_dir / "appointments.json"):
+    for raw in appointments:
         patient_ref = f"Patient/{raw['patient_id']}"
         appointment = {
             "resourceType": "Appointment",
@@ -91,6 +104,8 @@ def _hospital_resources(hospital_dir: Path) -> list[dict[str, Any]]:
                 },
             ],
         }
+        if raw.get("cancellation_reason"):
+            appointment["cancelationReason"] = {"text": raw["cancellation_reason"]}
         _with_extensions(
             appointment,
             synthetic_patient_id=str(raw["patient_id"]),
@@ -110,6 +125,7 @@ def _ordered_resources(resources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     priority = {
         "Patient": 0,
         "Practitioner": 1,
+        "PractitionerRole": 1,
         "Location": 1,
         "HealthcareService": 1,
         "Schedule": 2,

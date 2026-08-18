@@ -220,6 +220,7 @@ class Container:
             self.access_sessions = InMemoryPatientAccessSessionRepository()
             operational_store = InMemoryOperationalSchedulingStore()
         fhir = _build_fhir_client(testing=testing, operational_store=operational_store)
+        self.operational = operational_store
         self.fhir = fhir
         self.fhir_mode = "local" if testing else settings.fhir_mode
         self.appointments = AppointmentService(fhir)
@@ -355,6 +356,13 @@ class Container:
         patients_path = MOCKS_DIR / "patients" / "patients.json"
         if patients_path.exists():
             self.patients.seed_from_file(patients_path)
+        from app.demo_ops import apply_demo_operations
+
+        apply_demo_operations(
+            episodes=self.episodes,
+            reviews=self.reviews,
+            operational=getattr(self, "operational", None),
+        )
 
 
 def _build_voice(*, testing: bool) -> Any:

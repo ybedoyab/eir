@@ -76,8 +76,10 @@ class HospitalSchedulingStore:
     def __init__(self, hospital_dir: Path | None = None) -> None:
         self._dir = hospital_dir or _default_hospital_dir()
         self._lock = threading.RLock()
-        self._slots = self._load_list("slots.json")
-        self._appointments = self._load_list("appointments.json")
+        from eir_shared.demo_hospital import build_appointments, build_slots
+
+        self._slots = build_slots()
+        self._appointments = build_appointments(self._slots)
         self._waitlist = self._load_list("waitlist.json")
         self._reminders = self._load_list("reminders.json")
         self._idempotency: dict[str, str] = {}
@@ -289,15 +291,25 @@ class HospitalSchedulingStore:
         free_slots = len([item for item in self._slots if item.get("status") == "free"])
         today = datetime.now(UTC).date()
         today_appts = len([item for item in appointments if item.start.date() == today])
+        week = today + timedelta(days=7)
+        next_7 = len(
+            [
+                item
+                for item in appointments
+                if item.status != AppointmentStatus.CANCELLED and today <= item.start.date() <= week
+            ]
+        )
         rescheduled = len([key for key in self._idempotency if key.startswith("reschedule:")])
         cancelled = len(
             [item for item in appointments if item.status == AppointmentStatus.CANCELLED]
         )
         return {
             "today_appointments": today_appts,
+            "next_7_days": next_7,
             "open_slots": free_slots,
             "rescheduled_today": rescheduled,
             "cancelled_today": cancelled,
+            "waitlist_requests": len(self._waitlist),
         }
 
     def _find_slot(self, slot_id: str) -> dict[str, Any] | None:

@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "id": "demo-waitlist-priya",
+    "patient_id": "patient-synthetic-005",
+    "appointment_id": "appt-demo-priya-primary-next",
+    "specialty": "Primary Care",
+    "status": "active"
+  },
+  {
+    "id": "demo-waitlist-leah",
+    "patient_id": "patient-synthetic-011",
+    "appointment_id": "appt-demo-leah-derm-next",
+    "specialty": "Dermatology",
+    "status": "active"
+  }
+]

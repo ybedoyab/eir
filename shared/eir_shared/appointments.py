@@ -63,7 +63,7 @@ class SlotSearchParams(BaseModel):
     end_date: datetime | None = None
     time_of_day: str = "any"
     appointment_type: str = "routine"
-    limit: int = 6
+    limit: int = 24
 
 
 class WaitlistRequest(BaseModel):
