@@ -66,10 +66,13 @@ jobs:
       - name: Sync Voximplant scenario
         env:
           VOXIMPLANT_CREDENTIALS: ${{ secrets.VOXIMPLANT_CREDENTIALS }}
+          CREDS_FILE: ${{ runner.temp }}/voximplant-admin.json
         run: |
           if [ -z "$VOXIMPLANT_CREDENTIALS" ]; then
             echo "MANUAL_ACTION_REQUIRED: set GitHub secret VOXIMPLANT_CREDENTIALS"
             echo "Use the local Admin bootstrap JSON. Never bind it to Cloud Run."
             exit 1
           fi
-          uv run python infra/voximplant/provision.py --sync-scenario
+          python -c "import os, pathlib; pathlib.Path(os.environ['CREDS_FILE']).write_text(os.environ['VOXIMPLANT_CREDENTIALS'], encoding='utf-8')"
+          export VOXIMPLANT_CREDENTIALS="$CREDS_FILE"
+          uv run --package eir-backend python infra/voximplant/provision.py --sync-scenario

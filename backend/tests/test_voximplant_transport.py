@@ -131,5 +131,6 @@ def test_provisioner_can_sync_scenario_without_pstn_secrets() -> None:
     assert "--sync-scenario" in source
     assert "def sync_scenario" in source
     assert "provision.py --sync-scenario" in workflow
+    assert "uv run --package eir-backend" in workflow
     assert "VOXIMPLANT_CREDENTIALS" in workflow
     assert "infra/gcp/deploy.py --services-only" in workflow
