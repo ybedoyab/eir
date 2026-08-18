@@ -72,7 +72,7 @@ class Container:
             use_vertexai=settings.google_genai_use_vertexai,
             use_enterprise=settings.google_genai_use_enterprise,
             project=settings.google_cloud_project,
-            location=settings.google_cloud_location,
+            infra_location=settings.google_cloud_location,
             api_key=settings.google_api_key or None,
         )
         testing = _in_pytest()
@@ -213,7 +213,8 @@ class Container:
             use_vertexai=settings.google_genai_use_vertexai,
             use_enterprise=settings.google_genai_use_enterprise,
             project=settings.google_cloud_project,
-            location=settings.google_cloud_location,
+            infra_location=settings.google_cloud_location,
+            gemini_location=settings.gemini_location,
             api_key=settings.google_api_key,
             skip_probe=testing,
         )
@@ -240,15 +241,20 @@ class Container:
             "runtime_verification": {
                 "vertex_model_probe": {
                     "model": verification.model,
+                    "location": verification.gemini_location,
                     "success": verification.vertex_model_probe_success,
                     "error": verification.probe_error,
                 },
                 "adk_runtime": {
                     "mode": verification.adk_runner_mode,
                     "allow_direct_fallback": verification.adk_allow_direct_fallback,
+                    "last_invocation_success": report.adk_invocation_succeeded,
+                    "tools_invoked": report.tools_invoked,
+                    "used_direct_fallback": report.used_direct_fallback,
                 },
                 "enterprise": {
                     "configured": verification.enterprise_configured,
+                    "runtime_region": verification.infra_location,
                     "managed_agent_runtime_verified": verification.managed_agent_runtime_verified,
                 },
             },

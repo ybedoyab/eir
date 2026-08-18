@@ -9,7 +9,11 @@ from typing import Any
 
 from eir_shared.capabilities import Capability
 from eir_shared.events import DomainEvent
-from eir_shared.gemini_config import configure_genai_environment, resolve_gemini_model
+from eir_shared.gemini_config import (
+    configure_genai_environment,
+    gemini_model_call_context,
+    resolve_gemini_model,
+)
 from eir_shared.memory import AgentMemory
 
 from eir_agents.common.types import HandlerResult
@@ -131,12 +135,6 @@ class AdkAgentRunner:
         )
         tools = toolkit.tools_for_capability()
         agent = self._agent_for(ctx.capability, tools)
-        runner = Runner(
-            agent=agent,
-            app_name="eir-recovery",
-            session_service=InMemorySessionService(),
-            auto_create_session=True,
-        )
         required_tool = toolkit.required_tool()
         prompt = (
             "Execute the delegated recovery workflow step using domain tools only. "
@@ -148,15 +146,22 @@ class AdkAgentRunner:
             f"patient_id={ctx.patient_id}\n"
             f"payload={json.dumps(ctx.event.payload)}"
         )
-        async for _event in runner.run_async(
-            user_id=ctx.episode_id,
-            session_id=f"{ctx.episode_id}:{ctx.capability}:{ctx.event.event_id}",
-            new_message=types.Content(
-                role="user",
-                parts=[types.Part(text=prompt)],
-            ),
-        ):
-            pass
+        with gemini_model_call_context():
+            runner = Runner(
+                agent=agent,
+                app_name="eir-recovery",
+                session_service=InMemorySessionService(),
+                auto_create_session=True,
+            )
+            async for _event in runner.run_async(
+                user_id=ctx.episode_id,
+                session_id=f"{ctx.episode_id}:{ctx.capability}:{ctx.event.event_id}",
+                new_message=types.Content(
+                    role="user",
+                    parts=[types.Part(text=prompt)],
+                ),
+            ):
+                pass
 
         if required_tool not in toolkit.tools_invoked:
             raise RuntimeError(

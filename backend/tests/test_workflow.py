@@ -166,6 +166,8 @@ def test_health_reports_runtime_verification() -> None:
         body = response.json()
         verification = body["adapters"]["runtime_verification"]
         assert verification["vertex_model_probe"]["model"] == resolve_gemini_model()
+        assert verification["vertex_model_probe"]["location"] == "global"
         assert "success" in verification["vertex_model_probe"]
+        assert verification["enterprise"]["runtime_region"] == "us-central1"
         assert verification["adk_runtime"]["mode"] == "direct"
         assert body["adapters"]["adk_allow_direct_fallback"] is True

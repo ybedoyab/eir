@@ -9,6 +9,7 @@ from eir_shared.gemini_config import (
     DEFAULT_GEMINI_MODEL,
     configure_genai_environment,
     genai_client_kwargs,
+    resolve_gemini_location,
     resolve_gemini_model,
 )
 
@@ -18,6 +19,8 @@ logger = logging.getLogger("eir.runtime_verification")
 @dataclass(frozen=True)
 class RuntimeVerification:
     model: str
+    gemini_location: str
+    infra_location: str
     vertex_model_probe_success: bool
     vertex_configured: bool
     enterprise_configured: bool
@@ -34,14 +37,18 @@ def verify_runtime(
     use_vertexai: bool,
     use_enterprise: bool,
     project: str,
-    location: str,
+    infra_location: str,
+    gemini_location: str,
     api_key: str,
     skip_probe: bool = False,
 ) -> RuntimeVerification:
     model = resolve_gemini_model()
+    gemini_location = gemini_location or resolve_gemini_location()
     if skip_probe or adk_runner_mode == "direct":
         return RuntimeVerification(
             model=model,
+            gemini_location=gemini_location,
+            infra_location=infra_location,
             vertex_model_probe_success=adk_runner_mode == "direct",
             vertex_configured=use_vertexai,
             enterprise_configured=use_enterprise,
@@ -54,13 +61,19 @@ def verify_runtime(
         use_vertexai=use_vertexai,
         use_enterprise=use_enterprise,
         project=project,
-        location=location,
+        infra_location=infra_location,
         api_key=api_key or None,
     )
     try:
         from google import genai
 
-        client = genai.Client(**genai_client_kwargs(api_key=api_key or None))
+        client = genai.Client(
+            **genai_client_kwargs(
+                api_key=api_key or None,
+                project=project,
+                location=gemini_location,
+            )
+        )
         response = client.models.generate_content(
             model=model,
             contents="Reply with exactly: ok",
@@ -70,6 +83,8 @@ def verify_runtime(
             logger.warning("Gemini probe unexpected response: %s", response.text)
         return RuntimeVerification(
             model=model,
+            gemini_location=gemini_location,
+            infra_location=infra_location,
             vertex_model_probe_success=True,
             vertex_configured=use_vertexai,
             enterprise_configured=use_enterprise,
@@ -81,6 +96,8 @@ def verify_runtime(
         logger.exception("Runtime verification probe failed")
         return RuntimeVerification(
             model=model or DEFAULT_GEMINI_MODEL,
+            gemini_location=gemini_location,
+            infra_location=infra_location,
             vertex_model_probe_success=False,
             vertex_configured=use_vertexai,
             enterprise_configured=use_enterprise,

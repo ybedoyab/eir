@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import sys
 import time
-from pathlib import Path
+from eir_shared.redaction import redact_command_args
 
 PROJECT = "eir-ata"
 REGION = "us-central1"
@@ -39,6 +39,7 @@ BASE_ENV = [
     "PUBSUB_SUBSCRIPTION=eir-recovery-events-worker",
     "OUTREACH_LLM=true",
     "GEMINI_MODEL=gemini-3.5-flash",
+    "GEMINI_LOCATION=global",
     "GOOGLE_GENAI_USE_VERTEXAI=TRUE",
     "GOOGLE_GENAI_USE_ENTERPRISE=TRUE",
     "ADK_RUNNER_MODE=adk",
@@ -63,7 +64,7 @@ def _run(args: list[str], *, ok_codes: set[int] | None = None) -> int:
     ok_codes = ok_codes or {0}
     if args and args[0] == "gcloud":
         args = [_gcloud(), *args[1:]]
-    print("+", " ".join(args), flush=True)
+    print("+", " ".join(redact_command_args(args)), flush=True)
     completed = subprocess.run(args, check=False)
     if completed.returncode not in ok_codes:
         print(f"command failed with {completed.returncode}", file=sys.stderr)

@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 from eir_shared.env import load_root_env
 
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
+DEFAULT_GEMINI_LOCATION = "global"
+DEFAULT_INFRA_LOCATION = "us-central1"
 
 
 def resolve_gemini_model(explicit: str | None = None) -> str:
@@ -15,6 +19,20 @@ def resolve_gemini_model(explicit: str | None = None) -> str:
         return explicit
     load_root_env()
     return os.getenv("GEMINI_MODEL") or DEFAULT_GEMINI_MODEL
+
+
+def resolve_gemini_location(explicit: str | None = None) -> str:
+    if explicit:
+        return explicit
+    load_root_env()
+    return os.getenv("GEMINI_LOCATION") or DEFAULT_GEMINI_LOCATION
+
+
+def resolve_infra_location(explicit: str | None = None) -> str:
+    if explicit:
+        return explicit
+    load_root_env()
+    return os.getenv("GOOGLE_CLOUD_LOCATION") or DEFAULT_INFRA_LOCATION
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -29,7 +47,7 @@ def configure_genai_environment(
     use_vertexai: bool | None = None,
     use_enterprise: bool | None = None,
     project: str | None = None,
-    location: str | None = None,
+    infra_location: str | None = None,
     api_key: str | None = None,
 ) -> None:
     """Apply official GOOGLE_GENAI_* env vars before creating genai / ADK clients."""
@@ -42,8 +60,8 @@ def configure_genai_environment(
     os.environ["GOOGLE_GENAI_USE_ENTERPRISE"] = "TRUE" if enterprise else "FALSE"
     if project:
         os.environ["GOOGLE_CLOUD_PROJECT"] = project
-    if location:
-        os.environ["GOOGLE_CLOUD_LOCATION"] = location
+    os.environ["GOOGLE_CLOUD_LOCATION"] = infra_location or resolve_infra_location()
+    os.environ["GEMINI_LOCATION"] = resolve_gemini_location()
     if api_key:
         os.environ["GOOGLE_API_KEY"] = api_key
 
@@ -56,12 +74,29 @@ def genai_client_kwargs(
 ) -> dict[str, Any]:
     """Keyword args for ``google.genai.Client`` based on current env."""
     load_root_env()
-    configure_genai_environment(project=project, location=location, api_key=api_key)
+    configure_genai_environment(
+        project=project,
+        infra_location=resolve_infra_location(),
+        api_key=api_key,
+    )
     if _env_bool("GOOGLE_GENAI_USE_VERTEXAI"):
         return {
             "vertexai": True,
             "project": project or os.getenv("GOOGLE_CLOUD_PROJECT") or "",
-            "location": location or os.getenv("GOOGLE_CLOUD_LOCATION") or "us-central1",
+            "location": location or resolve_gemini_location(),
         }
     key = api_key or os.getenv("GOOGLE_API_KEY") or ""
     return {"api_key": key}
+
+
+@contextmanager
+def gemini_model_call_context(*, infra_location: str | None = None) -> Iterator[str]:
+    """Temporarily point GenAI/ADK at the Gemini model region without moving infra."""
+    load_root_env()
+    model_location = resolve_gemini_location()
+    restore = infra_location or resolve_infra_location()
+    os.environ["GOOGLE_CLOUD_LOCATION"] = model_location
+    try:
+        yield model_location
+    finally:
+        os.environ["GOOGLE_CLOUD_LOCATION"] = restore

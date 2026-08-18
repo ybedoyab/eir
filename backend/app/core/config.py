@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     google_cloud_project: str = "eir-ata"
     google_cloud_location: str = "us-central1"
     gemini_model: str = DEFAULT_GEMINI_MODEL
+    gemini_location: str = "global"
     google_genai_use_vertexai: bool = False
     google_genai_use_enterprise: bool = False
     adk_runner_mode: str = "direct"
