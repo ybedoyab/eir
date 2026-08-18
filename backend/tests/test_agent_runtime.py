@@ -37,6 +37,7 @@ def test_health_flags_are_not_true_from_local_catalog() -> None:
         assert flags["managed_registry_verified"] is False
         assert flags["managed_memory_bank_verified"] is False
         assert flags["managed_agent_identity_verified"] is False
+        assert flags["managed_agent_gateway_verified"] is False
         body = client.get("/api/v1/agents").json()
         names = [item.get("name") or item.get("id") for item in body]
         assert any("patient" in str(name).lower() for name in names if name)

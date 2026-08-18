@@ -32,6 +32,7 @@ export default function AdminFleetPage() {
           <div>Memory Bank: {runtime?.fleet.platform?.managed_memory_bank_verified ? "MANAGED" : "UNVERIFIED"}</div>
           <div>Agent Registry: {runtime?.fleet.platform?.managed_registry_verified ? "MANAGED" : "UNVERIFIED"}</div>
           <div>Agent Identity: {runtime?.fleet.platform?.managed_agent_identity_verified ? "MANAGED" : "UNVERIFIED"}</div>
+          <div>Agent Gateway: {runtime?.fleet.platform?.managed_agent_gateway_verified ? "MANAGED" : "UNVERIFIED"}</div>
           <div>Model Armor: {runtime?.content_guard.managed_model_armor_available ? "MANAGED" : "UNVERIFIED"}</div>
           <div>
             Observability:{" "}

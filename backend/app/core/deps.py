@@ -349,7 +349,6 @@ class Container:
         snapshot["managed_model_armor_verified"] = getattr(
             self.content_guard, "managed_available", False
         )
-        snapshot["managed_agent_gateway_verified"] = False
         return snapshot
 
     def seed(self) -> None:

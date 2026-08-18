@@ -15,7 +15,15 @@ FALSE_FLAGS = {
     "cloud_monitoring_verified": False,
 }
 
-SAFE_ID_KEYS = ("agent_runtime_resource", "registry_urn", "agent_identity_principal")
+SAFE_ID_KEYS = (
+    "agent_runtime_resource",
+    "registry_urn",
+    "agent_identity_principal",
+    "agent_gateway_resource",
+    "agent_gateway_mode",
+    "agent_gateway_authorization",
+    "agent_gateway_model_armor",
+)
 
 
 class InMemoryPlatformVerificationStore:

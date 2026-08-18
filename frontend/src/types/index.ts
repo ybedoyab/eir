@@ -148,6 +148,7 @@ export interface RuntimeStatus {
       managed_memory_bank_verified?: boolean;
       managed_registry_verified?: boolean;
       managed_agent_identity_verified?: boolean;
+      managed_agent_gateway_verified?: boolean;
       managed_model_armor_verified?: boolean;
       otel_cloud_trace_verified?: boolean;
       cloud_logging_verified?: boolean;
