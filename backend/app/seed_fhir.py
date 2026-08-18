@@ -126,7 +126,10 @@ def _ordered_resources(resources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     )
 
 
-def _upsert_resource(client: GoogleHealthcareFhirClient, resource: dict[str, Any]) -> httpx.Response:
+def _upsert_resource(
+    client: GoogleHealthcareFhirClient,
+    resource: dict[str, Any],
+) -> httpx.Response:
     resource_type = str(resource["resourceType"])
     resource_id = str(resource["id"])
     headers = client._headers()
