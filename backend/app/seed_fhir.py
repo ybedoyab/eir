@@ -130,19 +130,16 @@ def _upsert_resource(
     client: GoogleHealthcareFhirClient,
     resource: dict[str, Any],
 ) -> httpx.Response:
+    """Upsert via PUT; GCP Healthcare ignores client ids on POST."""
     resource_type = str(resource["resourceType"])
     resource_id = str(resource["id"])
     headers = client._headers()
-    url = f"{client._base}/{resource_type}/{resource_id}"
-    exists = httpx.get(url, headers=headers, timeout=60)
-    if exists.status_code == 404:
-        return httpx.post(
-            f"{client._base}/{resource_type}",
-            headers=headers,
-            json=resource,
-            timeout=60,
-        )
-    return httpx.put(url, headers=headers, json=resource, timeout=60)
+    return httpx.put(
+        f"{client._base}/{resource_type}/{resource_id}",
+        headers=headers,
+        json=resource,
+        timeout=60,
+    )
 
 
 def main() -> int:
