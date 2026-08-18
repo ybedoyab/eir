@@ -72,7 +72,10 @@ export function eventOutcome(event: { event_type: string; payload: Record<string
     return `Blocked by ${String(event.payload.adapter ?? "content guard")} (${category})`;
   }
   if (event.event_type === "PatientResponded") {
-    return `Channel: ${String(event.payload.channel ?? "unknown")}`;
+    const transcript = String(event.payload.transcript ?? "").trim();
+    return transcript
+      ? `Channel: ${String(event.payload.channel ?? "unknown")} · transcript saved`
+      : `Channel: ${String(event.payload.channel ?? "unknown")}`;
   }
   if (event.event_type === "RiskEscalated") {
     return `Risk level: ${String(event.payload.risk_level ?? "HIGH")}`;
@@ -84,7 +87,8 @@ export function eventOutcome(event: { event_type: string; payload: Record<string
     return `Provider: ${String(event.payload.provider ?? "unknown")}`;
   }
   if (event.event_type === "VoiceCallCompleted") {
-    return "Structured check-in received";
+    const transcript = String(event.payload.transcript ?? "").trim();
+    return transcript ? "Structured check-in and transcript received" : "Structured check-in received";
   }
   if (event.event_type === "VoiceCallFailed") {
     return `Outcome: ${String(event.payload.failure_reason ?? event.payload.state ?? "failed")}`;

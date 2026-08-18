@@ -97,7 +97,7 @@ def test_scenario_shares_gemini_after_transport_split() -> None:
     assert info["trace_disabled"] is True
     assert info["uses_send_realtime_input"] is True
     assert info["starts_media_without_setup_complete"] is False
-    assert info["uses_native_tts_greeting"] is True
+    assert info["uses_native_tts_greeting"] is False
     assert info["binds_media_on_setup_complete"] is True
     pstn_secret = source.find("secret('EIR_DEMO_PHONE_E164')")
     gate = source.find("session.transport !== 'voximplant_user'")
@@ -148,3 +148,17 @@ def test_voice_preview_page_uses_node2_and_not_hosted_webphone() -> None:
     assert "phone.voximplant.com" in page
     assert 'VOX_PREVIEW_NODE = "NODE_2"' in helper
     assert "/voice-preview" in smoke
+
+
+def test_scenario_forwards_transcript_without_logging_it() -> None:
+    source = SCENARIO.read_text(encoding="utf-8")
+    assert "outputAudioTranscription" in source
+    assert "inputAudioTranscription" in source
+    assert "call.sendMessage" in source
+    assert "mergeUtterance" in source
+    assert "transcriptionFinished" in source
+    assert "PlaybackFinished" not in source
+    assert "transcript: transcript" in source
+    assert "Logger.write" not in source
+    assert "privacy: true" in source
+    assert "trace: false" in source

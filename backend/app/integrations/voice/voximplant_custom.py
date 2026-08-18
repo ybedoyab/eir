@@ -113,7 +113,7 @@ def inspect_scenario_source(source: str) -> dict[str, Any]:
         "trace_disabled": "trace: false" in source,
         "uses_send_realtime_input": "sendRealtimeInput" in source,
         "starts_media_without_setup_complete": "startConversation();" in source,
-        "uses_native_tts_greeting": "call.say(" in source,
+        "uses_native_tts_greeting": "call.say(" in source and "PlaybackFinished" in source,
         "binds_media_on_setup_complete": "LiveAPIEvents.SetupComplete" in source
         and "bindCallAudio" in source,
     }

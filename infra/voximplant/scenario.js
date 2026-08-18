@@ -120,23 +120,6 @@ function greetingText(session) {
   );
 }
 
-function playNativeGreeting(call, text) {
-  try {
-    if (typeof VoiceList !== 'undefined' && VoiceList.Google && VoiceList.Google.en_US_Neural2_F) {
-      call.say(text, {language: VoiceList.Google.en_US_Neural2_F});
-      return true;
-    }
-  } catch (error) {
-    // fall through
-  }
-  try {
-    call.say(text);
-    return true;
-  } catch (error) {
-    return false;
-  }
-}
-
 function notify(session, state, extra) {
   extra = extra || {};
   var payload = {
@@ -199,8 +182,7 @@ function validateCheckin(args) {
   };
 }
 
-function startGeminiLive(session, call, onSubmitted, options) {
-  options = options || {};
+function startGeminiLive(session, call, onSubmitted) {
   var credentials = secret('EIR_GEMINI_VERTEX_CREDENTIALS');
   return Gemini.createLiveAPIClient({
     credentials: credentials,
@@ -220,6 +202,7 @@ function startGeminiLive(session, call, onSubmitted, options) {
       systemInstruction: {parts: [{text: SYSTEM_PROMPT}]},
       tools: TOOLS,
       inputAudioTranscription: {},
+      outputAudioTranscription: {},
     },
     onWebSocketClose: function () {
       if (!onSubmitted()) {
@@ -255,16 +238,10 @@ function startGeminiLive(session, call, onSubmitted, options) {
       }
       started = true;
       bindCallAudio();
-      if (options.alreadyGreeted) {
-        voiceAIClient.sendRealtimeInput({
-          text:
-            'The patient already heard your greeting. Do not repeat it. ' +
-            'Wait for their reply, then continue the recovery check-in.',
-        });
-        return;
-      }
       voiceAIClient.sendRealtimeInput({
-        text: 'Speak this greeting now, then wait for the patient: ' + greetingText(session),
+        text:
+          'Begin now. Say exactly this greeting, then stop and wait for the patient: ' +
+          greetingText(session),
       });
     }
 
@@ -273,8 +250,71 @@ function startGeminiLive(session, call, onSubmitted, options) {
       voiceAIClient.addEventListener(Gemini.Events.WebSocketMediaStarted, bindCallAudio);
     }
 
+    function mergeUtterance(previous, next) {
+      var a = String(previous || '').replace(/\s+/g, ' ').trim();
+      var b = String(next || '').replace(/\s+/g, ' ').trim();
+      if (!a) {
+        return b;
+      }
+      if (!b) {
+        return a;
+      }
+      if (b === a || b.indexOf(a) === 0 || (b.indexOf(a) !== -1 && b.length > a.length)) {
+        return b;
+      }
+      if (a.indexOf(b) === 0 || a.indexOf(b) !== -1) {
+        return a;
+      }
+      return a.length >= b.length ? a : b;
+    }
+
+    function pushTranscript(role, text, finished) {
+      var clean = String(text || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 800);
+      if (!clean) {
+        return;
+      }
+      session.transcript = session.transcript || [];
+      var last = session.transcript[session.transcript.length - 1];
+      if (last && last.r === role && !last.done) {
+        last.t = mergeUtterance(last.t, clean);
+        last.done = Boolean(finished);
+      } else {
+        last = {r: role, t: clean, done: Boolean(finished)};
+        session.transcript.push(last);
+      }
+      if (session.transcript.length > 24) {
+        session.transcript = session.transcript.slice(-24);
+      }
+      try {
+        call.sendMessage(JSON.stringify({r: role, t: last.t.slice(0, 400), f: last.done ? 1 : 0}));
+      } catch (error) {
+        // ignore
+      }
+    }
+
+    function transcriptionFinished(block, payload) {
+      if (!block) {
+        return Boolean(payload.turnComplete || payload.generationComplete);
+      }
+      if (typeof block.finished === 'boolean') {
+        return block.finished;
+      }
+      return Boolean(payload.turnComplete || payload.generationComplete);
+    }
+
     voiceAIClient.addEventListener(Gemini.LiveAPIEvents.ServerContent, function (event) {
-      var payload = (event && event.data && event.data.payload) || {};
+      var payload = (event && event.data && event.data.payload) || (event && event.data) || {};
+      var input = payload.inputTranscription || payload.input_transcription || {};
+      var output = payload.outputTranscription || payload.output_transcription || {};
+      if (input.text && transcriptionFinished(input, payload)) {
+        pushTranscript('p', input.text, true);
+      }
+      if (output.text) {
+        pushTranscript('a', output.text, transcriptionFinished(output, payload));
+      }
       if (payload.interrupted && voiceAIClient.clearMediaBuffer) {
         voiceAIClient.clearMediaBuffer();
       }
@@ -298,7 +338,13 @@ function startGeminiLive(session, call, onSubmitted, options) {
           return;
         }
         onSubmitted(true);
-        notify(session, 'CALL_COMPLETED', checkin).then(function () {
+        var transcript = (session.transcript || [])
+          .map(function (line) {
+            return (line.r === 'p' ? 'Patient: ' : 'EIR: ') + line.t;
+          })
+          .join('\n')
+          .slice(0, 1800);
+        notify(session, 'CALL_COMPLETED', Object.assign({}, checkin, {transcript: transcript})).then(function () {
           setTimeout(function () {
             try {
               call.hangup();
@@ -363,6 +409,7 @@ VoxEngine.addEventListener(AppEvents.Started, async function () {
       destination: '',
       callerId: '',
       callId: '',
+      transcript: [],
     };
 
     if (session.transport !== 'voximplant_user') {
@@ -392,29 +439,18 @@ VoxEngine.addEventListener(AppEvents.Started, async function () {
 
     call.addEventListener(CallEvents.Connected, async function () {
       await notify(session, 'CALL_CONNECTED');
-      var greeted = playNativeGreeting(call, greetingText(session));
-      var geminiConnecting = false;
-
-      function connectGemini() {
-        if (geminiConnecting || voiceAIClient) {
-          return;
-        }
-        geminiConnecting = true;
-        startGeminiLive(session, call, markSubmitted, {alreadyGreeted: greeted})
-          .then(function (client) {
-            voiceAIClient = client;
-          })
-          .catch(function () {
-            notify(session, 'CALL_FAILED', {failure_reason: 'gemini_setup'}).then(finish);
-          });
+      try {
+        call.sendMessage(JSON.stringify({r: 'm', eid: session.episodeId}));
+      } catch (error) {
+        // ignore
       }
-
-      if (greeted) {
-        call.addEventListener(CallEvents.PlaybackFinished, connectGemini);
-        setTimeout(connectGemini, 10000);
-      } else {
-        connectGemini();
-      }
+      startGeminiLive(session, call, markSubmitted)
+        .then(function (client) {
+          voiceAIClient = client;
+        })
+        .catch(function () {
+          notify(session, 'CALL_FAILED', {failure_reason: 'gemini_setup'}).then(finish);
+        });
       setTimeout(function () {
         if (!submitted) {
           notify(session, 'CALL_FAILED', {failure_reason: 'timeout'}).then(function () {

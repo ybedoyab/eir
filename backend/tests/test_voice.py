@@ -193,6 +193,7 @@ def test_completed_callback_publishes_patient_responded(monkeypatch) -> None:
                 "medication_adherence": "unknown",
                 "patient_requests_clinician": False,
                 "call_outcome": "completed",
+                "transcript": "EIR: How is your pain from 0 to 10?\nPatient: It is an 8 and the swelling is worse.",
             },
         )
         assert completed.status_code == 200
@@ -208,6 +209,10 @@ def test_completed_callback_publishes_patient_responded(monkeypatch) -> None:
         payloads = json.dumps(events)
         assert DEMO_PHONE not in payloads
         assert CALLER_ID not in payloads
+        responded = next(item for item in events if item["event_type"] == "PatientResponded")
+        completed_event = next(item for item in events if item["event_type"] == "VoiceCallCompleted")
+        assert "How is your pain" in responded["payload"]["transcript"]
+        assert "swelling is worse" in completed_event["payload"]["transcript"]
 
 
 def test_duplicate_callback_is_idempotent(monkeypatch) -> None:
