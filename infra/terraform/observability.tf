@@ -11,7 +11,7 @@ resource "google_monitoring_dashboard" "eir_operations" {
             title = "Cloud Run request rate"
             xyChart = {
               dataSets = [{
-                plotType        = "LINE"
+                plotType = "LINE"
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = "metric.type=\"run.googleapis.com/request_count\" resource.type=\"cloud_run_revision\""
@@ -33,7 +33,7 @@ resource "google_monitoring_dashboard" "eir_operations" {
             title = "Cloud Run 5xx rate"
             xyChart = {
               dataSets = [{
-                plotType        = "LINE"
+                plotType = "LINE"
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = "metric.type=\"run.googleapis.com/request_count\" resource.type=\"cloud_run_revision\" metric.label.response_code_class=\"5xx\""
@@ -55,7 +55,7 @@ resource "google_monitoring_dashboard" "eir_operations" {
             title = "Pub/Sub oldest unacked message age"
             xyChart = {
               dataSets = [{
-                plotType        = "LINE"
+                plotType = "LINE"
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = "metric.type=\"pubsub.googleapis.com/subscription/oldest_unacked_message_age\" resource.type=\"pubsub_subscription\""
@@ -78,15 +78,15 @@ resource "google_monitoring_dashboard" "eir_operations" {
             title = "Cloud Run latency p95"
             xyChart = {
               dataSets = [{
-                plotType        = "LINE"
+                plotType = "LINE"
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = "metric.type=\"run.googleapis.com/request_latencies\" resource.type=\"cloud_run_revision\""
                     aggregation = {
                       alignmentPeriod    = "60s"
-                      perSeriesAligner     = "ALIGN_DELTA"
-                      crossSeriesReducer   = "REDUCE_PERCENTILE_95"
-                      groupByFields        = ["resource.label.service_name"]
+                      perSeriesAligner   = "ALIGN_DELTA"
+                      crossSeriesReducer = "REDUCE_PERCENTILE_95"
+                      groupByFields      = ["resource.label.service_name"]
                     }
                   }
                 }
