@@ -5,7 +5,7 @@ description = "EIR Google ADK recovery agents"
 requires-python = ">=3.12"
 dependencies = [
     "eir-shared",
-    "google-adk",
+    "google-adk[gcp,otel-gcp]",
     "pydantic>=2.9",
 ]
 

@@ -12,10 +12,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
 from app.core.deps import get_container
+from app.integrations.enterprise.adk_otel import otel_configured, setup_adk_otel
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    setup_adk_otel(
+        service_name="eir-api",
+        project_id=settings.google_cloud_project,
+        enabled=settings.adk_otel_enabled,
+    )
     get_container().seed()
     yield
 
@@ -41,8 +47,13 @@ app.include_router(v1_router, prefix="/api/v1")
 @app.get("/health")
 def health() -> dict:
     container = get_container()
+    adapters = container.adapter_status()
+    adapters["otel"] = {
+        "configured": otel_configured(),
+        "capture_message_content_in_spans": settings.adk_capture_message_content_in_spans,
+    }
     return {
         "status": "ok",
         "project": settings.google_cloud_project,
-        "adapters": container.adapter_status(),
+        "adapters": adapters,
     }

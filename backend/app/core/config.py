@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     model_armor_location: str = "us-central1"
     model_armor_template: str = "eir-agent-guard"
     session_secret: str = "local-dev-session-secret"
+    adk_capture_message_content_in_spans: bool = False
+    adk_otel_enabled: bool = True
 
     @field_validator("cors_origins", mode="before")
     @classmethod

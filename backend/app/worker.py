@@ -23,6 +23,7 @@ from eir_shared.env import load_root_env, repo_root
 
 from app.core.config import settings
 from app.core.deps import get_container
+from app.integrations.enterprise.adk_otel import setup_adk_otel
 from app.integrations.messaging.pubsub import decode_pubsub_payload
 
 logger = logging.getLogger("eir.worker")
@@ -65,6 +66,11 @@ def run_worker(*, handle: bool) -> None:
 
     load_root_env()
     logging.basicConfig(level=logging.INFO)
+    setup_adk_otel(
+        service_name="eir-worker",
+        project_id=settings.google_cloud_project,
+        enabled=settings.adk_otel_enabled and settings.environment == "production",
+    )
     _start_health_server()
     project = settings.google_cloud_project
     subscription = settings.pubsub_subscription
