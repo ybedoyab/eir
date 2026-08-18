@@ -21,6 +21,14 @@ locals {
     "cloudtrace.googleapis.com",
     "iam.googleapis.com",
     "agentregistry.googleapis.com",
+    "networkservices.googleapis.com",
+    "networksecurity.googleapis.com",
+    "compute.googleapis.com",
+    "iap.googleapis.com",
+    "observability.googleapis.com",
+    "apphub.googleapis.com",
+    "apptopology.googleapis.com",
+    "cloudapiregistry.googleapis.com",
   ]
 
   runtime_roles = [

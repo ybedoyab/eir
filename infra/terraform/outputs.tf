@@ -57,3 +57,26 @@ output "patient_access_registry_service" {
 output "patient_access_registry_resource" {
   value = google_agent_registry_service.patient_access.registry_resource
 }
+
+output "agent_gateway_resource" {
+  value = google_network_services_agent_gateway.egress.id
+}
+
+output "agent_gateway_mode" {
+  value = google_network_services_agent_gateway.egress.google_managed[0].governed_access_path
+}
+
+output "agent_gateway_authorization" {
+  value = var.agent_gateway_iap_enforcement_mode
+}
+
+output "agent_gateway_destinations" {
+  value = {
+    for key, service in google_agent_registry_service.gateway_destinations :
+    key => {
+      service           = service.name
+      registry_resource = service.registry_resource
+      url               = local.gateway_destinations[key].url
+    }
+  }
+}
