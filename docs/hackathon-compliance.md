@@ -16,9 +16,9 @@ Synthetic data only. No real PHI. Voice is not verified until a paid PSTN/WebRTC
 | Agent Identity | Demo signed tokens | Agent Identity (target) | `/api/v1/auth/login` | VERIFIED LOCAL |
 | Agent Gateway | In-process `AgentGateway` + Model Armor | Agent Gateway (target) | Security demo routes; backend RBAC is final | VERIFIED LOCAL |
 | Model Armor | `VertexModelArmorAdapter` | Model Armor `eir-agent-guard` | `/health` → `managed_model_armor_available` | VERIFIED MANAGED |
-| Agent Observability / OTel | ADK OTel exporters + Cloud Run logs | Cloud Logging + Cloud Trace | Logging verified; Trace API list empty this sprint | VERIFIED GCP |
-| Cloud Trace | ADK GCP exporters + Cloud Run trace fields | Cloud Trace | Log `trace=` present; `traces.list` empty | CONFIGURED UNVERIFIED |
-| Cloud Logging | Cloud Run request + worker JSON events | Cloud Logging | `eir-api` HTTP lines; worker `trace_id` JSON | VERIFIED MANAGED |
+| Agent Observability / OTel | ADK OTel exporters + Cloud Run logs | Cloud Logging + Cloud Trace | Request logs + Cloud Run `/health` spans in Trace | VERIFIED GCP |
+| Cloud Trace | Cloud Run request traces ingested | Cloud Trace | Trace `c192b5f897a3cd08a8c0a8acff3331c0` GET returned spans | VERIFIED GCP |
+| Cloud Logging | Cloud Run request + worker JSON events | Cloud Logging | `eir-api` HTTP lines; worker `consumed RecoveryEpisodeStarted` | VERIFIED MANAGED |
 | Cloud Monitoring | Terraform dashboard + enabled alerts | Cloud Monitoring | Dashboard `EIR Healthcare Agent Fleet`; 5xx + Pub/Sub alerts enabled | VERIFIED GCP |
 | Voximplant / Gemini Live voice | Voximplant scenario + synthetic preview | Voximplant + Gemini Live | No paid call verification | CONFIGURED UNVERIFIED |
 | Terraform remote state | GCS `eir-ata-terraform-state-658898892127` | Terraform + GCS | `terraform plan -detailed-exitcode` = 0 after apply | VERIFIED GCP |

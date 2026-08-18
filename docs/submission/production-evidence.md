@@ -4,36 +4,42 @@ No secrets, phones, credentials, or PHI.
 
 ## Current commit
 
-Recorded at evidence-file authoring time. After merge, Cloud Run images must match `GITHUB_SHA` of the green `main` workflow.
-
 - Repo: `ybedoyab/eir`
 - Branch: `main`
-- Evidence authored against the Terraform adoption + CI warning-fix tree
-- ADK `2.7.1` (not upgraded; Agent Registry packaging needs a later Agent Platform SDK, not a blind ADK bump)
+- Verified deploy SHA: `79f82f37e9dd1d4d07b09e653de77e50df0f48d4`
+- ADK `2.7.1` (not upgraded)
 - CI Terraform `1.15.8` (matches the version that wrote remote state)
-- `terraform plan -detailed-exitcode` locally: **exit 0** (no drift, 0 destroys)
+- `terraform plan -detailed-exitcode`: **exit 0** (CI `terraform-plan` job as `eir-infra-ci`; also verified locally)
+
+A later docs-only commit may retag Cloud Run. Re-check `gcloud run services describe` if `GITHUB_SHA` differs.
 
 ## CI
 
-- HEAD run to verify after this push (do not cite `32145308170`)
-- Required jobs: `terraform`, `backend`, `frontend`, `deploy`
-- Auth: GitHub OIDC → WIF pool `github-actions` / provider `github` → `eir-deploy-ci@eir-ata.iam.gserviceaccount.com`
-- Obsolete secret `GCP_SA_KEY` deleted from GitHub Actions secrets. `VOXIMPLANT_CREDENTIALS` retained (scenario sync only).
+- Run: https://github.com/ybedoyab/eir/actions/runs/32150395022
+- `head_sha`: `79f82f37e9dd1d4d07b09e653de77e50df0f48d4`
+- Jobs: `terraform`, `terraform-plan`, `backend`, `frontend`, `deploy` — all success
+- Do not cite `32145308170` (that run was SHA `6213192`, before `fa1a622`)
+- Auth: GitHub OIDC → WIF pool `github-actions` / provider `github`
+  - plan: `eir-infra-ci@eir-ata.iam.gserviceaccount.com`
+  - deploy: `eir-deploy-ci@eir-ata.iam.gserviceaccount.com`
+- Obsolete secret `GCP_SA_KEY` is deleted. Remaining Actions secret: `VOXIMPLANT_CREDENTIALS` (scenario sync only).
+- EIR / pytest / Terraform log warnings: **0**
+- Third-party Node `DeprecationWarning` lines from `pnpm/action-setup@v5` and `actions/setup-node@v5` (`url.parse`, `punycode`): **4**. Not suppressed. Therefore this run is **not** claimed as `CI warnings: 0`.
 
 ## GCP
 
 - Project: `eir-ata` (`658898892127`)
 - Region: `us-central1`
 
-## Cloud Run (pre-this-push revisions used SHA `fa1a622ea842dc61926885951972a96f04c1e961`)
+## Cloud Run (SHA `79f82f37e9dd1d4d07b09e653de77e50df0f48d4`)
 
-| Service | Ready revision (at verification) | Image tag |
+| Service | Ready revision | Image tag |
 | --- | --- | --- |
-| eir-api | eir-api-00039-sl8 | `us-central1-docker.pkg.dev/eir-ata/eir/backend:fa1a622ea842dc61926885951972a96f04c1e961` |
-| eir-worker | eir-worker-00035-wtn | same backend SHA |
-| eir-ui | eir-ui-00034-b89 | `us-central1-docker.pkg.dev/eir-ata/eir/frontend:fa1a622ea842dc61926885951972a96f04c1e961` |
+| eir-api | eir-api-00040-rtr | `us-central1-docker.pkg.dev/eir-ata/eir/backend:79f82f37e9dd1d4d07b09e653de77e50df0f48d4` |
+| eir-worker | eir-worker-00036-pmx | same backend SHA |
+| eir-ui | eir-ui-00035-4jc | `us-central1-docker.pkg.dev/eir-ata/eir/frontend:79f82f37e9dd1d4d07b09e653de77e50df0f48d4` |
 
-No service relies solely on `:latest` in the live revision.
+No live revision is `:latest`-only.
 
 Worker ingress is `INGRESS_TRAFFIC_INTERNAL_ONLY` (Pub/Sub pull). API/UI remain public.
 
@@ -41,18 +47,17 @@ Worker ingress is `INGRESS_TRAFFIC_INTERNAL_ONLY` (Pub/Sub pull). API/UI remain 
 
 - FHIR store: `projects/eir-ata/locations/us-central1/datasets/eir/fhirStores/fhir-r4`
 - `enableUpdateCreate: true`
-- Synthetic Alex cardiology appointment `appt-alex-cardio-2026-08-27` listed via `GET /api/v1/appointments`
-- Cardiology availability returned GCP slots (`slot-cardio-2026-08-25-1430`, Main Clinic)
-- Mutation fixture: book → reschedule → cancel on a non-demo slot (`appt-ff4642ffbb` cancelled)
+- Synthetic Alex cardiology appointment listed via `GET /api/v1/appointments`
+- Mutation fixture on SHA `79f82f3` deploy smoke: book → reschedule → cancel
 - Firestore `(default)` native, delete protection enabled
-- Access session create + reload: `c8909d25-643b-4063-846c-7057781043bb`
 - Pub/Sub topic `eir-recovery-events` / subscription `eir-recovery-events-worker`
-- Worker log: `consumed RecoveryEpisodeStarted episode=619bb6d1-c49d-46d7-8ab9-7bb5b86fef26`
+- Worker log on revision `eir-worker-00036-pmx`: `consumed RecoveryEpisodeStarted episode=875e8953-7a86-4b10-8f90-445842ddf2f1`
 
 ## Model Armor
 
 - Template `eir-agent-guard` in `us-central1`
 - `/health` `managed_model_armor_available: true`, mode `managed`
+- `/health` `platform_verification.managed_model_armor_verified: true`
 
 ## WIF
 
@@ -62,20 +67,22 @@ Worker ingress is `INGRESS_TRAFFIC_INTERNAL_ONLY` (Pub/Sub pull). API/UI remain 
 
 ## Observability
 
-- OTel config: `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false`
-- Cloud Logging `eir-api`: HTTP 200 for appointments/access; Cloud Run `trace` field example `projects/eir-ata/traces/0e6010404f7e3807efbb8bff794d00cb`
-- Cloud Logging `eir-worker` structured event: `trace_id=a9e2b964-94e7-40c9-9a82-d5125c8772f7`, `agent_name=escalation`, `event_type=RiskEscalated`, outcome `delegated`
-- Cloud Trace API `traces.list` returned **no stored traces** during this sprint → do not claim Trace ingestion
-- Dashboard: `projects/658898892127/dashboards/913eb265-2d87-42f6-8cda-cc9684537743` displayName `EIR Healthcare Agent Fleet` (Cloud Run request/5xx/latency + Pub/Sub unacked age)
+- OTel config: `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false` (`/health` `adapters.otel`)
+- Cloud Logging `eir-api` request: `GET /health` 200 on `eir-api-00040-rtr`, `trace=projects/eir-ata/traces/c192b5f897a3cd08a8c0a8acff3331c0`, `traceSampled=true`
+- Cloud Trace GET of that ID returned HTTP load-balancer + Cloud Run AppServer `/health` spans (status 200). No raw prompt/transcript/FHIR body.
+- `/health` `otel_cloud_trace_verified` remains **false** (runtime does not probe the Trace API)
+- Cloud Logging `eir-worker`: `consumed RecoveryEpisodeStarted episode=875e8953-7a86-4b10-8f90-445842ddf2f1`
+- Dashboard: `projects/658898892127/dashboards/913eb265-2d87-42f6-8cda-cc9684537743` displayName `EIR Healthcare Agent Fleet`
 - Alerts enabled: `EIR Cloud Run high 5xx rate`, `EIR Pub/Sub backlog age`
 
 ## Terraform
 
-- Backend bucket `eir-ata-terraform-state-658898892127`: versioning on, uniform access, public access prevention enforced; `eir-infra-ci` `roles/storage.objectAdmin`
+- Backend bucket `eir-ata-terraform-state-658898892127`: versioning on, uniform access, public access prevention enforced
 - Apply: **55 imported, 26 added, 7 changed, 0 destroyed** (initial adoption)
 - Follow-up applies: telemetry writer IAM (2 add), Agent Registry API (1 add)
-- Post-apply: `terraform plan -detailed-exitcode` **exit 0**
-- Ownership: Terraform = static infra; `deploy.py` (default / `--services-only`) = image build + Cloud Run revision
+- Post-apply / CI plan: **exit 0**, **0 destroys**
+- Ownership: Terraform = static infra; `deploy.py --services-only` = image build + Cloud Run revision
+- CI drift check uses `eir-infra-ci` (`eir-deploy-ci` cannot read IAM/secrets/WIF)
 
 ## Managed Agent Platform
 
@@ -89,7 +96,7 @@ See `infra/gcp/agent_platform/README.md`.
 | Agent Identity | VERIFIED LOCAL |
 | Agent Gateway | VERIFIED LOCAL |
 | Model Armor | VERIFIED MANAGED |
-| Agent Observability | VERIFIED GCP (logs); Cloud Trace CONFIGURED UNVERIFIED |
+| Agent Observability | VERIFIED GCP (Cloud Logging + Cloud Run Trace spans) |
 
 ## Voice
 

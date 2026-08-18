@@ -62,5 +62,5 @@ Already **VERIFIED MANAGED** (`eir-agent-guard`, runtime probe).
 ### Observability
 
 Cloud Logging request + worker workflow JSON verified live.
-Cloud Trace API `traces.list` returned empty during this sprint even with Cloud Run `trace` fields on log entries.
-OTLP metric export previously 403; `roles/telemetry.tracesWriter` and `roles/telemetry.metricsWriter` granted to `eir-runtime`.
+Cloud Trace GET `projects/eir-ata/traces/c192b5f897a3cd08a8c0a8acff3331c0` returned Cloud Run `/health` spans (no PHI).
+ADK application-span attributes (`tool.name`, `capability`) are present in worker JSON logs, not required on the HTTP load-balancer span.
