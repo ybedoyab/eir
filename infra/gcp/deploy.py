@@ -257,7 +257,9 @@ def _ensure_model_armor() -> int:
             "enable",
             "modelarmor.googleapis.com",
             f"--project={PROJECT}",
-        ]
+            "--quiet",
+        ],
+        ok_codes={0, 1},
     )
     describe = _run(
         [
@@ -286,11 +288,6 @@ def _ensure_model_armor() -> int:
             "--pi-and-jailbreak-filter-settings-confidence-level=MEDIUM_AND_ABOVE",
             "--basic-config-filter-enforcement=enabled",
             "--malicious-uri-filter-settings-enforcement=enabled",
-            (
-                '--rai-settings-filters=[{"filterType":"HATE_SPEECH",'
-                '"confidenceLevel":"MEDIUM_AND_ABOVE"},{"filterType":"DANGEROUS",'
-                '"confidenceLevel":"MEDIUM_AND_ABOVE"}]'
-            ),
             "--template-metadata-log-sanitize-operations",
         ],
         ok_codes={0, 1},

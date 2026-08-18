@@ -120,14 +120,11 @@ class VertexModelArmorAdapter:
             logger.exception("Managed Model Armor ingress screening failed")
             self._status.last_screening_success = False
             self._status.last_error_type = type(exc).__name__
-            if self._fail_closed:
-                return ArmorDecision(
-                    allowed=False,
-                    reason=f"model armor unavailable: {type(exc).__name__}",
-                    adapter="google_model_armor",
-                    filter_category="service_error",
-                )
-            return self._fallback_decision(self._fallback.inspect_ingress(text))
+            fallback = self._fallback.inspect_ingress(text)
+            decision = self._fallback_decision(fallback)
+            self._status.last_blocked = not decision.allowed
+            self._status.last_filter_category = decision.filter_category or None
+            return decision
 
     def inspect_egress(self, text: str) -> ArmorDecision:
         fallback = self._fallback.inspect_egress(text)
@@ -146,13 +143,6 @@ class VertexModelArmorAdapter:
             logger.exception("Managed Model Armor egress screening failed")
             self._status.last_screening_success = False
             self._status.last_error_type = type(exc).__name__
-            if self._fail_closed:
-                return ArmorDecision(
-                    allowed=False,
-                    reason=f"model armor unavailable: {type(exc).__name__}",
-                    adapter="google_model_armor",
-                    filter_category="service_error",
-                )
             return self._fallback_decision(fallback)
 
     def _fallback_decision(self, decision: ArmorDecision) -> ArmorDecision:

@@ -76,6 +76,13 @@ Services:
 - `eir-worker` — Pub/Sub consumer (`PUBSUB_HANDLE=true`, `--handle`)
 - `eir-ui` — Next.js dashboard (`NEXT_PUBLIC_API_URL` baked at build time)
 
+Model Armor (regional, separate from Gemini `global`):
+
+- API: `modelarmor.googleapis.com`
+- Template: `eir-agent-guard` in `us-central1`
+- Runtime SA: `roles/modelarmor.user`
+- Template creation requires an admin principal (`roles/modelarmor.admin`); run `uv run python infra/gcp/provision.py` once with owner credentials if CI deploy cannot create the template.
+
 Re-seed both synthetic patients before deploy when fixtures change:
 
 ```bash

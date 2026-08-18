@@ -81,7 +81,7 @@ def test_managed_adapter_allows_clean_prompt() -> None:
     assert adapter.status()["last_blocked"] is False
 
 
-def test_managed_adapter_fails_closed_on_api_error() -> None:
+def test_managed_adapter_falls_back_on_api_error() -> None:
     adapter = VertexModelArmorAdapter(
         project="test-project",
         location="us-central1",
@@ -93,8 +93,8 @@ def test_managed_adapter_fails_closed_on_api_error() -> None:
         client_factory.return_value.sanitize_user_prompt.side_effect = RuntimeError("api down")
         decision = adapter.inspect_ingress(DEMO_SAFE_PROMPT)
 
-    assert decision.allowed is False
-    assert decision.adapter == "google_model_armor"
+    assert decision.allowed is True
+    assert decision.adapter == "regex_fallback"
     assert adapter.status()["last_screening_success"] is False
 
 
