@@ -119,6 +119,7 @@ Architecture diagram source: [docs/architecture/eir-gcp.mmd](docs/architecture/e
 - Memory Bank attached to that runtime (Session A preference → Session B retrieval)
 - Agent Registry entry for `eir-patient-access`
 - Agent Identity (`AGENT_IDENTITY`) to protected `eir-api` tools
+- Agent Gateway `eir-agent-egress` (`AGENT_TO_ANYWHERE`, IAP ENFORCED)
 - Model Armor + Cloud Logging / Trace
 
 See [infra/gcp/agent_platform/README.md](infra/gcp/agent_platform/README.md).

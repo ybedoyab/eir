@@ -14,7 +14,7 @@ Synthetic data only. No real PHI. Voice is not verified until a paid PSTN/WebRTC
 | Agent Runtime | ADK `AdkApp` on ReasoningEngine `3041998479602745344` | Agent Runtime | Remote `async_stream_query` → `get_upcoming_appointments` → GCP FHIR Alex cardiology 2026-08-27 | VERIFIED MANAGED |
 | Memory Bank | ReasoningEngine `contextSpec.memoryBankConfig` | Memory Bank | Session A preference generated; retrieve + Session B used Main Clinic / afternoon | VERIFIED MANAGED |
 | Agent Identity | `identity_type=AGENT_IDENTITY` STS token | Agent Identity | `last_authenticated_principal` matches engine SPIFFE / principal | VERIFIED MANAGED |
-| Agent Gateway | In-process `AgentGateway` + Model Armor | Agent Gateway (target) | Security demo routes; backend RBAC is final | VERIFIED LOCAL |
+| Agent Gateway | Google-managed `eir-agent-egress` (`AGENT_TO_ANYWHERE`) + in-process SafetyGate secondary | Agent Gateway | Live query Runtime → Gateway → eir-api → FHIR; IAP ENFORCED | VERIFIED MANAGED |
 | Model Armor | `VertexModelArmorAdapter` | Model Armor `eir-agent-guard` | `/health` → `managed_model_armor_available` | VERIFIED MANAGED |
 | Agent Observability / OTel | ADK OTel exporters + Cloud Run logs | Cloud Logging + Cloud Trace | Request logs + Cloud Run `/health` spans in Trace | VERIFIED GCP |
 | Cloud Trace | Cloud Run request traces ingested | Cloud Trace | Trace `c192b5f897a3cd08a8c0a8acff3331c0` GET returned spans | VERIFIED GCP |
@@ -38,5 +38,5 @@ Synthetic data only. No real PHI. Voice is not verified until a paid PSTN/WebRTC
 - No real patient data
 - No autonomous diagnosis
 - No verified paid voice call in this sprint
-- Agent Gateway remains in-process (not a managed Google gateway)
-- ReasoningEngine packaging is pickle-based; source-based deploy is not yet the live path
+- In-process `AgentGateway` / SafetyGate remains a secondary application defense; it is not the Google managed Agent Gateway
+- ReasoningEngine packaging is pickle-based; source-based deploy is not the live path and was not required to attach Agent Gateway

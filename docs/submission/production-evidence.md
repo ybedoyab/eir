@@ -95,7 +95,7 @@ Live 2026-08-18 (synthetic Alex only). No secrets.
 | Memory Bank | VERIFIED MANAGED | Attached `contextSpec.memoryBankConfig`; generated fact prefers Main Clinic + afternoon; retrieve API + Session B ranking used those preferences |
 | Agent Registry | VERIFIED MANAGED | URN `urn:agent:projects-658898892127:projects:658898892127:locations:us-central1:agentregistry:services:eir-patient-access`; method: standard REST service (not the old eir-api POST). Terraform-imported |
 | Agent Identity | VERIFIED MANAGED | `principal://agents.global.proj-658898892127.system.id.goog/resources/aiplatform/projects/658898892127/locations/us-central1/reasoningEngines/3041998479602745344`; Cloud Run invoker only; live tool call recorded that principal |
-| Agent Gateway | VERIFIED LOCAL | Unchanged |
+| Agent Gateway | VERIFIED MANAGED | `projects/eir-ata/locations/us-central1/agentGateways/eir-agent-egress`; mode `AGENT_TO_ANYWHERE`; IAP ENFORCED; native Model Armor `CONTENT_AUTHZ` on `eir-agent-guard`. Same ReasoningEngine `3041998479602745344`. Live query `What appointments do I have?` → tool `get_upcoming_appointments` → Alex cardiology. Cross-patient denied by backend RBAC. Prompt injection did not invoke `cancel_appointment`. |
 | Model Armor | VERIFIED MANAGED | Unchanged |
 | Agent Observability | VERIFIED GCP | Cloud Logging hit on `/api/v1/agent-runtime/` during the acceptance query |
 

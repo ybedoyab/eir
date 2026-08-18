@@ -58,11 +58,14 @@ flowchart TB
   OTel --> Log
   OTel --> Mon
   Sched --> API
-  Runtime --> API
+  Runtime --> Gateway
+  Gateway --> API
+  Gateway --> Armor
   Runtime --> Memory
   Runtime --> Identity
   Registry --> Runtime
-  Gateway -.-> Armor
 ```
 
 Solid lines are verified today. Dotted lines remain preview or unpaid voice paths.
+Google managed Agent Gateway (`eir-agent-egress`) governs Runtime egress.
+In-process SafetyGate remains a secondary application defense, not the managed gateway.
