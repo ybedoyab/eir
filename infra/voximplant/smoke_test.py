@@ -112,7 +112,7 @@ def report(result: dict[str, Any]) -> list[str]:
     print(f"  rule_id: {'yes' if result['rule_configured'] else 'no'}")
     if result["verified_caller_ids"] < 1:
         manuals.append(
-            "Voximplant Control Panel → Caller IDs → verify a number by phone/code.\n"
+            "Voximplant Control Panel -> Caller IDs -> verify a number by phone/code.\n"
             "Then set VOXIMPLANT_CALLER_ID_E164 and rerun provisioning."
         )
     if not result["destination_configured"]:
@@ -155,7 +155,7 @@ def main() -> int:
         print("MANUAL_ACTION_REQUIRED")
         print()
         print("Voximplant:")
-        print("Settings → Service accounts → Add")
+        print("Settings -> Service accounts -> Add")
         print("name: eir-bootstrap")
         print("role: Admin")
         print("Generate key")

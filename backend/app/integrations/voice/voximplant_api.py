@@ -76,9 +76,18 @@ class VoximplantAPI:
         credentials: dict[str, Any],
         *,
         http: HttpFn | None = None,
+        api_host: str | None = None,
     ) -> None:
         self._credentials = credentials
         self._http = http or _default_http
+        self._base = API_BASE
+        if api_host:
+            self.use_host(api_host)
+
+    def use_host(self, api_host: str) -> None:
+        host = api_host.replace("https://", "").replace("http://", "").rstrip("/")
+        if host:
+            self._base = f"https://{host}/platform_api"
 
     def _token(self) -> str:
         now = int(time.time())
@@ -93,7 +102,7 @@ class VoximplantAPI:
         )
 
     def call(self, method: str, **params: Any) -> dict[str, Any]:
-        url = f"{API_BASE}/{method}/"
+        url = f"{self._base}/{method}/"
         headers = {
             "Authorization": f"Bearer {self._token()}",
             "Content-Type": "application/x-www-form-urlencoded",

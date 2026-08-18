@@ -64,11 +64,30 @@ def _load_env_file() -> None:
         os.environ.setdefault(key.strip(), value.strip())
 
 
+def _api_error(payload: dict[str, Any]) -> str:
+    error = payload.get("error") or {}
+    if isinstance(error, dict):
+        return str(error.get("msg") or error)
+    return str(error or "voximplant_error")
+
+
 def _result(payload: dict[str, Any]) -> Any:
     if "error" in payload:
-        error = payload.get("error") or {}
-        raise RuntimeError(str(error.get("msg") or error))
+        raise RuntimeError(_api_error(payload))
     return payload.get("result", payload)
+
+
+def _matches_name(item: dict[str, Any], name_key: str, name: str) -> bool:
+    value = str(item.get(name_key) or "")
+    return value == name or value.startswith(f"{name}.")
+
+
+def _find(items: list[dict[str, Any]], name_key: str, name: str, id_key: str) -> int | None:
+    for item in items:
+        if _matches_name(item, name_key, name):
+            value = item.get(id_key)
+            return int(value) if value is not None else None
+    return None
 
 
 def _as_list(value: Any) -> list[dict[str, Any]]:
@@ -97,6 +116,8 @@ def _gcloud() -> str:
 
 
 def _gcloud_run(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+    if args and args[0] == "gcloud":
+        args = [_gcloud(), *args[1:]]
     completed = subprocess.run(args, check=False, capture_output=True, text=True)
     if check and completed.returncode != 0:
         raise RuntimeError(completed.stderr.strip() or completed.stdout.strip() or "gcloud failed")
@@ -104,18 +125,27 @@ def _gcloud_run(args: list[str], *, check: bool = True) -> subprocess.CompletedP
 
 
 def discover(api: VoximplantAPI) -> dict[str, Any]:
-    account = _result(api.call("GetAccountInfo", return_live_balance="true"))
+    raw_account = api.call("GetAccountInfo", return_live_balance="true")
+    account = _result(raw_account)
     if isinstance(account, list):
         account = account[0] if account else {}
+    api_host = str(raw_account.get("api_address") or account.get("api_host") or "")
+    if api_host:
+        api.use_host(api_host)
     applications = _as_list(_result(api.call("GetApplications")))
     scenarios = _as_list(_result(api.call("GetScenarios")))
-    rules = _as_list(_result(api.call("GetRules")))
+    rules: list[dict[str, Any]] = []
+    for app in applications:
+        app_id = app.get("application_id")
+        if app_id is None:
+            continue
+        rules.extend(_as_list(_result(api.call("GetRules", application_id=app_id))))
     caller_ids = _as_list(_result(api.call("GetCallerIDs")))
     keys = _as_list(_result(api.call("GetKeys")))
     return {
         "account_id": account.get("account_id") or api.account_id,
         "account_name": account.get("account_name") or account.get("account_email") or "",
-        "api_host": "https://api.voximplant.com/platform_api",
+        "api_host": f"https://{api_host}/platform_api" if api_host else "https://api.voximplant.com/platform_api",
         "balance": account.get("balance"),
         "live_balance": account.get("live_balance", account.get("balance")),
         "applications": [
@@ -137,45 +167,51 @@ def discover(api: VoximplantAPI) -> dict[str, Any]:
     }
 
 
-def _find(items: list[dict[str, Any]], name_key: str, name: str, id_key: str) -> int | None:
-    for item in items:
-        if str(item.get(name_key) or "") == name:
-            value = item.get(id_key)
-            return int(value) if value is not None else None
-    return None
-
-
 def ensure_application(api: VoximplantAPI) -> int:
     apps = _as_list(_result(api.call("GetApplications")))
     existing = _find(apps, "application_name", APP_NAME, "application_id")
     if existing:
         return existing
-    created = _result(api.call("AddApplication", application_name=APP_NAME))
-    if isinstance(created, dict) and created.get("application_id"):
-        return int(created["application_id"])
+    created = api.call("AddApplication", application_name=APP_NAME)
+    if "error" not in created:
+        result = created.get("result") or created
+        if isinstance(result, dict) and result.get("application_id"):
+            return int(result["application_id"])
     apps = _as_list(_result(api.call("GetApplications")))
     found = _find(apps, "application_name", APP_NAME, "application_id")
     if found is None:
-        raise RuntimeError("failed to create Voximplant application")
+        raise RuntimeError(
+            _api_error(created) if "error" in created else "failed to create application"
+        )
     return found
 
 
-def ensure_scenario(api: VoximplantAPI) -> int:
+def ensure_scenario(api: VoximplantAPI, application_id: int) -> int:
     source = (Path(__file__).resolve().parent / "scenario.js").read_text(encoding="utf-8")
-    scenarios = _as_list(_result(api.call("GetScenarios")))
+    scenarios = _as_list(_result(api.call("GetScenarios", application_id=application_id)))
+    if not scenarios:
+        scenarios = _as_list(_result(api.call("GetScenarios")))
     existing = _find(scenarios, "scenario_name", SCENARIO_NAME, "scenario_id")
     if existing:
         _result(api.call("SetScenarioInfo", scenario_id=existing, scenario_script=source))
         return existing
-    created = _result(
-        api.call("AddScenario", scenario_name=SCENARIO_NAME, scenario_script=source)
+    created = api.call(
+        "AddScenario",
+        scenario_name=SCENARIO_NAME,
+        scenario_script=source,
+        application_id=application_id,
     )
-    if isinstance(created, dict) and created.get("scenario_id"):
-        return int(created["scenario_id"])
+    if "error" not in created:
+        result = created.get("result") or created
+        if isinstance(result, dict) and result.get("scenario_id"):
+            return int(result["scenario_id"])
     scenarios = _as_list(_result(api.call("GetScenarios")))
     found = _find(scenarios, "scenario_name", SCENARIO_NAME, "scenario_id")
     if found is None:
-        raise RuntimeError("failed to create Voximplant scenario")
+        raise RuntimeError(
+            _api_error(created) if "error" in created else "failed to create scenario"
+        )
+    _result(api.call("SetScenarioInfo", scenario_id=found, scenario_script=source))
     return found
 
 
@@ -295,27 +331,48 @@ def _gcp_secret_exists(name: str) -> bool:
     return versions.returncode == 0 and bool(versions.stdout.strip())
 
 
-def ensure_callback_token(api: VoximplantAPI, application_id: int) -> None:
+def ensure_callback_token(api: VoximplantAPI, application_id: int) -> list[str]:
+    manuals: list[str] = []
     token = ""
-    if _gcp_secret_exists(GCP_CALLBACK_SECRET):
-        pulled = _gcloud_run(
-            [
-                "gcloud",
-                "secrets",
-                "versions",
-                "access",
-                "latest",
-                f"--secret={GCP_CALLBACK_SECRET}",
-                f"--project={GOOGLE_PROJECT}",
-            ],
-            check=False,
+    try:
+        if _gcp_secret_exists(GCP_CALLBACK_SECRET):
+            pulled = _gcloud_run(
+                [
+                    "gcloud",
+                    "secrets",
+                    "versions",
+                    "access",
+                    "latest",
+                    f"--secret={GCP_CALLBACK_SECRET}",
+                    f"--project={GOOGLE_PROJECT}",
+                ],
+                check=False,
+            )
+            token = (pulled.stdout or "").strip()
+    except FileNotFoundError:
+        manuals.append(
+            "Install/configure gcloud, then rerun this provisioner so the callback token "
+            f"is stored in Secret Manager as {GCP_CALLBACK_SECRET}."
         )
-        token = (pulled.stdout or "").strip()
     if not token:
         token = secrets.token_urlsafe(32)
-        _ensure_gcp_secret(GCP_CALLBACK_SECRET, token)
+        try:
+            _ensure_gcp_secret(GCP_CALLBACK_SECRET, token)
+        except FileNotFoundError:
+            local = ROOT / ".cursor" / "eir-voximplant-callback-token.txt"
+            local.parent.mkdir(parents=True, exist_ok=True)
+            local.write_text(token, encoding="utf-8")
+            manuals.append(
+                f"gcloud was not available. Callback token saved locally at .cursor/eir-voximplant-callback-token.txt. "
+                f"After gcloud works: gcloud secrets create {GCP_CALLBACK_SECRET} --project={GOOGLE_PROJECT} "
+                f"then gcloud secrets versions add {GCP_CALLBACK_SECRET} --project={GOOGLE_PROJECT} "
+                "--data-file=.cursor/eir-voximplant-callback-token.txt"
+            )
+        except RuntimeError as exc:
+            manuals.append(str(exc))
     upsert_secret(api, application_id, SECRET_CALLBACK_TOKEN, token)
     upsert_secret(api, application_id, SECRET_CALLBACK_URL, API_URL + CALLBACK_PATH)
+    return manuals
 
 
 def ensure_phone_secrets(api: VoximplantAPI, application_id: int) -> list[str]:
@@ -324,7 +381,10 @@ def ensure_phone_secrets(api: VoximplantAPI, application_id: int) -> list[str]:
     caller_id = _env_path("VOXIMPLANT_CALLER_ID_E164")
     if demo_phone:
         upsert_secret(api, application_id, SECRET_DESTINATION, demo_phone)
-        _ensure_gcp_secret(GCP_DEMO_PHONE_SECRET, demo_phone)
+        try:
+            _ensure_gcp_secret(GCP_DEMO_PHONE_SECRET, demo_phone)
+        except FileNotFoundError:
+            missing.append("gcloud is required to store EIR_DEMO_PHONE_E164 in Secret Manager.")
     else:
         missing.append(
             "Set EIR_DEMO_PHONE_E164 to the demo cellphone in E.164, then rerun this provisioner. "
@@ -332,7 +392,10 @@ def ensure_phone_secrets(api: VoximplantAPI, application_id: int) -> list[str]:
         )
     if caller_id:
         upsert_secret(api, application_id, SECRET_CALLER, caller_id)
-        _ensure_gcp_secret(GCP_CALLER_SECRET, caller_id)
+        try:
+            _ensure_gcp_secret(GCP_CALLER_SECRET, caller_id)
+        except FileNotFoundError:
+            missing.append("gcloud is required to store VOXIMPLANT_CALLER_ID_E164 in Secret Manager.")
     else:
         missing.append(
             "Set VOXIMPLANT_CALLER_ID_E164 to a verified Voximplant Caller ID, then rerun."
@@ -350,8 +413,11 @@ def verified_caller_ids(api: VoximplantAPI) -> list[dict[str, Any]]:
 
 
 def ensure_runtime_key(api: VoximplantAPI) -> list[str]:
-    if _gcp_secret_exists(GCP_RUNTIME_SECRET):
-        return []
+    try:
+        if _gcp_secret_exists(GCP_RUNTIME_SECRET):
+            return []
+    except FileNotFoundError:
+        pass
     keys = _as_list(_result(api.call("GetKeys")))
     existing = next(
         (
@@ -364,7 +430,7 @@ def ensure_runtime_key(api: VoximplantAPI) -> list[str]:
     )
     if existing is not None:
         return [
-            "Voximplant Settings → Service accounts → Add\n"
+            "Voximplant Settings -> Service accounts -> Add\n"
             f"name: {RUNTIME_KEY_NAME}\n"
             "role: Scenarios\n"
             "Generate key, save JSON locally, then:\n"
@@ -379,7 +445,7 @@ def ensure_runtime_key(api: VoximplantAPI) -> list[str]:
     )
     if "error" in created:
         return [
-            "Voximplant Settings → Service accounts → Add\n"
+            "Voximplant Settings -> Service accounts -> Add\n"
             f"name: {RUNTIME_KEY_NAME}\n"
             "role: Scenarios\n"
             "Generate key and store it in GCP Secret Manager as "
@@ -393,22 +459,41 @@ def ensure_runtime_key(api: VoximplantAPI) -> list[str]:
     }
     if not payload["key_id"] or not payload["private_key"]:
         return [
-            "Voximplant Settings → Service accounts → Add\n"
+            "Voximplant Settings -> Service accounts -> Add\n"
             f"name: {RUNTIME_KEY_NAME}\n"
             "role: Scenarios\n"
             "Generate key and store JSON in GCP Secret Manager "
             f"{GCP_RUNTIME_SECRET}."
         ]
-    _ensure_gcp_secret(GCP_RUNTIME_SECRET, json.dumps(payload))
-    return []
+    try:
+        _ensure_gcp_secret(GCP_RUNTIME_SECRET, json.dumps(payload))
+        return []
+    except FileNotFoundError:
+        local = ROOT / ".cursor" / "eir-runtime-caller.json"
+        local.parent.mkdir(parents=True, exist_ok=True)
+        local.write_text(json.dumps(payload), encoding="utf-8")
+        return [
+            "gcloud was not available. Runtime Voximplant key saved at "
+            ".cursor/eir-runtime-caller.json (gitignored). After gcloud works:\n"
+            f"gcloud secrets create {GCP_RUNTIME_SECRET} --project={GOOGLE_PROJECT}\n"
+            f"gcloud secrets versions add {GCP_RUNTIME_SECRET} --project={GOOGLE_PROJECT} "
+            "--data-file=.cursor/eir-runtime-caller.json"
+        ]
 
 
 def ensure_google_live_sa(api: VoximplantAPI, application_id: int) -> list[str]:
     sa_email = f"{GOOGLE_SA}@{GOOGLE_PROJECT}.iam.gserviceaccount.com"
-    describe = _gcloud_run(
-        ["gcloud", "iam", "service-accounts", "describe", sa_email, f"--project={GOOGLE_PROJECT}"],
-        check=False,
-    )
+    try:
+        describe = _gcloud_run(
+            ["gcloud", "iam", "service-accounts", "describe", sa_email, f"--project={GOOGLE_PROJECT}"],
+            check=False,
+        )
+    except FileNotFoundError:
+        return [
+            "gcloud is required to create Google SA eir-voximplant-live "
+            f"with {VERTEX_ROLE}, generate a JSON key, upload it to Voximplant "
+            f"Secret Storage as {SECRET_VERTEX}, then delete the local key."
+        ]
     if describe.returncode != 0:
         created = _gcloud_run(
             [
@@ -498,7 +583,7 @@ def main() -> int:
         print("MANUAL_ACTION_REQUIRED")
         print()
         print("Voximplant:")
-        print("Settings → Service accounts → Add")
+        print("Settings -> Service accounts -> Add")
         print("name: eir-bootstrap")
         print("role: Admin")
         print("Generate key")
@@ -519,10 +604,10 @@ def main() -> int:
     print(f"  caller_ids_configured: {len(info['caller_ids'])}")
 
     application_id = ensure_application(api)
-    scenario_id = ensure_scenario(api)
+    scenario_id = ensure_scenario(api, application_id)
     rule_id = ensure_rule(api, application_id, scenario_id)
-    ensure_callback_token(api, application_id)
-    manuals = ensure_phone_secrets(api, application_id)
+    manuals = ensure_callback_token(api, application_id)
+    manuals.extend(ensure_phone_secrets(api, application_id))
     manuals.extend(ensure_runtime_key(api))
     manuals.extend(ensure_google_live_sa(api, application_id))
     _write_runtime_env(application_id, rule_id)
@@ -538,7 +623,7 @@ def main() -> int:
 
     if not verified:
         manuals.append(
-            "Voximplant Control Panel → Settings / Caller IDs → verify a number by phone/code.\n"
+            "Voximplant Control Panel -> Settings / Caller IDs -> verify a number by phone/code.\n"
             "Then set VOXIMPLANT_CALLER_ID_E164 and rerun this provisioner.\n"
             "Do not use a Voximplant test number as Caller ID."
         )

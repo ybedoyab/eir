@@ -110,6 +110,18 @@ VOICE_SECRET_BINDINGS = (
     ("EIR_DEMO_PHONE_E164", "eir-demo-phone-e164"),
     ("VOXIMPLANT_CALLER_ID_E164", "eir-voximplant-caller-id"),
 )
+VOXIMPLANT_APPLICATION_ID = "11191282"
+VOXIMPLANT_RULE_ID = "1523546"
+
+
+def _secret_exists(name: str) -> bool:
+    completed = subprocess.run(
+        [_gcloud(), "secrets", "describe", name, f"--project={PROJECT}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return completed.returncode == 0
 
 
 def _shared_env(project_number: str) -> list[str]:
@@ -127,17 +139,19 @@ def _shared_env(project_number: str) -> list[str]:
             key = line.split("=", 1)[0]
             merged[key] = line.strip()
         env = list(merged.values())
+    elif _secret_exists("eir-voximplant-runtime-credentials"):
+        merged = {item.split("=", 1)[0]: item for item in env}
+        merged["VOICE_PROVIDER"] = "VOICE_PROVIDER=voximplant"
+        merged["VOXIMPLANT_APPLICATION_ID"] = f"VOXIMPLANT_APPLICATION_ID={VOXIMPLANT_APPLICATION_ID}"
+        merged["VOXIMPLANT_RULE_ID"] = f"VOXIMPLANT_RULE_ID={VOXIMPLANT_RULE_ID}"
+        env = list(merged.values())
     return env
 
 
 def _voice_secret_flags() -> str:
     extra: list[str] = []
     for env_name, secret_name in VOICE_SECRET_BINDINGS:
-        described = _run(
-            ["gcloud", "secrets", "describe", secret_name, f"--project={PROJECT}"],
-            ok_codes={0, 1},
-        )
-        if described == 0:
+        if _secret_exists(secret_name):
             extra.append(f"{env_name}={secret_name}:latest")
     return ",".join(extra)
 
