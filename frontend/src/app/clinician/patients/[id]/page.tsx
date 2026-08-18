@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -10,20 +10,25 @@ import type { Appointment } from "@/lib/auth";
 import { getPatient, listAppointments, listRecovery } from "@/services/api";
 import type { Patient, RecoveryEpisode } from "@/types";
 
-export default function ClinicianPatientDetailPage({ params }: { params: { id: string } }) {
+export default function ClinicianPatientDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [episodes, setEpisodes] = useState<RecoveryEpisode[]>([]);
 
   useEffect(() => {
-    void getPatient(params.id).then(setPatient);
+    void getPatient(id).then(setPatient);
     void listRecovery()
-      .then((items) => setEpisodes(items.filter((item) => item.patient_id === params.id)))
+      .then((items) => setEpisodes(items.filter((item) => item.patient_id === id)))
       .catch(() => setEpisodes([]));
     void listAppointments()
-      .then((items) => setAppointments(items.filter((item) => item.patient_id === params.id)))
+      .then((items) => setAppointments(items.filter((item) => item.patient_id === id)))
       .catch(() => setAppointments([]));
-  }, [params.id]);
+  }, [id]);
 
   if (!patient) {
     return <p className="text-sm text-slate-500">Loading patient…</p>;

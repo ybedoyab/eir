@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -30,6 +30,24 @@ function formatWhen(value: string): string {
 }
 
 export default function PatientAppointmentsPage() {
+  return (
+    <Suspense
+      fallback={
+        <section className="space-y-6">
+          <PageHeader
+            eyebrow="Appointment center"
+            title="Your appointments"
+            description="Loading appointment workspace…"
+          />
+        </section>
+      }
+    >
+      <PatientAppointmentsContent />
+    </Suspense>
+  );
+}
+
+function PatientAppointmentsContent() {
   const searchParams = useSearchParams();
   const action = searchParams.get("action");
   const [appointments, setAppointments] = useState<Appointment[]>([]);

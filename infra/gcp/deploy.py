@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -17,17 +18,17 @@ from gcloud_utils import model_armor_gcloud_env, redact_command_args
 PROJECT = "eir-ata"
 REGION = "us-central1"
 REPOSITORY = "eir"
-BACKEND_IMAGE = f"{REGION}-docker.pkg.dev/{PROJECT}/{REPOSITORY}/backend:latest"
-FRONTEND_IMAGE = f"{REGION}-docker.pkg.dev/{PROJECT}/{REPOSITORY}/frontend:latest"
 API_SERVICE = "eir-api"
 WORKER_SERVICE = "eir-worker"
 UI_SERVICE = "eir-ui"
 RUNTIME_SA = f"eir-runtime@{PROJECT}.iam.gserviceaccount.com"
 SCHEDULER_SECRET_NAME = "eir-scheduler-secret"
+SESSION_SECRET_NAME = "eir-session-secret"
 MODEL_ARMOR_TEMPLATE = "eir-agent-guard"
 DEPLOY_SECRETS = (
     "GOOGLE_API_KEY=eir-gemini-api-key:latest,"
-    f"SCHEDULER_SECRET={SCHEDULER_SECRET_NAME}:latest"
+    f"SCHEDULER_SECRET={SCHEDULER_SECRET_NAME}:latest,"
+    f"SESSION_SECRET={SESSION_SECRET_NAME}:latest"
 )
 
 BASE_ENV = [
@@ -58,7 +59,30 @@ BASE_ENV = [
     "ENVIRONMENT=production",
     "MODEL_ARMOR_LOCATION=us-central1",
     "MODEL_ARMOR_TEMPLATE=eir-agent-guard",
+    "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false",
 ]
+
+VOICE_SECRET_BINDINGS = (
+    ("VOXIMPLANT_CALLBACK_TOKEN", "eir-voximplant-callback-token"),
+    ("VOXIMPLANT_RUNTIME_CREDENTIALS", "eir-voximplant-runtime-credentials"),
+    ("EIR_DEMO_PHONE_E164", "eir-demo-phone-e164"),
+    ("VOXIMPLANT_CALLER_ID_E164", "eir-voximplant-caller-id"),
+)
+VOXIMPLANT_APPLICATION_ID = "11191282"
+VOXIMPLANT_RULE_ID = "1523546"
+
+
+def _image_tag() -> str:
+    tag = os.environ.get("GITHUB_SHA", "").strip()
+    return tag or "latest"
+
+
+def _backend_image() -> str:
+    return f"{REGION}-docker.pkg.dev/{PROJECT}/{REPOSITORY}/backend:{_image_tag()}"
+
+
+def _frontend_image() -> str:
+    return f"{REGION}-docker.pkg.dev/{PROJECT}/{REPOSITORY}/frontend:{_image_tag()}"
 
 
 def _gcloud() -> str:
@@ -103,16 +127,6 @@ def _project_number() -> str:
 
 def _service_url(service: str, project_number: str) -> str:
     return f"https://{service}-{project_number}.{REGION}.run.app"
-
-
-VOICE_SECRET_BINDINGS = (
-    ("VOXIMPLANT_CALLBACK_TOKEN", "eir-voximplant-callback-token"),
-    ("VOXIMPLANT_RUNTIME_CREDENTIALS", "eir-voximplant-runtime-credentials"),
-    ("EIR_DEMO_PHONE_E164", "eir-demo-phone-e164"),
-    ("VOXIMPLANT_CALLER_ID_E164", "eir-voximplant-caller-id"),
-)
-VOXIMPLANT_APPLICATION_ID = "11191282"
-VOXIMPLANT_RULE_ID = "1523546"
 
 
 def _secret_exists(name: str) -> bool:
@@ -199,7 +213,7 @@ def _ensure_artifact_registry() -> int:
         )
         != 0
     ):
-        _run(
+        return _run(
             [
                 "gcloud",
                 "artifacts",
@@ -217,7 +231,7 @@ def _ensure_artifact_registry() -> int:
 def _ensure_runtime_service_account() -> int:
     describe = ["gcloud", "iam", "service-accounts", "describe", RUNTIME_SA, f"--project={PROJECT}"]
     if _run(describe) != 0:
-        _run(
+        return _run(
             [
                 "gcloud",
                 "iam",
@@ -228,6 +242,10 @@ def _ensure_runtime_service_account() -> int:
                 "--display-name=EIR runtime",
             ]
         )
+    return 0
+
+
+def _ensure_runtime_iam() -> int:
     for role in (
         "roles/aiplatform.user",
         "roles/datastore.user",
@@ -237,8 +255,10 @@ def _ensure_runtime_service_account() -> int:
         "roles/logging.logWriter",
         "roles/secretmanager.secretAccessor",
         "roles/modelarmor.user",
+        "roles/cloudtrace.agent",
+        "roles/monitoring.metricWriter",
     ):
-        _run(
+        code = _run(
             [
                 "gcloud",
                 "projects",
@@ -248,6 +268,8 @@ def _ensure_runtime_service_account() -> int:
                 f"--role={role}",
             ]
         )
+        if code != 0:
+            return code
     return 0
 
 
@@ -291,7 +313,7 @@ def _ensure_secret() -> int:
         tmp.unlink(missing_ok=True)
         if code != 0:
             return code
-    _run(
+    return _run(
         [
             "gcloud",
             "secrets",
@@ -302,7 +324,6 @@ def _ensure_secret() -> int:
             "--role=roles/secretmanager.secretAccessor",
         ]
     )
-    return 0
 
 
 def _ensure_model_armor() -> int:
@@ -382,7 +403,7 @@ def _ensure_scheduler_secret() -> int:
         tmp.unlink(missing_ok=True)
         if code != 0:
             return code
-    _run(
+    return _run(
         [
             "gcloud",
             "secrets",
@@ -393,7 +414,50 @@ def _ensure_scheduler_secret() -> int:
             "--role=roles/secretmanager.secretAccessor",
         ]
     )
-    return 0
+
+
+def _ensure_session_secret() -> int:
+    if not _secret_exists(SESSION_SECRET_NAME):
+        if _run(["gcloud", "secrets", "create", SESSION_SECRET_NAME, f"--project={PROJECT}"]) != 0:
+            return 1
+    versions = subprocess.run(
+        [_gcloud(), "secrets", "versions", "list", SESSION_SECRET_NAME, f"--project={PROJECT}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if versions.returncode != 0 or not versions.stdout.strip():
+        import secrets
+
+        token = secrets.token_urlsafe(48)
+        tmp = Path(".cursor/eir-session-secret.tmp")
+        tmp.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(token, encoding="utf-8")
+        code = _run(
+            [
+                "gcloud",
+                "secrets",
+                "versions",
+                "add",
+                SESSION_SECRET_NAME,
+                f"--project={PROJECT}",
+                f"--data-file={tmp}",
+            ]
+        )
+        tmp.unlink(missing_ok=True)
+        if code != 0:
+            return code
+    return _run(
+        [
+            "gcloud",
+            "secrets",
+            "add-iam-policy-binding",
+            SESSION_SECRET_NAME,
+            f"--project={PROJECT}",
+            f"--member=serviceAccount:{RUNTIME_SA}",
+            "--role=roles/secretmanager.secretAccessor",
+        ]
+    )
 
 
 def _wait_for_build(build_id: str) -> int:
@@ -418,8 +482,14 @@ def _wait_for_build(build_id: str) -> int:
             return 0
         if status in terminal:
             print(f"cloud build {build_id} ended with {status}", file=sys.stderr)
-            if completed.stderr:
-                print(completed.stderr, file=sys.stderr)
+            log = subprocess.run(
+                [_gcloud(), "builds", "log", build_id, f"--project={PROJECT}"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if log.stdout:
+                print(log.stdout[-4000:], file=sys.stderr)
             return 1
         time.sleep(5)
 
@@ -455,14 +525,14 @@ def _cloud_build_submit(*, config: str, substitutions: str) -> int:
 def _build_backend_image() -> int:
     return _cloud_build_submit(
         config="infra/gcp/cloudbuild.yaml",
-        substitutions=f"_IMAGE={BACKEND_IMAGE}",
+        substitutions=f"_IMAGE={_backend_image()}",
     )
 
 
 def _build_frontend_image(api_url: str) -> int:
     return _cloud_build_submit(
         config="infra/gcp/cloudbuild-frontend.yaml",
-        substitutions=f"_IMAGE={FRONTEND_IMAGE},_API_URL={api_url}",
+        substitutions=f"_IMAGE={_frontend_image()},_API_URL={api_url}",
     )
 
 
@@ -475,7 +545,7 @@ def _deploy_api(shared_env: list[str]) -> int:
             "run",
             "deploy",
             API_SERVICE,
-            f"--image={BACKEND_IMAGE}",
+            f"--image={_backend_image()}",
             f"--region={REGION}",
             f"--project={PROJECT}",
             f"--service-account={RUNTIME_SA}",
@@ -501,7 +571,7 @@ def _deploy_worker(shared_env: list[str]) -> int:
             "run",
             "deploy",
             WORKER_SERVICE,
-            f"--image={BACKEND_IMAGE}",
+            f"--image={_backend_image()}",
             f"--region={REGION}",
             f"--project={PROJECT}",
             f"--service-account={RUNTIME_SA}",
@@ -528,7 +598,7 @@ def _deploy_frontend() -> int:
             "run",
             "deploy",
             UI_SERVICE,
-            f"--image={FRONTEND_IMAGE}",
+            f"--image={_frontend_image()}",
             f"--region={REGION}",
             f"--project={PROJECT}",
             "--allow-unauthenticated",
@@ -546,7 +616,12 @@ def main() -> int:
     parser.add_argument(
         "--services-only",
         action="store_true",
-        help="Skip artifact registry and secret bootstrap. IAM roles still applied. Use in CI.",
+        help="Build images and deploy Cloud Run only. No IAM or infrastructure bootstrap.",
+    )
+    parser.add_argument(
+        "--provision",
+        action="store_true",
+        help="Run one-time infrastructure bootstrap (Artifact Registry, secrets, IAM).",
     )
     args = parser.parse_args()
 
@@ -554,24 +629,46 @@ def main() -> int:
     api_url = _service_url(API_SERVICE, project_number)
     shared_env = _shared_env(project_number)
 
-    steps: list = [_ensure_runtime_service_account, _ensure_model_armor]
-    if not args.services_only:
-        steps.extend([_ensure_artifact_registry, _ensure_secret, _ensure_scheduler_secret])
-    steps.extend(
-        [
+    if args.provision:
+        steps = [
+            _ensure_artifact_registry,
+            _ensure_runtime_service_account,
+            _ensure_runtime_iam,
+            _ensure_secret,
+            _ensure_scheduler_secret,
+            _ensure_session_secret,
+            _ensure_model_armor,
+        ]
+    elif args.services_only:
+        steps = [
             _build_backend_image,
             lambda: _deploy_api(shared_env),
             lambda: _deploy_worker(shared_env),
             lambda: _build_frontend_image(api_url),
             _deploy_frontend,
         ]
-    )
+    else:
+        steps = [
+            _ensure_artifact_registry,
+            _ensure_runtime_service_account,
+            _ensure_runtime_iam,
+            _ensure_secret,
+            _ensure_scheduler_secret,
+            _ensure_session_secret,
+            _ensure_model_armor,
+            _build_backend_image,
+            lambda: _deploy_api(shared_env),
+            lambda: _deploy_worker(shared_env),
+            lambda: _build_frontend_image(api_url),
+            _deploy_frontend,
+        ]
 
     for step in steps:
         if step() != 0:
             return 1
 
     print("deploy finished")
+    print(f"image tag: {_image_tag()}")
     print(f"API: {api_url}")
     print(f"UI:  {_service_url(UI_SERVICE, project_number)}")
     return 0
