@@ -32,7 +32,10 @@ def setup_function() -> None:
     get_container.cache_clear()
 
 
-def test_build_fhir_client_uses_gcp_in_production_mode() -> None:
+def test_build_fhir_client_uses_gcp_in_production_mode(monkeypatch) -> None:
+    from app.core import deps
+
+    monkeypatch.setattr(deps.settings, "fhir_mode", "gcp")
     operational = InMemoryOperationalSchedulingStore()
     client = _build_fhir_client(testing=False, operational_store=operational)
     assert isinstance(client, GoogleHealthcareFhirClient)
