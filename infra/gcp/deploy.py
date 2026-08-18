@@ -7,7 +7,12 @@ import shutil
 import subprocess
 import sys
 import time
-from eir_shared.redaction import redact_command_args
+from pathlib import Path
+
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+from gcloud_utils import redact_command_args
 
 PROJECT = "eir-ata"
 REGION = "us-central1"

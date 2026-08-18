@@ -9,7 +9,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from eir_shared.redaction import redact_command_args
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+from gcloud_utils import redact_command_args
 
 PROJECT = "eir-ata"
 LOCATION = "us-central1"
