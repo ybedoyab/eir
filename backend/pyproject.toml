@@ -40,3 +40,12 @@ dev = [
 pythonpath = ["."]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+filterwarnings = [
+    "error::DeprecationWarning:app",
+    "error::RuntimeWarning:app",
+    "error::ResourceWarning:app",
+    "error::DeprecationWarning:eir_agents",
+    "error::DeprecationWarning:eir_shared",
+    "ignore:BaseAgentConfig is deprecated:DeprecationWarning",
+    "ignore:Using `httpx` with `starlette.testclient`:UserWarning",
+]

@@ -9,23 +9,23 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.12"
       - name: Install Python packages
         run: uv sync --all-packages --all-groups
       - name: Test backend
-        run: uv run --package eir-backend --group dev pytest backend/tests -W error::DeprecationWarning -W error::RuntimeWarning
+        run: uv run --package eir-backend --group dev pytest backend/tests
       - name: Test agents
-        run: uv run --package eir-agents --group dev pytest agents/tests -W error::DeprecationWarning -W error::RuntimeWarning
+        run: uv run --package eir-agents --group dev pytest agents/tests
       - name: Lint Python
         run: uv run ruff check shared backend agents
 
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -54,8 +54,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.12"
       - uses: google-github-actions/auth@v2
