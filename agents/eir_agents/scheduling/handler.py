@@ -1,4 +1,4 @@
-"""Appointment scheduling with FHIR Appointment creation."""
+"""Appointment scheduling with FHIR Appointment lifecycle."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ def schedule_appointment(
     reason: str,
     patient_id: str | None = None,
     fhir: FhirClient | None = None,
+    recovery_context: bool = True,
 ) -> HandlerResult:
     fhir = fhir or LocalFhirClient()
     appointment = fhir.create_appointment(
@@ -23,14 +24,21 @@ def schedule_appointment(
         reason=reason,
     )
 
-    review = HumanReviewRequested(
-        episode_id=episode_id,
-        reason=f"Appointment scheduling requires clinician approval: {reason}",
-        payload={"appointment": appointment},
-    )
+    if recovery_context:
+        review = HumanReviewRequested(
+            episode_id=episode_id,
+            reason=f"Recovery follow-up appointment requires clinician approval: {reason}",
+            payload={"appointment": appointment},
+        )
+        return HandlerResult(
+            summary=f"Requested recovery follow-up appointment: {reason}",
+            episode_status="WAITING_FOR_NEXT_FOLLOWUP",
+            review_reason=review.reason,
+            next_events=[review],
+        )
+
     return HandlerResult(
-        summary=f"Requested synthetic appointment: {reason}",
+        summary=f"Booked routine appointment: {reason}",
         episode_status="WAITING_FOR_NEXT_FOLLOWUP",
-        review_reason=review.reason,
-        next_events=[review],
+        next_events=[],
     )

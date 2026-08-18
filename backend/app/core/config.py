@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     data_dir: str = "data"
     model_armor_location: str = "us-central1"
     model_armor_template: str = "eir-agent-guard"
+    session_secret: str = "local-dev-session-secret"
 
     @field_validator("cors_origins", mode="before")
     @classmethod

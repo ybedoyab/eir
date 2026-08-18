@@ -38,17 +38,11 @@ class VoiceCallbackRequest(BaseModel):
     patient_requests_clinician: bool | None = None
     call_outcome: str = ""
     failure_reason: str = ""
-    transcript: str = ""
 
 
 def _sanitize_summary(value: str) -> str:
     text = " ".join(value.split())
     return text[:240]
-
-
-def _sanitize_transcript(value: str) -> str:
-    lines = [line.strip() for line in value.splitlines()]
-    return "\n".join(line for line in lines if line)[:1800]
 
 
 def _structured_payload(body: VoiceCallbackRequest) -> dict[str, Any]:
@@ -74,7 +68,6 @@ def _structured_payload(body: VoiceCallbackRequest) -> dict[str, Any]:
         "patient_requests_clinician": bool(body.patient_requests_clinician),
         "call_outcome": body.call_outcome or "completed",
         "gemini_live_model": settings.gemini_live_model,
-        "transcript": _sanitize_transcript(body.transcript),
     }
 
 
@@ -148,7 +141,10 @@ class VoiceCallbackService:
         if state == "CALL_COMPLETED":
             completed = dict(payload)
             completed["call_outcome"] = body.call_outcome or "completed"
-            completed["transcript"] = _sanitize_transcript(body.transcript)
+            completed["pain_score"] = body.pain_score
+            completed["reported_issue"] = body.reported_issue
+            completed["issue_summary"] = _sanitize_summary(body.issue_summary)
+            completed["medication_adherence"] = body.medication_adherence
             return VoiceCallCompleted(episode_id=body.episode_id, payload=completed)
         failed = dict(payload)
         failed["failure_reason"] = _sanitize_summary(body.failure_reason or state.lower())

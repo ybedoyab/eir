@@ -1,3 +1,4 @@
+from eir_agents.access.descriptor import DESCRIPTOR as PATIENT_ACCESS
 from eir_agents.adherence.descriptor import DESCRIPTOR as ADHERENCE
 from eir_agents.escalation.descriptor import DESCRIPTOR as ESCALATION
 from eir_agents.orchestrator.descriptor import DESCRIPTOR as ORCHESTRATOR
@@ -12,6 +13,7 @@ def default_registry() -> AgentRegistry:
     registry = AgentRegistry()
     for descriptor in (
         ORCHESTRATOR,
+        PATIENT_ACCESS,
         OUTREACH,
         ADHERENCE,
         RISK,
