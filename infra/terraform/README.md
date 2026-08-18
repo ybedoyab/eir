@@ -36,6 +36,11 @@ Do not recreate working resources. New environments start from this module.
 - Workload Identity Federation for GitHub Actions
 - Monitoring dashboard + alert policies
 
+CI `terraform` job runs `fmt`/`validate`. CI `terraform-plan` authenticates as
+`eir-infra-ci` and requires `terraform plan -detailed-exitcode` = 0.
+`eir-deploy-ci` does not plan Terraform; it lacks IAM/secret/WIF read and is
+intentionally limited to image build + Cloud Run revision rollout.
+
 ## What deploy.py owns
 
 - Immutable image build/push tagged with `GITHUB_SHA`

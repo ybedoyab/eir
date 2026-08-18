@@ -10,6 +10,7 @@ env:
   GCP_REGION: us-central1
   WIF_PROVIDER: projects/658898892127/locations/global/workloadIdentityPools/github-actions/providers/github
   DEPLOY_SA: eir-deploy-ci@eir-ata.iam.gserviceaccount.com
+  INFRA_SA: eir-infra-ci@eir-ata.iam.gserviceaccount.com
 
 jobs:
   backend:
@@ -80,8 +81,38 @@ jobs:
       - name: Validate
         run: terraform validate
 
+  terraform-plan:
+    needs: [terraform]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - name: Configure git default branch
+        working-directory: ${{ runner.temp }}
+        run: git config --global init.defaultBranch main
+      - uses: actions/checkout@v5
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.INFRA_SA }}
+      - uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: eir-ata
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.8
+      - name: Terraform drift check
+        run: |
+          terraform init -input=false
+          terraform plan -detailed-exitcode -lock=false
+
   deploy:
-    needs: [backend, frontend, terraform]
+    needs: [backend, frontend, terraform, terraform-plan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -103,14 +134,6 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v3
         with:
           project_id: eir-ata
-      - uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: 1.15.8
-      - name: Terraform drift check
-        working-directory: infra/terraform
-        run: |
-          terraform init -input=false
-          terraform plan -detailed-exitcode -lock=false
       - name: Deploy Cloud Run stack
         env:
           GITHUB_SHA: ${{ github.sha }}

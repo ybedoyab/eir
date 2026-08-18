@@ -136,6 +136,7 @@ def test_provisioner_can_sync_scenario_without_pstn_secrets() -> None:
     assert "infra/gcp/deploy.py --services-only" in workflow
     assert "GCP_SA_KEY" not in workflow
     assert "google-github-actions/auth@v3" in workflow
+    assert "eir-infra-ci@eir-ata.iam.gserviceaccount.com" in workflow
 
 
 def test_voice_preview_page_uses_node2_and_not_hosted_webphone() -> None:
