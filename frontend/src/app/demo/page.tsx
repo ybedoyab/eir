@@ -18,8 +18,10 @@ import {
   DEMO_STEPS,
   DEMO_STORAGE_KEY,
   demoActivity,
+  demoNeedsFastPoll,
   deriveDemoSteps,
   formatWhen,
+  hasEvent,
   latestEvent,
   outreachProof,
   runtimeProof,
@@ -57,6 +59,20 @@ function isConflict(error: unknown): boolean {
   return error instanceof Error && error.message.includes("(409)");
 }
 
+function ActivityBanner({ title, detail }: { title: string; detail?: string }) {
+  return (
+    <Card className="border-teal-300 bg-teal-50 p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="mt-1.5 h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-teal-600" />
+        <div>
+          <p className="text-lg font-semibold text-teal-950">{title}</p>
+          {detail ? <p className="mt-1 text-sm leading-6 text-teal-800">{detail}</p> : null}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function DemoPage() {
   const [episodeId, setEpisodeId] = useState<string | null>(null);
   const [episode, setEpisode] = useState<RecoveryEpisode | null>(null);
@@ -77,10 +93,17 @@ export default function DemoPage() {
     [episode, events, history, reviews],
   );
   const stepIndex = currentStepIndex(completed);
-  const activity = demoActivity({ completed, events, history, awaiting });
   const pendingReview = reviews.find(
     (review) => review.episode_id === episodeId && review.status === "pending",
   );
+  const clinicianResolved = hasEvent(events, "ClinicianResolved");
+  const activity = demoActivity({
+    completed,
+    events,
+    history,
+    awaiting,
+    pendingReview: Boolean(pendingReview),
+  });
   const securityEvent = latestEvent(events, "ContentSecurityBlocked");
   const outreach = outreachProof(history);
   const chain = agentChain(history);
@@ -88,6 +111,9 @@ export default function DemoPage() {
   const armor = armorLabel(
     String(securityEvent?.payload.adapter ?? history.find((item) => item.security_adapter)?.security_adapter ?? ""),
   );
+  const loopComplete = completed[0] && completed[1] && completed[2] && completed[3] && completed[4] && completed[5] && clinicianResolved;
+  const reviewLocked = busy === "review" || awaiting === "review";
+  const preparingReview = completed[5] && !pendingReview && !clinicianResolved && awaiting !== "review";
 
   const refresh = useCallback(async (id: string) => {
     const [nextEpisode, nextEvents, nextHistory, nextReviews, nextRuntime] = await Promise.all([
@@ -125,11 +151,21 @@ export default function DemoPage() {
     });
   }, [refresh]);
 
+  const waiting = demoNeedsFastPoll({ awaiting, activity });
+
+  useEffect(() => {
+    if ((waiting || preparingReview) && awaitingSince.current === null) {
+      awaitingSince.current = Date.now();
+    }
+    if (!waiting) {
+      awaitingSince.current = null;
+    }
+  }, [waiting, preparingReview]);
+
   useEffect(() => {
     if (!episodeId) {
       return;
     }
-    const waiting = awaiting !== null;
     const intervalMs = waiting ? DEMO_POLL_MS : 4000;
     const timer = window.setInterval(() => {
       void refresh(episodeId).catch((err: unknown) => {
@@ -140,7 +176,7 @@ export default function DemoPage() {
       }
     }, intervalMs);
     return () => window.clearInterval(timer);
-  }, [episodeId, awaiting, refresh]);
+  }, [episodeId, waiting, refresh]);
 
   useEffect(() => {
     if (awaiting === "follow-up" && completed[3]) {
@@ -151,15 +187,16 @@ export default function DemoPage() {
       setAwaiting(null);
       setStalled(false);
     }
-    if (awaiting === "concerning" && (completed[5] || completed[6])) {
+    if (awaiting === "concerning" && (Boolean(pendingReview) || clinicianResolved)) {
       setAwaiting(null);
       setStalled(false);
     }
-    if (awaiting === "review" && events.some((event) => event.event_type === "ClinicianResolved")) {
+    if (awaiting === "review" && clinicianResolved) {
       setAwaiting(null);
+      setBusy(null);
       setStalled(false);
     }
-  }, [awaiting, completed, events]);
+  }, [awaiting, completed, pendingReview, clinicianResolved]);
 
   function beginAwait(kind: AwaitKind) {
     awaitingSince.current = Date.now();
@@ -167,9 +204,20 @@ export default function DemoPage() {
     setStalled(false);
   }
 
+  function resetLocalDemo() {
+    setAwaiting(null);
+    setStalled(false);
+    setError(null);
+    setEvents([]);
+    setHistory([]);
+    setReviews([]);
+    setEpisode(null);
+    setPatient(null);
+  }
+
   async function startDemo() {
     setBusy("start");
-    setError(null);
+    resetLocalDemo();
     try {
       const boot = await bootstrapDemo(false);
       sessionStorage.setItem(DEMO_STORAGE_KEY, boot.episode_id);
@@ -244,7 +292,7 @@ export default function DemoPage() {
   }
 
   async function approveReview() {
-    if (!pendingReview || !episodeId) {
+    if (!pendingReview || !episodeId || reviewLocked) {
       return;
     }
     setBusy("review");
@@ -254,21 +302,19 @@ export default function DemoPage() {
       beginAwait("review");
       await refresh(episodeId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Review resolve failed");
-    } finally {
       setBusy(null);
+      setError(err instanceof Error ? err.message : "Review resolve failed");
     }
   }
 
-  const disabled = busy !== null;
-  const showFastForward = Boolean(episodeId) && !completed[2];
-  const showAttack = completed[3] && !completed[4];
-  const showConcerning = completed[4] && !completed[5];
-  const clinicianResolved = events.some((event) => event.event_type === "ClinicianResolved");
+  const actionLocked = busy !== null || reviewLocked;
+  const showFastForward = Boolean(episodeId) && !completed[2] && awaiting !== "follow-up";
+  const showAttack = completed[3] && !completed[4] && awaiting !== "attack";
+  const showConcerning = completed[4] && !completed[5] && awaiting !== "concerning";
 
   return (
-    <div className="space-y-8">
-      <header className="space-y-3">
+    <div className="space-y-5">
+      <header className="space-y-2">
         <p className="text-sm font-medium uppercase tracking-[0.18em] text-teal-700">
           Hackathon showcase
         </p>
@@ -283,10 +329,10 @@ export default function DemoPage() {
       {error ? <ErrorAlert message={error} /> : null}
 
       {runtime ? (
-        <Card className="p-4">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="p-3">
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
             {proof.map((row) => (
-              <div key={row.label} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+              <div key={row.label} className="flex items-center gap-2">
                 <span className="text-sm text-slate-700">{row.label}</span>
                 <span
                   className={cn(
@@ -303,28 +349,28 @@ export default function DemoPage() {
       ) : null}
 
       {!hydrated ? null : !episodeId ? (
-        <Card className="border-teal-200 bg-gradient-to-br from-teal-50/80 to-white p-8">
+        <Card className="border-teal-200 bg-gradient-to-br from-teal-50/80 to-white p-6">
           <p className="text-sm font-medium text-teal-800">Consultation just ended</p>
           <h2 className="mt-2 text-2xl font-semibold text-slate-900">Start a synthetic recovery episode</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
             EIR will open a Recovery Episode, schedule proactive follow-up, and wait for the
             autonomous fleet. No real patient data.
           </p>
-          <div className="mt-6">
-            <Button onClick={() => void startDemo()} disabled={disabled}>
+          <div className="mt-5">
+            <Button onClick={() => void startDemo()} disabled={actionLocked}>
               {busy === "start" ? "Starting…" : "Start demo"}
             </Button>
           </div>
         </Card>
       ) : (
         <>
-          <Card className="border-teal-200 bg-gradient-to-br from-teal-50/70 to-white">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+          <Card className="border-teal-200 bg-gradient-to-br from-teal-50/70 to-white p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-teal-700">
                   Monitoring started
                 </p>
-                <h2 className="mt-1 text-2xl font-semibold text-slate-900">
+                <h2 className="mt-1 text-xl font-semibold text-slate-900">
                   {patient?.name ?? "Synthetic patient"}
                 </h2>
                 <p className="mt-1 font-mono text-xs text-slate-500">
@@ -336,17 +382,9 @@ export default function DemoPage() {
                 {episode ? <Badge className={riskBadgeClass(episode.risk_level)}>{episode.risk_level}</Badge> : null}
               </div>
             </div>
-            <p className="mt-4 text-sm text-slate-600">
+            <p className="mt-3 text-sm text-slate-600">
               Next autonomous follow-up: {formatWhen(episode?.next_follow_up_at)}
             </p>
-            <div className="mt-4 flex flex-wrap gap-3 text-sm">
-              <Link href={`/recovery/${episodeId}`} className="font-medium text-teal-800 hover:underline">
-                Open full episode
-              </Link>
-              <Link href="/observability" className="font-medium text-teal-800 hover:underline">
-                Open observability
-              </Link>
-            </div>
           </Card>
 
           <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -357,7 +395,7 @@ export default function DemoPage() {
                 <li
                   key={step.id}
                   className={cn(
-                    "rounded-2xl border px-4 py-3",
+                    "rounded-2xl border px-3 py-2.5",
                     done
                       ? "border-emerald-200 bg-emerald-50/80"
                       : current
@@ -376,9 +414,7 @@ export default function DemoPage() {
             })}
           </ol>
 
-          {activity ? (
-            <p className="text-sm font-medium text-teal-800">{activity}</p>
-          ) : null}
+          {activity ? <ActivityBanner title={activity.title} detail={activity.detail} /> : null}
           {stalled ? (
             <p className="text-sm font-medium text-amber-800">
               Still processing — check Observability
@@ -386,28 +422,28 @@ export default function DemoPage() {
           ) : null}
 
           {showFastForward ? (
-            <Card>
+            <Card className="p-4">
               <h2 className="text-xl font-semibold text-slate-900">Fast-forward to follow-up</h2>
               <p className="mt-1 text-sm text-slate-500">
                 Demo time control — production uses Cloud Scheduler.
               </p>
               <div className="mt-4">
-                <Button onClick={() => void fastForward()} disabled={disabled}>
+                <Button onClick={() => void fastForward()} disabled={actionLocked}>
                   {busy === "advance" ? "Advancing…" : "Fast-forward to follow-up"}
                 </Button>
               </div>
             </Card>
           ) : null}
 
-          {completed[2] && outreach ? (
-            <Card className="border-emerald-200 bg-emerald-50/50">
+          {showAttack && outreach ? (
+            <Card className="border-emerald-200 bg-emerald-50/50 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
                 Synthetic voice simulation
               </p>
-              <h2 className="mt-1 text-2xl font-semibold text-emerald-950">
+              <h2 className="mt-1 text-xl font-semibold text-emerald-950">
                 Autonomous follow-up completed
               </h2>
-              <dl className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+              <dl className="mt-3 grid gap-1 text-sm text-slate-700 sm:grid-cols-2">
                 <div>Agent: {outreach.agent_name}</div>
                 <div>Model: {outreach.model}</div>
                 <div>Tool: {(outreach.tools_invoked ?? []).join(", ") || "conduct_outreach"}</div>
@@ -418,63 +454,59 @@ export default function DemoPage() {
           ) : null}
 
           {showAttack ? (
-            <Card>
+            <Card className="p-4">
               <h2 className="text-xl font-semibold text-slate-900">Simulate prompt-injection attack</h2>
               <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 font-mono text-sm text-slate-700">
                 {DEMO_ATTACK_PROMPT}
               </p>
               <div className="mt-4">
-                <Button variant="danger" onClick={() => void runAttack()} disabled={disabled}>
+                <Button variant="danger" onClick={() => void runAttack()} disabled={actionLocked}>
                   {busy === "attack" ? "Sending…" : "Simulate prompt-injection attack"}
                 </Button>
               </div>
             </Card>
           ) : null}
 
-          {securityEvent ? (
-            <Card className="border-rose-200 bg-rose-50/70">
-              <h2 className="text-2xl font-semibold tracking-tight text-rose-900">
+          {showConcerning && securityEvent ? (
+            <Card className="border-rose-200 bg-rose-50/70 p-4">
+              <h2 className="text-xl font-semibold tracking-tight text-rose-900">
                 BLOCKED BY MODEL ARMOR
               </h2>
-              <p className="mt-2 text-sm font-medium text-rose-800">{armor.title}</p>
-              <ul className="mt-3 space-y-1 text-sm text-rose-900">
+              <p className="mt-1 text-sm font-medium text-rose-800">{armor.title}</p>
+              <ul className="mt-2 space-y-1 text-sm text-rose-900">
                 <li>prompt injection / jailbreak</li>
                 <li>no tool executed</li>
                 <li>no records returned</li>
               </ul>
-              <p className="mt-3 font-mono text-[11px] text-rose-700">
-                adapter: {String(securityEvent.payload.adapter ?? armor.title)} ·{" "}
-                {String(securityEvent.payload.filter_category ?? "prompt_injection")}
-              </p>
             </Card>
           ) : null}
 
           {showConcerning ? (
-            <Card>
+            <Card className="p-4">
               <h2 className="text-xl font-semibold text-slate-900">Simulate concerning patient response</h2>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm">Pain score: 8/10</div>
                 <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm">Reported issue: swelling</div>
               </div>
               <div className="mt-4">
-                <Button onClick={() => void runConcerning()} disabled={disabled}>
+                <Button onClick={() => void runConcerning()} disabled={actionLocked}>
                   {busy === "concerning" ? "Sending…" : "Simulate concerning patient response"}
                 </Button>
               </div>
             </Card>
           ) : null}
 
-          {completed[5] ? (
-            <Card className="border-amber-200 bg-amber-50/70">
-              <h2 className="text-2xl font-semibold text-amber-950">EIR escalated instead of guessing</h2>
-              <p className="mt-2 text-sm leading-6 text-amber-900">
+          {(preparingReview || pendingReview || awaiting === "review") && completed[5] ? (
+            <Card className="border-amber-200 bg-amber-50/70 p-4">
+              <h2 className="text-xl font-semibold text-amber-950">EIR escalated instead of guessing</h2>
+              <p className="mt-1 text-sm leading-6 text-amber-900">
                 The agent detected a concerning recovery signal and routed the case to a clinician.
               </p>
             </Card>
           ) : null}
 
-          {pendingReview ? (
-            <Card className="border-amber-300 bg-white">
+          {pendingReview && !clinicianResolved ? (
+            <Card className="border-amber-300 bg-white p-4">
               <h2 className="text-xl font-semibold text-slate-900">Human review required</h2>
               <dl className="mt-3 space-y-1 text-sm text-slate-700">
                 <div>Reason: {pendingReview.reason}</div>
@@ -486,26 +518,18 @@ export default function DemoPage() {
                 <div>Timestamp: {formatWhen(pendingReview.created_at)}</div>
               </dl>
               <div className="mt-4">
-                <Button onClick={() => void approveReview()} disabled={disabled}>
-                  {busy === "review" ? "Saving…" : "Approve / Mark reviewed"}
+                <Button onClick={() => void approveReview()} disabled={actionLocked}>
+                  {reviewLocked ? "Review submitted — waiting for worker…" : "Approve / Mark reviewed"}
                 </Button>
               </div>
             </Card>
           ) : null}
 
-          {clinicianResolved ? (
-            <Card className="border-emerald-200 bg-emerald-50/60">
-              <h2 className="text-xl font-semibold text-emerald-950">Clinician review completed</h2>
-              <p className="mt-2 text-sm text-emerald-800">
-                Workflow resumed from the governed human-review checkpoint.
-              </p>
-            </Card>
-          ) : null}
-
           {chain.length > 0 ? (
-            <Card>
+            <Card className="p-4">
               <h2 className="text-base font-semibold text-slate-900">Agent chain</h2>
-              <ol className="mt-4 space-y-0">
+              <p className="mt-1 text-xs text-slate-500">This episode only — not the global Observability feed.</p>
+              <ol className="mt-3 space-y-0">
                 {chain.map((item, index) => (
                   <li key={`${item.timestamp}-${item.agent_name}-${index}`}>
                     <p className="font-mono text-sm font-medium text-slate-900">{item.agent_name}</p>
@@ -517,10 +541,40 @@ export default function DemoPage() {
             </Card>
           ) : null}
 
+          {loopComplete ? (
+            <Card className="border-emerald-300 bg-emerald-50/80 p-5">
+              <h2 className="text-2xl font-semibold text-emerald-950">EIR recovery loop completed</h2>
+              <ul className="mt-3 space-y-1 text-sm text-emerald-900">
+                <li>proactive outreach completed</li>
+                <li>Gemini + ADK tools executed</li>
+                <li>Model Armor blocked unsafe input</li>
+                <li>concerning signal escalated</li>
+                <li>clinician reviewed the case</li>
+              </ul>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Button onClick={() => void startDemo()} disabled={busy === "start"}>
+                  {busy === "start" ? "Starting…" : "Start new demo"}
+                </Button>
+                <Link
+                  href={`/recovery/${episodeId}`}
+                  className="inline-flex items-center rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                >
+                  Open full episode
+                </Link>
+                <Link
+                  href="/observability"
+                  className="inline-flex items-center rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                >
+                  Open observability
+                </Link>
+              </div>
+            </Card>
+          ) : null}
+
           {events.length > 0 ? (
-            <Card>
+            <Card className="p-4">
               <h2 className="text-base font-semibold text-slate-900">Audit timeline</h2>
-              <ol className="mt-4 space-y-3">
+              <ol className="mt-3 space-y-2">
                 {events.map((event) => {
                   const label = eventLabel(event.event_type);
                   return (
@@ -536,16 +590,10 @@ export default function DemoPage() {
               </ol>
             </Card>
           ) : null}
-
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => void startDemo()} disabled={disabled}>
-              {busy === "start" ? "Starting…" : "Start new demo"}
-            </Button>
-          </div>
         </>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-2">
+      <section className="grid gap-3 sm:grid-cols-2">
         {[
           {
             title: "Proactive",

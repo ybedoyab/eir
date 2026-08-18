@@ -111,36 +111,65 @@ export function currentStepIndex(completed: boolean[]): number {
   return Math.max(0, firstOpen);
 }
 
+export type DemoActivity = {
+  title: string;
+  detail?: string;
+};
+
 export function demoActivity(input: {
   completed: boolean[];
   events: DomainEvent[];
   history: AdkWorkerTelemetry[];
   awaiting: "follow-up" | "attack" | "concerning" | "review" | null;
-}): string | null {
-  const { completed, events, history, awaiting } = input;
+  pendingReview: boolean;
+}): DemoActivity | null {
+  const { completed, events, history, awaiting, pendingReview } = input;
+  const clinicianResolved = hasEvent(events, "ClinicianResolved");
+
+  if (awaiting === "review" && !clinicianResolved) {
+    return {
+      title: "Review submitted — waiting for worker…",
+      detail: "The API recorded the clinician decision. The worker will resume the Recovery Episode.",
+    };
+  }
+  if (completed[5] && !pendingReview && !clinicianResolved) {
+    return {
+      title: "Preparing clinician review…",
+      detail: "The recovery fleet has escalated the case. Waiting for the governed human-review checkpoint.",
+    };
+  }
   if (awaiting === "follow-up" && hasEvent(events, "FollowUpDue") && !completed[2]) {
-    return "Outreach agent is working…";
+    return { title: "Outreach agent is working…" };
   }
   if (
     awaiting === "follow-up" &&
     historyHas(history, "outreach_agent") &&
     !events.some(isOutreachResponse)
   ) {
-    return "Waiting for patient response…";
+    return { title: "Waiting for patient response…" };
   }
-  if (awaiting === "follow-up" && events.some(isOutreachResponse) && !historyHas(history, "risk_agent") && !completed[3]) {
-    return "Risk agent evaluating…";
+  if (
+    awaiting === "follow-up" &&
+    events.some(isOutreachResponse) &&
+    !historyHas(history, "risk_agent") &&
+    !completed[3]
+  ) {
+    return { title: "Risk agent is evaluating…" };
   }
   if (awaiting === "attack" && !completed[4]) {
-    return "Model Armor screening inbound message…";
+    return { title: "Model Armor screening inbound message…" };
   }
   if (awaiting === "concerning" && !completed[5]) {
-    return "Risk agent evaluating…";
-  }
-  if (awaiting === "review" && !hasEvent(events, "ClinicianResolved")) {
-    return "Waiting for clinician resolution…";
+    return { title: "Risk agent is evaluating…" };
   }
   return null;
+}
+
+export function demoNeedsFastPoll(input: {
+  awaiting: "follow-up" | "attack" | "concerning" | "review" | null;
+  activity: DemoActivity | null;
+}): boolean {
+  return input.awaiting !== null || input.activity !== null;
 }
 
 export function agentChain(history: AdkWorkerTelemetry[]): AdkWorkerTelemetry[] {
