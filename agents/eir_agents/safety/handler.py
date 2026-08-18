@@ -11,6 +11,8 @@ from typing import Any
 from eir_shared.capabilities import PRE_APPROVAL_CAPABILITIES
 from eir_shared.identity import AgentIdentity, AuthorizationPolicy, PolicyDecision
 
+SENSITIVE_WRITE_CAPABILITIES = PRE_APPROVAL_CAPABILITIES
+
 
 class SafetyGate:
     def __init__(
@@ -36,6 +38,15 @@ class SafetyGate:
             ingress = self._armor.inspect_ingress(f"{context.get('event_type', '')} {text}")
             if not ingress.allowed:
                 return PolicyDecision(allowed=False, reason=ingress.reason)
+            if capability in SENSITIVE_WRITE_CAPABILITIES and getattr(ingress, "degraded", False):
+                return PolicyDecision(
+                    allowed=True,
+                    requires_human_approval=True,
+                    reason=(
+                        "safety gate: managed Model Armor unavailable for sensitive write; "
+                        "human review required"
+                    ),
+                )
 
         decision = self.policy.decide(identity, capability)
         if not decision.allowed:

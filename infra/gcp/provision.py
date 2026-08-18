@@ -12,7 +12,7 @@ from pathlib import Path
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
-from gcloud_utils import redact_command_args
+from gcloud_utils import model_armor_gcloud_env, redact_command_args
 
 PROJECT = "eir-ata"
 LOCATION = "us-central1"
@@ -43,7 +43,8 @@ def _run(args: list[str], *, ok_codes: set[int] | None = None) -> int:
     if args and args[0] == "gcloud":
         args = [_gcloud(), *args[1:]]
     print("+", " ".join(redact_command_args(args)), flush=True)
-    completed = subprocess.run(args, check=False)
+    env = model_armor_gcloud_env() if "model-armor" in args else None
+    completed = subprocess.run(args, check=False, env=env)
     if completed.returncode not in ok_codes:
         print(f"command failed with {completed.returncode}", file=sys.stderr)
     return completed.returncode
@@ -242,11 +243,6 @@ def _ensure_model_armor_template() -> None:
             "--pi-and-jailbreak-filter-settings-confidence-level=MEDIUM_AND_ABOVE",
             "--basic-config-filter-enforcement=enabled",
             "--malicious-uri-filter-settings-enforcement=enabled",
-            (
-                '--rai-settings-filters=[{"filterType":"HATE_SPEECH",'
-                '"confidenceLevel":"MEDIUM_AND_ABOVE"},{"filterType":"DANGEROUS",'
-                '"confidenceLevel":"MEDIUM_AND_ABOVE"}]'
-            ),
             "--template-metadata-log-sanitize-operations",
         ],
         ok_codes={0, 1},

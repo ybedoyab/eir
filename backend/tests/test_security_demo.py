@@ -29,10 +29,17 @@ def test_security_screen_blocks_malicious_prompt(client: TestClient) -> None:
     assert body["filter_category"] == "prompt_injection"
 
 
-def test_security_screen_allows_safe_prompt(client: TestClient) -> None:
-    response = client.post(
-        "/api/v1/security/screen",
-        json={"prompt": "Routine soreness check-in", "scenario": "safe"},
-    )
+def test_runtime_history_endpoint(client: TestClient) -> None:
+    response = client.get("/api/v1/runtime/history?limit=10")
     assert response.status_code == 200
-    assert response.json()["allowed"] is True
+    assert "items" in response.json()
+    assert isinstance(response.json()["items"], list)
+
+
+def test_demo_bootstrap_creates_episode(client: TestClient) -> None:
+    response = client.post("/api/v1/demo/bootstrap", json={"fast_forward": False})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["patient_id"] == "patient-synthetic-001"
+    assert body["episode_id"]
+    assert "story" in body

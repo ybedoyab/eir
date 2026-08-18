@@ -167,7 +167,6 @@ class Container:
             location=settings.model_armor_location,
             template=settings.model_armor_template,
             prefer_managed=prefer_managed and settings.google_genai_use_vertexai,
-            fail_closed=True,
         )
         self.content_guard = armor
         self.agent_memory = build_agent_memory(

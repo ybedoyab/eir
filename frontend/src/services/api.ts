@@ -78,3 +78,9 @@ export async function listTraces() {
 export async function getRuntimeStatus() {
   return getJson<import("@/types").RuntimeStatus>("/api/v1/runtime/status");
 }
+
+export async function getRuntimeHistory(limit = 25) {
+  return getJson<{ items: import("@/types").AdkWorkerTelemetry[] }>(
+    `/api/v1/runtime/history?limit=${limit}`,
+  );
+}

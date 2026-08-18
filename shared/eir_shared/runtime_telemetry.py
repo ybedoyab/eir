@@ -21,6 +21,8 @@ class AdkInvocationTelemetry:
     used_direct_fallback: bool
     error_type: str | None = None
     error_message: str | None = None
+    security_adapter: str | None = None
+    security_category: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

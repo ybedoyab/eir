@@ -45,11 +45,13 @@ def _filter_category_label(key: str) -> str:
 
 @dataclass
 class ModelArmorStatus:
+    configured: bool = False
     mode: str = "fallback"
     location: str = ""
     template: str = ""
-    available: bool = False
+    managed_available: bool = False
     last_screening_success: bool | None = None
+    last_decision_adapter: str | None = None
     last_error_type: str | None = None
     last_filter_category: str | None = None
     last_blocked: bool | None = None
@@ -78,81 +80,92 @@ class VertexModelArmorAdapter:
         location: str,
         template: str,
         fallback: RegexContentGuardFallback,
-        fail_closed: bool = True,
     ) -> None:
         self._project = project
         self._location = location
         self._template = template
         self._fallback = fallback
-        self._fail_closed = fail_closed
-        self.managed_available = managed_model_armor_available()
+        sdk_available = managed_model_armor_available()
+        configured = bool(sdk_available and template)
+        self.managed_available = configured
         self._status = ModelArmorStatus(
-            mode="managed" if self.managed_available and template else "fallback",
+            configured=configured,
+            mode="managed" if configured else "fallback",
             location=location,
             template=template,
-            available=bool(self.managed_available and template),
+            managed_available=configured,
         )
         self._client: Any | None = None
 
     def status(self) -> dict[str, Any]:
         return {
+            "configured": self._status.configured,
             "mode": self._status.mode,
             "location": self._status.location,
             "template": self._status.template,
-            "available": self._status.available,
+            "managed_available": self._status.managed_available,
+            "available": self._status.configured,
             "last_screening_success": self._status.last_screening_success,
+            "last_decision_adapter": self._status.last_decision_adapter,
             "last_error_type": self._status.last_error_type,
             "last_filter_category": self._status.last_filter_category,
             "last_blocked": self._status.last_blocked,
         }
 
     def inspect_ingress(self, text: str) -> ArmorDecision:
-        if not self._status.available:
-            return self._fallback_decision(self._fallback.inspect_ingress(text))
+        if not self._status.configured:
+            return self._record_fallback(self._fallback.inspect_ingress(text), mode="fallback")
         try:
             decision = self._screen_prompt(text)
-            self._status.last_screening_success = True
-            self._status.last_error_type = None
-            self._status.last_blocked = not decision.allowed
-            self._status.last_filter_category = decision.filter_category or None
-            return decision
+            return self._record_managed(decision)
         except Exception as exc:
             logger.exception("Managed Model Armor ingress screening failed")
-            self._status.last_screening_success = False
-            self._status.last_error_type = type(exc).__name__
             fallback = self._fallback.inspect_ingress(text)
-            decision = self._fallback_decision(fallback)
-            self._status.last_blocked = not decision.allowed
-            self._status.last_filter_category = decision.filter_category or None
-            return decision
+            return self._record_fallback(fallback, error_type=type(exc).__name__)
 
     def inspect_egress(self, text: str) -> ArmorDecision:
         fallback = self._fallback.inspect_egress(text)
         if not fallback.allowed:
-            return fallback
-        if not self._status.available:
-            return self._fallback_decision(fallback)
+            return self._record_fallback(fallback, mode=self._status.mode)
+        if not self._status.configured:
+            return self._record_fallback(fallback, mode="fallback")
         try:
             decision = self._screen_response(text)
-            self._status.last_screening_success = True
-            self._status.last_error_type = None
-            self._status.last_blocked = not decision.allowed
-            self._status.last_filter_category = decision.filter_category or None
-            return decision
+            return self._record_managed(decision)
         except Exception as exc:
             logger.exception("Managed Model Armor egress screening failed")
-            self._status.last_screening_success = False
-            self._status.last_error_type = type(exc).__name__
-            return self._fallback_decision(fallback)
+            return self._record_fallback(fallback, error_type=type(exc).__name__)
 
-    def _fallback_decision(self, decision: ArmorDecision) -> ArmorDecision:
-        self._status.mode = "fallback"
+    def _record_managed(self, decision: ArmorDecision) -> ArmorDecision:
+        self._status.mode = "managed"
+        self._status.last_screening_success = True
+        self._status.last_error_type = None
+        self._status.last_decision_adapter = decision.adapter
+        self._status.last_blocked = not decision.allowed
+        self._status.last_filter_category = decision.filter_category or None
+        return decision
+
+    def _record_fallback(
+        self,
+        decision: ArmorDecision,
+        *,
+        mode: str = "degraded",
+        error_type: str | None = None,
+    ) -> ArmorDecision:
+        self._status.mode = mode
+        if error_type is not None:
+            self._status.last_screening_success = False
+            self._status.last_error_type = error_type
+        self._status.last_decision_adapter = decision.adapter
+        self._status.last_blocked = not decision.allowed
+        self._status.last_filter_category = decision.filter_category or None
         return ArmorDecision(
             allowed=decision.allowed,
             reason=decision.reason,
             sanitized_text=decision.sanitized_text,
             adapter=decision.adapter,
             filter_category=decision.filter_category,
+            degraded=mode == "degraded",
         )
 
     def _client_instance(self) -> Any:
@@ -205,7 +218,7 @@ class VertexModelArmorAdapter:
                 allowed=False,
                 reason="model armor aggregate filter match",
                 adapter="google_model_armor",
-                filter_category="aggregate",
+                filter_category="prompt_injection",
             )
 
         matches = self._collect_matches(result)
@@ -269,11 +282,14 @@ class RegexContentGuardWithStatus(RegexContentGuardFallback):
 
     def status(self) -> dict[str, Any]:
         return {
+            "configured": False,
             "mode": "fallback",
             "location": "",
             "template": "",
+            "managed_available": False,
             "available": False,
             "last_screening_success": None,
+            "last_decision_adapter": "regex_fallback",
             "last_error_type": None,
             "last_filter_category": None,
             "last_blocked": None,
@@ -286,7 +302,6 @@ def build_content_guard(
     location: str,
     template: str,
     prefer_managed: bool,
-    fail_closed: bool = True,
 ) -> ContentGuard:
     fallback = RegexContentGuardFallback()
     if prefer_managed and template:
@@ -295,6 +310,5 @@ def build_content_guard(
             location=location,
             template=template,
             fallback=fallback,
-            fail_closed=fail_closed,
         )
     return RegexContentGuardWithStatus()

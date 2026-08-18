@@ -167,6 +167,7 @@ def test_runtime_status_endpoint() -> None:
         body = response.json()
         assert "adk_worker" in body
         assert "model_armor" in body
+        assert "configured" in body["model_armor"]
         assert "fleet" in body
         assert body["content_guard"]["adapter"] in {"regex_fallback", "vertex_model_armor"}
 

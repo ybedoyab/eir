@@ -7,7 +7,7 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { getRuntimeStatus, listTraces } from "@/services/api";
+import { getRuntimeHistory, getRuntimeStatus, listTraces } from "@/services/api";
 import type { AdkWorkerTelemetry, RuntimeStatus, WorkflowTrace } from "@/types";
 
 function statusBadge(ok: boolean | null | undefined, okLabel: string, failLabel: string) {
@@ -47,10 +47,12 @@ function FleetRuntime({ runtime }: { runtime: RuntimeStatus }) {
         <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
           <p className="text-xs uppercase tracking-wide text-slate-500">Model Armor</p>
           <div className="mt-2">
-            {statusBadge(
-              armor.mode === "managed" && armor.available,
-              "Managed",
-              armor.mode === "fallback" ? "Fallback" : "Unavailable",
+            {armor.mode === "managed" ? (
+              statusBadge(true, "Managed", "Unavailable")
+            ) : armor.mode === "degraded" ? (
+              <Badge className="bg-amber-50 text-amber-800 ring-amber-200">Degraded</Badge>
+            ) : (
+              statusBadge(false, "Managed", "Fallback")
             )}
           </div>
           <p className="mt-2 text-xs text-slate-500">
@@ -121,17 +123,58 @@ function LastAutonomousAction({ worker }: { worker: AdkWorkerTelemetry | null })
   );
 }
 
+function AutonomousHistory({ items }: { items: AdkWorkerTelemetry[] }) {
+  if (items.length === 0) {
+    return null;
+  }
+  return (
+    <Card className="mb-6">
+      <CardHeader
+        title="Autonomous action history"
+        description="Latest sanitized worker hops — outreach, risk, escalation, and security blocks."
+      />
+      <ol className="space-y-2">
+        {items.map((item) => (
+          <li
+            key={`${item.trace_id}-${item.timestamp}`}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2"
+          >
+            <div>
+              <p className="text-sm font-medium text-slate-900">
+                {item.agent_name} · {item.capability}
+              </p>
+              <p className="text-xs text-slate-500">
+                {item.tools_invoked?.join(", ") || item.security_category || "no tools"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {item.security_adapter ? (
+                <Badge className="bg-rose-50 text-rose-700 ring-rose-200">
+                  {item.security_adapter}
+                </Badge>
+              ) : null}
+              {statusBadge(item.success, "OK", "Blocked")}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
 export default function ObservabilityPage() {
   const [traces, setTraces] = useState<WorkflowTrace[]>([]);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
+  const [history, setHistory] = useState<AdkWorkerTelemetry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([listTraces(), getRuntimeStatus()])
-      .then(([traceRows, runtimeStatus]) => {
+    Promise.all([listTraces(), getRuntimeStatus(), getRuntimeHistory(25)])
+      .then(([traceRows, runtimeStatus, historyPayload]) => {
         setTraces(traceRows);
         setRuntime(runtimeStatus);
+        setHistory(historyPayload.items);
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
@@ -149,6 +192,7 @@ export default function ObservabilityPage() {
 
       {runtime ? <FleetRuntime runtime={runtime} /> : null}
       {runtime ? <LastAutonomousAction worker={runtime.adk_worker} /> : null}
+      <AutonomousHistory items={history} />
 
       <Card>
         <CardHeader

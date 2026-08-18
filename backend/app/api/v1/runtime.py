@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.core.deps import get_container
 
@@ -34,3 +34,9 @@ def runtime_status() -> dict:
             "workflow_subscriber": adapters["workflow_subscriber"],
         },
     }
+
+
+@router.get("/history")
+def runtime_history(limit: int = Query(default=25, ge=1, le=50)) -> dict:
+    container = get_container()
+    return {"items": container.adk_telemetry.history(limit)}

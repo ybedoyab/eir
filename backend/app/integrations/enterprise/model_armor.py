@@ -20,6 +20,7 @@ class ArmorDecision:
     sanitized_text: str = ""
     adapter: str = "regex_fallback"
     filter_category: str = ""
+    degraded: bool = False
 
 
 class RegexContentGuardFallback:

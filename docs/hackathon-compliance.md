@@ -32,7 +32,7 @@ EIR implements a recovery workflow platform with **synthetic FHIR data only**. T
 | Vertex Gemini (`gemini-3.5-flash`) | **REAL** when `GOOGLE_GENAI_USE_VERTEXAI=TRUE` and IAM permits `aiplatform.endpoints.predict` |
 | Cloud Scheduler | **REAL** after `infra/gcp/provision.py` (API must be enabled; job targets `/api/v1/recovery/process-due-follow-ups`) |
 | Agent memory | **Fallback**: Firestore (`FirestoreAgentMemoryFallback`) — not Agent Engine Memory Bank yet |
-| Content guard | **REAL** in production when `MODEL_ARMOR_TEMPLATE` is provisioned and screening succeeds; **Fallback** regex locally |
+| Content guard | **REAL** in production when template `eir-agent-guard` exists and `sanitize_user_prompt` succeeds; **Degraded** regex fallback for low-risk capabilities if the managed API is temporarily unavailable; sensitive writes (`observation.write`) require human review when managed screening is down |
 | Voice outreach | **Synthetic**: `SyntheticVoiceProvider` — not Gemini Live |
 | Clinical diagnosis | **Never** performed |
 
@@ -49,8 +49,9 @@ EIR implements a recovery workflow platform with **synthetic FHIR data only**. T
 - Manual follow-up: `POST /api/v1/recovery/{id}/follow-up`
 - Scheduler (authenticated): `POST /api/v1/recovery/process-due-follow-ups`
 - Health: `GET /health`
-- Runtime proof: `GET /api/v1/runtime/status`
+- Runtime proof: `GET /api/v1/runtime/status`, `GET /api/v1/runtime/history?limit=25`
 - Security demo: `POST /api/v1/security/screen`, `POST /api/v1/security/demo/prompt-injection/{episode_id}`
+- Demo bootstrap: `POST /api/v1/demo/bootstrap`
 
 ## Regression scenarios covered in tests
 

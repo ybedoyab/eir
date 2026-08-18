@@ -137,7 +137,7 @@ Or: `make lint`
 **Explicit fallbacks (labeled in code/docs)**
 
 - Firestore agent memory (`FirestoreAgentMemoryFallback`) — not Agent Engine Memory Bank
-- Regex content guard (`RegexContentGuardFallback`) — local/test fallback; production uses managed Model Armor when provisioned
+- Regex content guard (`RegexContentGuardFallback`) — local/test fallback; production uses managed Model Armor template `eir-agent-guard` in `us-central1` when screening succeeds
 - Synthetic voice — not telephony / Gemini Live
 
 Production stack also exposes shared worker telemetry at `GET /api/v1/runtime/status` and a security demo at `POST /api/v1/security/screen`.

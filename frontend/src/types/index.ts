@@ -80,6 +80,8 @@ export interface AdkWorkerTelemetry {
   trace_id?: string;
   error_type?: string | null;
   error_message?: string | null;
+  security_adapter?: string | null;
+  security_category?: string | null;
 }
 
 export interface RuntimeStatus {
@@ -89,11 +91,14 @@ export interface RuntimeStatus {
     managed_model_armor_available: boolean;
   };
   model_armor: {
+    configured?: boolean;
     mode: string;
     location: string;
     template: string;
     available: boolean;
+    managed_available?: boolean;
     last_screening_success: boolean | null;
+    last_decision_adapter?: string | null;
     last_error_type?: string | null;
     last_filter_category?: string | null;
     last_blocked?: boolean | null;

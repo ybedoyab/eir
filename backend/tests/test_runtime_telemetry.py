@@ -24,3 +24,6 @@ def test_runtime_telemetry_store_records_latest() -> None:
     assert latest["success"] is True
     assert latest["tools_invoked"] == ["read_patient", "conduct_outreach"]
     assert latest["model_location"] == "global"
+    history = store.history(limit=10)
+    assert len(history) == 1
+    assert history[0]["agent_name"] == "outreach_agent"

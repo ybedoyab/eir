@@ -128,6 +128,13 @@ class WorkflowRuntime:
                         status="blocked",
                     )
                 )
+                self.adk_runner.record_security_event(
+                    episode_id=episode.id,
+                    capability=EVENT_TO_CAPABILITY.get(event.event_type, ""),
+                    adapter=gateway_decision.adapter,
+                    category=gateway_decision.filter_category,
+                    trace_id=blocked.event_id,
+                )
                 await self._checkpoint(episode, event, None)
                 return
 

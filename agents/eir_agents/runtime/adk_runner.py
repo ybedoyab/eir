@@ -242,6 +242,35 @@ class AdkAgentRunner:
             )
         )
 
+    def record_security_event(
+        self,
+        *,
+        episode_id: str,
+        capability: str,
+        adapter: str,
+        category: str,
+        trace_id: str,
+    ) -> None:
+        if self._telemetry is None:
+            return
+        self._telemetry.record(
+            AdkInvocationTelemetry(
+                timestamp=datetime.now(UTC).isoformat(),
+                service=self._service_name,
+                model=resolve_gemini_model(),
+                model_location=resolve_gemini_location(),
+                capability=capability,
+                agent_name="content_guard",
+                episode_id=episode_id,
+                trace_id=trace_id,
+                tools_invoked=[],
+                success=False,
+                used_direct_fallback=False,
+                security_adapter=adapter,
+                security_category=category,
+            )
+        )
+
     def _agent_name_for(self, capability: str) -> str:
         templates = {
             Capability.PATIENT_CONTACT: "outreach_agent",
