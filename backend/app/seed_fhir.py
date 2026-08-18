@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import json
 import sys
 from pathlib import Path
@@ -107,22 +106,7 @@ def _hospital_resources(hospital_dir: Path) -> list[dict[str, Any]]:
     return resources
 
 
-def _rewrite_references(value: Any, urn_for_id: dict[str, str]) -> Any:
-    if isinstance(value, dict):
-        if "reference" in value and isinstance(value["reference"], str):
-            ref = value["reference"]
-            if "/" in ref:
-                _resource_type, resource_id = ref.split("/", 1)
-                urn = urn_for_id.get(resource_id)
-                if urn:
-                    return {**value, "reference": urn}
-        return {key: _rewrite_references(item, urn_for_id) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_rewrite_references(item, urn_for_id) for item in value]
-    return value
-
-
-def _transaction_bundle(resources: list[dict[str, Any]], *, upsert: bool = False) -> dict[str, Any]:
+def _ordered_resources(resources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     priority = {
         "Patient": 0,
         "Practitioner": 1,
@@ -136,36 +120,10 @@ def _transaction_bundle(resources: list[dict[str, Any]], *, upsert: bool = False
         "Observation": 7,
         "CarePlan": 8,
     }
-    ordered = sorted(
+    return sorted(
         resources,
         key=lambda item: (priority.get(str(item.get("resourceType")), 99), str(item.get("id", ""))),
     )
-    urn_for_id = {str(resource["id"]): f"urn:uuid:{resource['id']}" for resource in ordered}
-    entries = []
-    for resource in ordered:
-        body = (
-            copy.deepcopy(resource)
-            if upsert
-            else _rewrite_references(copy.deepcopy(resource), urn_for_id)
-        )
-        resource_type = resource["resourceType"]
-        resource_id = str(resource["id"])
-        if upsert:
-            entries.append(
-                {
-                    "resource": body,
-                    "request": {"method": "PUT", "url": f"{resource_type}/{resource_id}"},
-                }
-            )
-        else:
-            entries.append(
-                {
-                    "fullUrl": urn_for_id[resource_id],
-                    "resource": body,
-                    "request": {"method": "POST", "url": resource_type},
-                }
-            )
-    return {"resourceType": "Bundle", "type": "transaction", "entry": entries}
 
 
 def main() -> int:
@@ -185,23 +143,27 @@ def main() -> int:
         store=settings.fhir_store,
         fallback_on_miss=False,
     )
-    bundle = _transaction_bundle(resources, upsert=True)
-    response = httpx.post(
-        client._base,
-        headers=client._headers(),
-        json=bundle,
-        timeout=60,
-    )
-    if response.status_code >= 400:
-        print(
-            f"transaction failed ({response.status_code}): {response.text[:800]}",
-            file=sys.stderr,
+    ordered = _ordered_resources(resources)
+    for resource in ordered:
+        resource_type = str(resource["resourceType"])
+        resource_id = str(resource["id"])
+        response = httpx.put(
+            f"{client._base}/{resource_type}/{resource_id}",
+            headers=client._headers(),
+            json=resource,
+            timeout=60,
         )
-        return 1
+        if response.status_code >= 400:
+            print(
+                f"PUT {resource_type}/{resource_id} failed ({response.status_code}): "
+                f"{response.text[:800]}",
+                file=sys.stderr,
+            )
+            return 1
 
     client.reachable = True
-    print(f"uploaded {len(resources)} synthetic resources via transaction bundle")
-    for resource in resources:
+    print(f"uploaded {len(ordered)} synthetic resources via idempotent PUT")
+    for resource in ordered:
         print(f"  {resource['resourceType']}/{resource['id']}")
     return 0
 
