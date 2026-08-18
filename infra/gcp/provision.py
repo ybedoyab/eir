@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 PROJECT = "eir-ata"
 LOCATION = "us-central1"
@@ -19,8 +21,21 @@ SCHEDULER_SECRET_NAME = "eir-scheduler-secret"
 API_SERVICE = "eir-api"
 
 
+def _gcloud() -> str:
+    found = shutil.which("gcloud")
+    if found:
+        return found
+    if sys.platform == "win32":
+        candidate = Path.home() / "AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin/gcloud.cmd"
+        if candidate.is_file():
+            return str(candidate)
+    return "gcloud"
+
+
 def _run(args: list[str], *, ok_codes: set[int] | None = None) -> int:
     ok_codes = ok_codes or {0}
+    if args and args[0] == "gcloud":
+        args = [_gcloud(), *args[1:]]
     print("+", " ".join(args), flush=True)
     completed = subprocess.run(args, check=False)
     if completed.returncode not in ok_codes:
@@ -29,6 +44,8 @@ def _run(args: list[str], *, ok_codes: set[int] | None = None) -> int:
 
 
 def _gcloud_output(args: list[str]) -> str:
+    if args and args[0] == "gcloud":
+        args = [_gcloud(), *args[1:]]
     completed = subprocess.run(args, capture_output=True, text=True, check=False)
     if completed.returncode != 0:
         return ""
