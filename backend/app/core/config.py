@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     workflow_subscriber: str = "local"
     pubsub_handle: bool = False
     data_dir: str = "data"
+    model_armor_location: str = "us-central1"
+    model_armor_template: str = "eir-agent-guard"
 
     @field_validator("cors_origins", mode="before")
     @classmethod

@@ -1,13 +1,18 @@
-"""Optional Vertex Model Armor adapter with regex fallback."""
+"""Google Cloud Model Armor adapter with regex fallback for local/test."""
 
 from __future__ import annotations
 
 import logging
-from typing import Protocol
+from dataclasses import dataclass
+from typing import Any, Protocol
+
+from google.api_core.client_options import ClientOptions
 
 from app.integrations.enterprise.model_armor import ArmorDecision, RegexContentGuardFallback
 
 logger = logging.getLogger("eir.model_armor")
+
+MATCH_FOUND = "MATCH_FOUND"
 
 
 def managed_model_armor_available() -> bool:
@@ -18,6 +23,38 @@ def managed_model_armor_available() -> bool:
     return hasattr(modelarmor_v1, "ModelArmorClient")
 
 
+def _match_state_is_hit(value: Any) -> bool:
+    text = str(value).upper()
+    return MATCH_FOUND in text and "NO_MATCH" not in text
+
+
+def _filter_category_label(key: str) -> str:
+    labels = {
+        "pi_and_jailbreak": "prompt_injection",
+        "piandjailbreakfilterresult": "prompt_injection",
+        "sdp": "sensitive_data",
+        "sdpfilterresult": "sensitive_data",
+        "rai": "responsible_ai",
+        "raifilterresult": "responsible_ai",
+        "malicious_uri": "malicious_uri",
+        "maliciousurifilterresult": "malicious_uri",
+    }
+    normalized = key.lower().replace("_", "")
+    return labels.get(key.lower(), labels.get(normalized, key))
+
+
+@dataclass
+class ModelArmorStatus:
+    mode: str = "fallback"
+    location: str = ""
+    template: str = ""
+    available: bool = False
+    last_screening_success: bool | None = None
+    last_error_type: str | None = None
+    last_filter_category: str | None = None
+    last_blocked: bool | None = None
+
+
 class ContentGuard(Protocol):
     adapter_name: str
     managed_available: bool
@@ -26,54 +63,248 @@ class ContentGuard(Protocol):
 
     def inspect_egress(self, text: str) -> ArmorDecision: ...
 
+    def status(self) -> dict[str, Any]: ...
+
 
 class VertexModelArmorAdapter:
-    """Uses managed Model Armor when available; otherwise regex fallback."""
+    """Managed Model Armor screening with deterministic regex fallback."""
 
     adapter_name = "vertex_model_armor"
 
-    def __init__(self, *, project: str, location: str, fallback: RegexContentGuardFallback) -> None:
+    def __init__(
+        self,
+        *,
+        project: str,
+        location: str,
+        template: str,
+        fallback: RegexContentGuardFallback,
+        fail_closed: bool = True,
+    ) -> None:
         self._project = project
         self._location = location
+        self._template = template
         self._fallback = fallback
+        self._fail_closed = fail_closed
         self.managed_available = managed_model_armor_available()
+        self._status = ModelArmorStatus(
+            mode="managed" if self.managed_available and template else "fallback",
+            location=location,
+            template=template,
+            available=bool(self.managed_available and template),
+        )
+        self._client: Any | None = None
+
+    def status(self) -> dict[str, Any]:
+        return {
+            "mode": self._status.mode,
+            "location": self._status.location,
+            "template": self._status.template,
+            "available": self._status.available,
+            "last_screening_success": self._status.last_screening_success,
+            "last_error_type": self._status.last_error_type,
+            "last_filter_category": self._status.last_filter_category,
+            "last_blocked": self._status.last_blocked,
+        }
 
     def inspect_ingress(self, text: str) -> ArmorDecision:
-        managed = self._inspect_managed(text)
-        if managed is not None:
-            return managed
-        decision = self._fallback.inspect_ingress(text)
-        return ArmorDecision(
-            allowed=decision.allowed,
-            reason=decision.reason,
-            sanitized_text=decision.sanitized_text,
-            adapter=decision.adapter,
-        )
+        if not self._status.available:
+            return self._fallback_decision(self._fallback.inspect_ingress(text))
+        try:
+            decision = self._screen_prompt(text)
+            self._status.last_screening_success = True
+            self._status.last_error_type = None
+            self._status.last_blocked = not decision.allowed
+            self._status.last_filter_category = decision.filter_category or None
+            return decision
+        except Exception as exc:
+            logger.exception("Managed Model Armor ingress screening failed")
+            self._status.last_screening_success = False
+            self._status.last_error_type = type(exc).__name__
+            if self._fail_closed:
+                return ArmorDecision(
+                    allowed=False,
+                    reason=f"model armor unavailable: {type(exc).__name__}",
+                    adapter="google_model_armor",
+                    filter_category="service_error",
+                )
+            return self._fallback_decision(self._fallback.inspect_ingress(text))
 
     def inspect_egress(self, text: str) -> ArmorDecision:
         fallback = self._fallback.inspect_egress(text)
         if not fallback.allowed:
             return fallback
-        managed = self._inspect_managed(text)
-        if managed is not None:
-            return managed
-        return fallback
+        if not self._status.available:
+            return self._fallback_decision(fallback)
+        try:
+            decision = self._screen_response(text)
+            self._status.last_screening_success = True
+            self._status.last_error_type = None
+            self._status.last_blocked = not decision.allowed
+            self._status.last_filter_category = decision.filter_category or None
+            return decision
+        except Exception as exc:
+            logger.exception("Managed Model Armor egress screening failed")
+            self._status.last_screening_success = False
+            self._status.last_error_type = type(exc).__name__
+            if self._fail_closed:
+                return ArmorDecision(
+                    allowed=False,
+                    reason=f"model armor unavailable: {type(exc).__name__}",
+                    adapter="google_model_armor",
+                    filter_category="service_error",
+                )
+            return self._fallback_decision(fallback)
 
-    def _inspect_managed(self, text: str) -> ArmorDecision | None:
-        del text
-        if not self.managed_available:
-            return None
-        logger.info("Managed Model Armor SDK unavailable in this environment; using regex fallback")
-        return None
+    def _fallback_decision(self, decision: ArmorDecision) -> ArmorDecision:
+        self._status.mode = "fallback"
+        return ArmorDecision(
+            allowed=decision.allowed,
+            reason=decision.reason,
+            sanitized_text=decision.sanitized_text,
+            adapter=decision.adapter,
+            filter_category=decision.filter_category,
+        )
+
+    def _client_instance(self) -> Any:
+        if self._client is not None:
+            return self._client
+        from google.cloud import modelarmor_v1
+
+        self._client = modelarmor_v1.ModelArmorClient(
+            transport="rest",
+            client_options=ClientOptions(
+                api_endpoint=f"modelarmor.{self._location}.rep.googleapis.com",
+            ),
+        )
+        return self._client
+
+    def _template_name(self) -> str:
+        return f"projects/{self._project}/locations/{self._location}/templates/{self._template}"
+
+    def _screen_prompt(self, text: str) -> ArmorDecision:
+        from google.cloud import modelarmor_v1
+
+        request = modelarmor_v1.SanitizeUserPromptRequest(
+            name=self._template_name(),
+            user_prompt_data=modelarmor_v1.DataItem(text=text),
+        )
+        response = self._client_instance().sanitize_user_prompt(request=request)
+        return self._map_sanitization(response.sanitization_result, direction="ingress")
+
+    def _screen_response(self, text: str) -> ArmorDecision:
+        from google.cloud import modelarmor_v1
+
+        request = modelarmor_v1.SanitizeModelResponseRequest(
+            name=self._template_name(),
+            model_response_data=modelarmor_v1.DataItem(text=text),
+        )
+        response = self._client_instance().sanitize_model_response(request=request)
+        return self._map_sanitization(response.sanitization_result, direction="egress")
+
+    def _map_sanitization(self, result: Any, *, direction: str) -> ArmorDecision:
+        if result is None:
+            return ArmorDecision(
+                allowed=False,
+                reason=f"model armor returned empty {direction} result",
+                adapter="google_model_armor",
+                filter_category="empty_result",
+            )
+
+        if _match_state_is_hit(getattr(result, "filter_match_state", "")):
+            return ArmorDecision(
+                allowed=False,
+                reason="model armor aggregate filter match",
+                adapter="google_model_armor",
+                filter_category="aggregate",
+            )
+
+        matches = self._collect_matches(result)
+        if matches:
+            category = matches[0]
+            return ArmorDecision(
+                allowed=False,
+                reason=f"model armor blocked {direction}: {category}",
+                adapter="google_model_armor",
+                filter_category=category,
+            )
+
+        sanitized = ""
+        metadata = getattr(result, "sanitization_metadata", None)
+        if metadata is not None:
+            sanitized = str(getattr(metadata, "sanitized_text", "") or "").strip()
+        return ArmorDecision(
+            allowed=True,
+            sanitized_text=sanitized,
+            adapter="google_model_armor",
+        )
+
+    def _collect_matches(self, result: Any) -> list[str]:
+        matches: list[str] = []
+        filter_results = getattr(result, "filter_results", None)
+        if filter_results:
+            for key, entry in filter_results.items():
+                if entry is None:
+                    continue
+                if _match_state_is_hit(getattr(entry, "match_state", "")):
+                    matches.append(_filter_category_label(str(key)))
+                    continue
+                nested_attrs = (
+                    "pi_and_jailbreak_filter_result",
+                    "sdp_filter_result",
+                    "rai_filter_result",
+                    "malicious_uri_filter_result",
+                )
+                for attr in nested_attrs:
+                    nested = getattr(entry, attr, None)
+                    if nested is not None and _match_state_is_hit(
+                        getattr(nested, "match_state", "")
+                    ):
+                        matches.append(_filter_category_label(attr.replace("_filter_result", "")))
+
+        nested_checks = (
+            ("pi_and_jailbreak_filter_result", "prompt_injection"),
+            ("sdp_filter_result", "sensitive_data"),
+            ("rai_filter_result", "responsible_ai"),
+            ("malicious_uri_filter_result", "malicious_uri"),
+        )
+        for attr, label in nested_checks:
+            nested = getattr(result, attr, None)
+            if nested is not None and _match_state_is_hit(getattr(nested, "match_state", "")):
+                matches.append(label)
+        return matches
+
+
+class RegexContentGuardWithStatus(RegexContentGuardFallback):
+    managed_available = False
+
+    def status(self) -> dict[str, Any]:
+        return {
+            "mode": "fallback",
+            "location": "",
+            "template": "",
+            "available": False,
+            "last_screening_success": None,
+            "last_error_type": None,
+            "last_filter_category": None,
+            "last_blocked": None,
+        }
 
 
 def build_content_guard(
     *,
     project: str,
     location: str,
-    prefer_vertex: bool,
+    template: str,
+    prefer_managed: bool,
+    fail_closed: bool = True,
 ) -> ContentGuard:
     fallback = RegexContentGuardFallback()
-    if not prefer_vertex:
-        return fallback
-    return VertexModelArmorAdapter(project=project, location=location, fallback=fallback)
+    if prefer_managed and template:
+        return VertexModelArmorAdapter(
+            project=project,
+            location=location,
+            template=template,
+            fallback=fallback,
+            fail_closed=fail_closed,
+        )
+    return RegexContentGuardWithStatus()

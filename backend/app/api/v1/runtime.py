@@ -9,6 +9,9 @@ router = APIRouter()
 def runtime_status() -> dict:
     container = get_container()
     latest = container.adk_telemetry.latest()
+    adapters = container.adapter_status()
+    probe = adapters["runtime_verification"]["vertex_model_probe"]
+    guard_status = getattr(container.content_guard, "status", lambda: {})()
     return {
         "adk_worker": latest,
         "content_guard": {
@@ -16,5 +19,18 @@ def runtime_status() -> dict:
             "managed_model_armor_available": getattr(
                 container.content_guard, "managed_available", False
             ),
+        },
+        "model_armor": guard_status,
+        "fleet": {
+            "gemini_model": probe["model"],
+            "gemini_location": probe["location"],
+            "vertex_probe_success": probe["success"],
+            "adk_mode": adapters["adk_runner_mode"],
+            "adk_allow_direct_fallback": adapters["adk_allow_direct_fallback"],
+            "runtime_region": adapters["runtime_verification"]["enterprise"]["runtime_region"],
+            "event_bus": adapters["event_bus"],
+            "fhir_mode": adapters["fhir_mode"],
+            "pubsub_handle": adapters["pubsub_handle"],
+            "workflow_subscriber": adapters["workflow_subscriber"],
         },
     }

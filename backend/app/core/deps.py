@@ -164,8 +164,10 @@ class Container:
         prefer_managed = settings.environment == "production" and not testing
         armor = build_content_guard(
             project=settings.google_cloud_project,
-            location=settings.google_cloud_location,
-            prefer_vertex=prefer_managed and settings.google_genai_use_vertexai,
+            location=settings.model_armor_location,
+            template=settings.model_armor_template,
+            prefer_managed=prefer_managed and settings.google_genai_use_vertexai,
+            fail_closed=True,
         )
         self.content_guard = armor
         self.agent_memory = build_agent_memory(
@@ -271,6 +273,7 @@ class Container:
             "managed_model_armor_available": getattr(
                 self.content_guard, "managed_available", False
             ),
+            "model_armor": getattr(self.content_guard, "status", lambda: {})(),
             "runtime_verification": {
                 "vertex_model_probe": {
                     "model": verification.model,

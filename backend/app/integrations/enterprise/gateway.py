@@ -14,6 +14,8 @@ from app.integrations.enterprise.model_armor import ArmorDecision
 class GatewayDecision:
     allowed: bool
     reason: str = ""
+    adapter: str = ""
+    filter_category: str = ""
 
 
 class AgentGateway:
@@ -26,5 +28,14 @@ class AgentGateway:
             f"{event.event_type} {payload_text}"
         )
         if not decision.allowed:
-            return GatewayDecision(allowed=False, reason=decision.reason)
-        return GatewayDecision(allowed=True, reason="gateway: event allowed")
+            return GatewayDecision(
+                allowed=False,
+                reason=decision.reason,
+                adapter=decision.adapter,
+                filter_category=decision.filter_category,
+            )
+        return GatewayDecision(
+            allowed=True,
+            reason="gateway: event allowed",
+            adapter=decision.adapter,
+        )

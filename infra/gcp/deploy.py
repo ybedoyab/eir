@@ -24,6 +24,7 @@ WORKER_SERVICE = "eir-worker"
 UI_SERVICE = "eir-ui"
 RUNTIME_SA = f"eir-runtime@{PROJECT}.iam.gserviceaccount.com"
 SCHEDULER_SECRET_NAME = "eir-scheduler-secret"
+MODEL_ARMOR_TEMPLATE = "eir-agent-guard"
 DEPLOY_SECRETS = (
     "GOOGLE_API_KEY=eir-gemini-api-key:latest,"
     f"SCHEDULER_SECRET={SCHEDULER_SECRET_NAME}:latest"
@@ -51,6 +52,8 @@ BASE_ENV = [
     "ADK_ALLOW_DIRECT_FALLBACK=false",
     "VOICE_PROVIDER=synthetic",
     "ENVIRONMENT=production",
+    "MODEL_ARMOR_LOCATION=us-central1",
+    "MODEL_ARMOR_TEMPLATE=eir-agent-guard",
 ]
 
 
@@ -177,6 +180,7 @@ def _ensure_runtime_service_account() -> int:
         "roles/healthcare.fhirResourceEditor",
         "roles/logging.logWriter",
         "roles/secretmanager.secretAccessor",
+        "roles/modelarmor.user",
     ):
         _run(
             [
@@ -243,6 +247,54 @@ def _ensure_secret() -> int:
         ]
     )
     return 0
+
+
+def _ensure_model_armor() -> int:
+    _run(
+        [
+            "gcloud",
+            "services",
+            "enable",
+            "modelarmor.googleapis.com",
+            f"--project={PROJECT}",
+        ]
+    )
+    describe = _run(
+        [
+            "gcloud",
+            "model-armor",
+            "templates",
+            "describe",
+            MODEL_ARMOR_TEMPLATE,
+            f"--location={REGION}",
+            f"--project={PROJECT}",
+        ],
+        ok_codes={0, 1},
+    )
+    if describe == 0:
+        return 0
+    return _run(
+        [
+            "gcloud",
+            "model-armor",
+            "templates",
+            "create",
+            MODEL_ARMOR_TEMPLATE,
+            f"--location={REGION}",
+            f"--project={PROJECT}",
+            "--pi-and-jailbreak-filter-settings-enforcement=enabled",
+            "--pi-and-jailbreak-filter-settings-confidence-level=MEDIUM_AND_ABOVE",
+            "--basic-config-filter-enforcement=enabled",
+            "--malicious-uri-filter-settings-enforcement=enabled",
+            (
+                '--rai-settings-filters=[{"filterType":"HATE_SPEECH",'
+                '"confidenceLevel":"MEDIUM_AND_ABOVE"},{"filterType":"DANGEROUS",'
+                '"confidenceLevel":"MEDIUM_AND_ABOVE"}]'
+            ),
+            "--template-metadata-log-sanitize-operations",
+        ],
+        ok_codes={0, 1},
+    )
 
 
 def _ensure_scheduler_secret() -> int:
@@ -449,7 +501,7 @@ def main() -> int:
     api_url = _service_url(API_SERVICE, project_number)
     shared_env = _shared_env(project_number)
 
-    steps: list = [_ensure_runtime_service_account]
+    steps: list = [_ensure_runtime_service_account, _ensure_model_armor]
     if not args.services_only:
         steps.extend([_ensure_artifact_registry, _ensure_secret, _ensure_scheduler_secret])
     steps.extend(

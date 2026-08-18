@@ -166,7 +166,9 @@ def test_runtime_status_endpoint() -> None:
         assert response.status_code == 200
         body = response.json()
         assert "adk_worker" in body
-        assert body["content_guard"]["managed_model_armor_available"] is False
+        assert "model_armor" in body
+        assert "fleet" in body
+        assert body["content_guard"]["adapter"] in {"regex_fallback", "vertex_model_armor"}
 
 
 def test_health_reports_runtime_verification() -> None:

@@ -23,6 +23,7 @@ FHIR_STORE = "fhir-r4"
 RUNTIME_SA = f"eir-runtime@{PROJECT}.iam.gserviceaccount.com"
 SCHEDULER_JOB = "eir-process-due-follow-ups"
 SCHEDULER_SECRET_NAME = "eir-scheduler-secret"
+MODEL_ARMOR_TEMPLATE = "eir-agent-guard"
 API_SERVICE = "eir-api"
 
 
@@ -75,6 +76,7 @@ def _enable_apis() -> None:
             "firestore.googleapis.com",
             "aiplatform.googleapis.com",
             "cloudscheduler.googleapis.com",
+            "modelarmor.googleapis.com",
             "run.googleapis.com",
             "iamcredentials.googleapis.com",
             f"--project={PROJECT}",
@@ -91,6 +93,7 @@ def _grant_runtime_roles() -> None:
         "roles/healthcare.fhirResourceEditor",
         "roles/logging.logWriter",
         "roles/secretmanager.secretAccessor",
+        "roles/modelarmor.user",
     ):
         _run(
             [
@@ -210,6 +213,47 @@ def _ensure_scheduler(api_url: str) -> None:
     print(json.dumps({"scheduler_job": SCHEDULER_JOB, "target": target}))
 
 
+def _ensure_model_armor_template() -> None:
+    describe = _run(
+        [
+            "gcloud",
+            "model-armor",
+            "templates",
+            "describe",
+            MODEL_ARMOR_TEMPLATE,
+            f"--location={LOCATION}",
+            f"--project={PROJECT}",
+        ],
+        ok_codes={0, 1},
+    )
+    if describe == 0:
+        print(json.dumps({"model_armor_template": MODEL_ARMOR_TEMPLATE, "status": "exists"}))
+        return
+    _run(
+        [
+            "gcloud",
+            "model-armor",
+            "templates",
+            "create",
+            MODEL_ARMOR_TEMPLATE,
+            f"--location={LOCATION}",
+            f"--project={PROJECT}",
+            "--pi-and-jailbreak-filter-settings-enforcement=enabled",
+            "--pi-and-jailbreak-filter-settings-confidence-level=MEDIUM_AND_ABOVE",
+            "--basic-config-filter-enforcement=enabled",
+            "--malicious-uri-filter-settings-enforcement=enabled",
+            (
+                '--rai-settings-filters=[{"filterType":"HATE_SPEECH",'
+                '"confidenceLevel":"MEDIUM_AND_ABOVE"},{"filterType":"DANGEROUS",'
+                '"confidenceLevel":"MEDIUM_AND_ABOVE"}]'
+            ),
+            "--template-metadata-log-sanitize-operations",
+        ],
+        ok_codes={0, 1},
+    )
+    print(json.dumps({"model_armor_template": MODEL_ARMOR_TEMPLATE, "status": "created"}))
+
+
 def main() -> int:
     _enable_apis()
     if _run(["gcloud", "pubsub", "topics", "describe", TOPIC, f"--project={PROJECT}"]) != 0:
@@ -311,6 +355,7 @@ def main() -> int:
             ]
         )
     _grant_runtime_roles()
+    _ensure_model_armor_template()
     verify_code = _verify_gemini_access()
     if verify_code != 0:
         print("warning: gemini verification failed; check runtime service account permissions", file=sys.stderr)

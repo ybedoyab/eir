@@ -6,7 +6,8 @@ import re
 from dataclasses import dataclass
 
 _INJECTION_PATTERNS = (
-    re.compile(r"ignore (all )?previous instructions", re.I),
+    re.compile(r"ignore (all )?previous (instructions|policy)", re.I),
+    re.compile(r"retrieve all patient records", re.I),
     re.compile(r"system prompt", re.I),
     re.compile(r"<\s*script", re.I),
 )
@@ -18,6 +19,7 @@ class ArmorDecision:
     reason: str = ""
     sanitized_text: str = ""
     adapter: str = "regex_fallback"
+    filter_category: str = ""
 
 
 class RegexContentGuardFallback:
@@ -32,6 +34,7 @@ class RegexContentGuardFallback:
                     allowed=False,
                     reason=f"content guard blocked ingress pattern: {pattern.pattern}",
                     adapter=self.adapter_name,
+                    filter_category="prompt_injection",
                 )
         return ArmorDecision(
             allowed=True,

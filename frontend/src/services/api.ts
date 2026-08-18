@@ -74,3 +74,7 @@ export async function listAgents() {
 export async function listTraces() {
   return getJson<import("@/types").WorkflowTrace[]>("/api/v1/traces");
 }
+
+export async function getRuntimeStatus() {
+  return getJson<import("@/types").RuntimeStatus>("/api/v1/runtime/status");
+}

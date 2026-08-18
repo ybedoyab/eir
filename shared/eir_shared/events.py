@@ -70,6 +70,13 @@ class RecoveryEpisodeCompleted(DomainEvent):
     event_type: Literal["RecoveryEpisodeCompleted"] = "RecoveryEpisodeCompleted"
 
 
+class ContentSecurityBlocked(DomainEvent):
+    event_type: Literal["ContentSecurityBlocked"] = "ContentSecurityBlocked"
+    filter_category: str = ""
+    adapter: str = ""
+    capability: str = ""
+
+
 EVENT_TYPE_MAP: dict[str, type[DomainEvent]] = {
     "RecoveryEpisodeStarted": RecoveryEpisodeStarted,
     "FollowUpDue": FollowUpDue,
@@ -80,6 +87,7 @@ EVENT_TYPE_MAP: dict[str, type[DomainEvent]] = {
     "HumanReviewRequested": HumanReviewRequested,
     "ClinicianResolved": ClinicianResolved,
     "RecoveryEpisodeCompleted": RecoveryEpisodeCompleted,
+    "ContentSecurityBlocked": ContentSecurityBlocked,
 }
 
 

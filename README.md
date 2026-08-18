@@ -137,8 +137,10 @@ Or: `make lint`
 **Explicit fallbacks (labeled in code/docs)**
 
 - Firestore agent memory (`FirestoreAgentMemoryFallback`) — not Agent Engine Memory Bank
-- Regex content guard (`RegexContentGuardFallback`) — managed Model Armor is **not** active until a real API inspection path is wired
+- Regex content guard (`RegexContentGuardFallback`) — local/test fallback; production uses managed Model Armor when provisioned
 - Synthetic voice — not telephony / Gemini Live
+
+Production stack also exposes shared worker telemetry at `GET /api/v1/runtime/status` and a security demo at `POST /api/v1/security/screen`.
 
 See [docs/hackathon-compliance.md](docs/hackathon-compliance.md) for the REAL vs fallback matrix.
 

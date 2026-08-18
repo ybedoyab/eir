@@ -17,9 +17,9 @@ from eir_agents.records.fhir_client import FhirClient, LocalFhirClient
 from eir_agents.runtime.adk_runner import AdkAgentRunner, InvocationContext
 from eir_shared.capabilities import BLOCKING_CAPABILITIES
 from eir_shared.event_bus import EventBus
-from eir_shared.events import EVENT_TYPE_MAP, DomainEvent, parse_event
+from eir_shared.events import EVENT_TYPE_MAP, ContentSecurityBlocked, DomainEvent, parse_event
 from eir_shared.memory import AgentMemory, EpisodeStore
-from eir_shared.observability import StructuredLogger
+from eir_shared.observability import StructuredLogger, WorkflowTrace
 
 from app.domain.recovery.models import EpisodeStatus, RecoveryEpisode, RiskLevel
 from app.repositories.recovery_repository import RecoveryEpisodeRepository
@@ -104,6 +104,30 @@ class WorkflowRuntime:
         if gateway is not None:
             gateway_decision = gateway.authorize_event(event)
             if not gateway_decision.allowed:
+                from eir_agents.orchestrator.handler import EVENT_TO_CAPABILITY
+
+                blocked = ContentSecurityBlocked(
+                    episode_id=episode.id,
+                    filter_category=gateway_decision.filter_category,
+                    adapter=gateway_decision.adapter,
+                    capability=EVENT_TO_CAPABILITY.get(event.event_type, ""),
+                    payload={
+                        "reason": gateway_decision.reason,
+                        "filter_category": gateway_decision.filter_category,
+                        "adapter": gateway_decision.adapter,
+                    },
+                )
+                self.episodes.append_event(episode.id, blocked)
+                self.logger.emit(
+                    WorkflowTrace(
+                        workflow_id=episode.id,
+                        episode_id=episode.id,
+                        trace_id=blocked.event_id,
+                        agent_name="content_guard",
+                        event_type="ContentSecurityBlocked",
+                        status="blocked",
+                    )
+                )
                 await self._checkpoint(episode, event, None)
                 return
 

@@ -65,3 +65,49 @@ export interface WorkflowTrace {
   timestamp: string;
   status: string;
 }
+
+export interface AdkWorkerTelemetry {
+  timestamp: string;
+  service: string;
+  model: string;
+  model_location: string;
+  capability: string;
+  agent_name: string;
+  tools_invoked: string[];
+  success: boolean;
+  used_direct_fallback: boolean;
+  episode_id?: string;
+  trace_id?: string;
+  error_type?: string | null;
+  error_message?: string | null;
+}
+
+export interface RuntimeStatus {
+  adk_worker: AdkWorkerTelemetry | null;
+  content_guard: {
+    adapter: string;
+    managed_model_armor_available: boolean;
+  };
+  model_armor: {
+    mode: string;
+    location: string;
+    template: string;
+    available: boolean;
+    last_screening_success: boolean | null;
+    last_error_type?: string | null;
+    last_filter_category?: string | null;
+    last_blocked?: boolean | null;
+  };
+  fleet: {
+    gemini_model: string;
+    gemini_location: string;
+    vertex_probe_success: boolean;
+    adk_mode: string;
+    adk_allow_direct_fallback: boolean;
+    runtime_region: string;
+    event_bus: string;
+    fhir_mode: string;
+    pubsub_handle: boolean;
+    workflow_subscriber: string;
+  };
+}

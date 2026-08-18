@@ -18,7 +18,7 @@ EIR implements a recovery workflow platform with **synthetic FHIR data only**. T
 | Agent Registry | Gemini Enterprise Agent Registry | `EnterpriseAgentRegistry` (local descriptors + health/fallback) |
 | Agent Runtime | Agent Engine / ADK | `AdkAgentRunner` with real domain tools |
 | Memory Bank | Agent Engine Memory Bank | `FirestoreAgentMemoryFallback` unless Agent Engine client is wired |
-| Model Armor | Vertex Model Armor | **Fallback**: `RegexContentGuardFallback` — SDK import alone does not count as screening |
+| Model Armor | Vertex Model Armor (`google-cloud-modelarmor`) | `VertexModelArmorAdapter` in production; regex fallback in local/test |
 | Agent Gateway | Enterprise Gateway | `AgentGateway` ingress checks |
 | Observability | Cloud Trace / Agent Observability | Firestore/file structured traces |
 
@@ -32,7 +32,7 @@ EIR implements a recovery workflow platform with **synthetic FHIR data only**. T
 | Vertex Gemini (`gemini-3.5-flash`) | **REAL** when `GOOGLE_GENAI_USE_VERTEXAI=TRUE` and IAM permits `aiplatform.endpoints.predict` |
 | Cloud Scheduler | **REAL** after `infra/gcp/provision.py` (API must be enabled; job targets `/api/v1/recovery/process-due-follow-ups`) |
 | Agent memory | **Fallback**: Firestore (`FirestoreAgentMemoryFallback`) — not Agent Engine Memory Bank yet |
-| Content guard | **Fallback**: regex (`RegexContentGuardFallback`) |
+| Content guard | **REAL** in production when `MODEL_ARMOR_TEMPLATE` is provisioned and screening succeeds; **Fallback** regex locally |
 | Voice outreach | **Synthetic**: `SyntheticVoiceProvider` — not Gemini Live |
 | Clinical diagnosis | **Never** performed |
 
@@ -49,6 +49,8 @@ EIR implements a recovery workflow platform with **synthetic FHIR data only**. T
 - Manual follow-up: `POST /api/v1/recovery/{id}/follow-up`
 - Scheduler (authenticated): `POST /api/v1/recovery/process-due-follow-ups`
 - Health: `GET /health`
+- Runtime proof: `GET /api/v1/runtime/status`
+- Security demo: `POST /api/v1/security/screen`, `POST /api/v1/security/demo/prompt-injection/{episode_id}`
 
 ## Regression scenarios covered in tests
 
@@ -57,6 +59,7 @@ EIR implements a recovery workflow platform with **synthetic FHIR data only**. T
 3. Scheduler auth + idempotency header (`test_scheduler_endpoint_requires_token`, `test_scheduler_idempotency_rejects_duplicate_run`)
 4. Outreach runs without pre-approval (`test_outreach_runs_without_pre_approval`)
 5. Day 0 → Day 7 second follow-up (`test_longitudinal_follow_up_day_0_and_day_7`)
+6. Managed Model Armor mapping + security demo (`test_model_armor.py`, `test_security_demo.py`)
 
 ## Not claimed
 
