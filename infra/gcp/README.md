@@ -2,7 +2,10 @@
 
 Team-shared config lives in the **repo-root** `.env` (copied from `.env.example`). Do not duplicate env files per package.
 
-## Provision (idempotent)
+## Provision / verify
+
+Static infrastructure is owned by `infra/terraform`. Do not recreate APIs,
+Firestore, Healthcare, Pub/Sub, WIF, or IAM with these Python scripts.
 
 Requires `gcloud` logged in as a project owner/editor:
 
@@ -10,15 +13,13 @@ Requires `gcloud` logged in as a project owner/editor:
 gcloud auth login
 gcloud auth application-default login
 gcloud config set project eir-ata
+cd infra/terraform && terraform init && terraform plan && terraform apply
 uv run python infra/gcp/provision.py
 uv run --package eir-backend --directory backend python -m app.seed_fhir
 ```
 
-This enables Pub/Sub, Healthcare, and Firestore APIs, then creates:
-
-- Topic `eir-recovery-events` and subscription `eir-recovery-events-worker`
-- Firestore native database `(default)` in `us-central1`
-- Healthcare dataset `eir` / FHIR R4 store `fhir-r4`
+`provision.py` verifies that Terraform-managed resources exist, refreshes the
+scheduler target URL, and probes Vertex Gemini. It does not create the data plane.
 
 Seed synthetic FHIR fixtures (transaction bundle; server assigns resource ids, app resolves patients by identifier):
 
@@ -64,11 +65,12 @@ uv run python infra/gcp/deploy.py
 ```
 
 CI on `main` redeploys automatically after tests pass (`deploy.py --services-only`).
-Add a GitHub Actions secret `GCP_SA_KEY` with a deploy service account JSON key.
-The account needs `roles/run.admin`, `roles/cloudbuild.builds.editor`,
-`roles/artifactregistry.admin`, `roles/storage.admin`, `roles/logging.viewer`,
-`roles/viewer`, and `roles/iam.serviceAccountUser` on
-`eir-runtime@eir-ata.iam.gserviceaccount.com`.
+GitHub Actions authenticates with Workload Identity Federation
+(`eir-deploy-ci@eir-ata.iam.gserviceaccount.com`). Do not use a JSON key.
+
+Static infrastructure (APIs, IAM, Firestore, Healthcare, Pub/Sub, WIF, secret
+containers, monitoring) is owned by `infra/terraform`. `deploy.py` builds
+SHA-tagged images and rolls Cloud Run revisions only.
 
 Services:
 

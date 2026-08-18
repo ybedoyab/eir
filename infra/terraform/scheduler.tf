@@ -15,6 +15,14 @@ resource "google_cloud_scheduler_job" "process_due_follow_ups" {
     }
   }
 
+  retry_config {
+    retry_count          = 0
+    min_backoff_duration = "5s"
+    max_backoff_duration = "3600s"
+    max_doublings        = 5
+    max_retry_duration   = "0s"
+  }
+
   lifecycle {
     ignore_changes = [http_target]
   }

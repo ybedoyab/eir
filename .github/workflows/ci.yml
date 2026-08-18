@@ -15,6 +15,8 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
+      - name: Configure git default branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
         with:
@@ -31,6 +33,8 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
+      - name: Configure git default branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v5
         with:
@@ -60,10 +64,12 @@ jobs:
       run:
         working-directory: infra/terraform
     steps:
+      - name: Configure git default branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v5
       - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: 1.9.8
+          terraform_version: 1.15.8
       - name: Format check
         run: terraform fmt -check -recursive
       - name: Init (local backend)
@@ -79,6 +85,8 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - name: Configure git default branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
         with:
@@ -91,6 +99,14 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v3
         with:
           project_id: eir-ata
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.8
+      - name: Terraform drift check
+        working-directory: infra/terraform
+        run: |
+          terraform init -input=false
+          terraform plan -detailed-exitcode -lock=false
       - name: Deploy Cloud Run stack
         env:
           GITHUB_SHA: ${{ github.sha }}

@@ -332,6 +332,19 @@ class Container:
                 "error": report.error,
             },
             "voice": getattr(self, "voice_status", {}),
+            "platform_verification": {
+                "managed_agent_runtime_verified": False,
+                "managed_memory_bank_verified": False,
+                "managed_registry_verified": False,
+                "managed_agent_identity_verified": False,
+                "managed_agent_gateway_verified": False,
+                "managed_model_armor_verified": getattr(
+                    self.content_guard, "managed_available", False
+                ),
+                "otel_cloud_trace_verified": False,
+                "cloud_logging_verified": False,
+                "cloud_monitoring_verified": False,
+            },
         }
 
     def seed(self) -> None:

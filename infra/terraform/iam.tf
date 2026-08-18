@@ -12,7 +12,7 @@ resource "google_service_account" "deploy_ci" {
 
 resource "google_service_account" "infra_ci" {
   account_id   = "eir-infra-ci"
-  display_name = "EIR infrastructure CI"
+  display_name = "EIR infra CI"
   project      = var.project_id
 }
 

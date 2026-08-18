@@ -87,8 +87,62 @@ def main() -> int:
             session_id = session.get("id")
             if not session_id:
                 failures.append("access session create missing id")
+            else:
+                loaded = _get(f"{api}/api/v1/access/sessions/{session_id}", token=token)
+                if loaded.get("id") != session_id:
+                    failures.append("access session reload mismatch")
         except urllib.error.URLError as exc:
             failures.append(f"access session failed: {exc}")
+
+        try:
+            slots = _get(
+                f"{api}/api/v1/appointments/availability?specialty=Cardiology&limit=3",
+                token=token,
+            )
+            if not isinstance(slots, list) or not slots:
+                failures.append("cardiology availability empty")
+            else:
+                slot_id = str(slots[0]["id"])
+                booked = _post(
+                    f"{api}/api/v1/appointments",
+                    {"slot_id": slot_id},
+                    token=token,
+                )
+                appointment_id = booked.get("id")
+                if not appointment_id:
+                    failures.append("book appointment missing id")
+                else:
+                    alt = next(
+                        (item for item in slots[1:] if item.get("id") != slot_id),
+                        None,
+                    )
+                    if alt:
+                        _post(
+                            f"{api}/api/v1/appointments/{appointment_id}/reschedule",
+                            {"slot_id": alt["id"]},
+                            token=token,
+                        )
+                    cancelled = _post(
+                        f"{api}/api/v1/appointments/{appointment_id}/cancel",
+                        {"reason": "synthetic-smoke", "confirmed": True},
+                        token=token,
+                    )
+                    if cancelled.get("status") not in {"cancelled", "canceled"}:
+                        failures.append(f"cancel status={cancelled.get('status')!r}")
+        except urllib.error.HTTPError as exc:
+            failures.append(f"appointment mutation failed: {exc.code} {exc.read()[:200]!r}")
+        except urllib.error.URLError as exc:
+            failures.append(f"appointment mutation failed: {exc}")
+
+        try:
+            bootstrap = _post(
+                f"{api}/api/v1/demo/bootstrap",
+                {"patient_id": "patient-synthetic-001", "fast_forward": False},
+            )
+            if not bootstrap.get("episode_id"):
+                failures.append("recovery bootstrap missing episode_id")
+        except urllib.error.URLError as exc:
+            failures.append(f"recovery bootstrap failed: {exc}")
 
     if failures:
         for item in failures:

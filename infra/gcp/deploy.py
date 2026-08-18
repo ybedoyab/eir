@@ -617,7 +617,8 @@ def main() -> int:
     parser.add_argument(
         "--services-only",
         action="store_true",
-        help="Build images and deploy Cloud Run only. No IAM or infrastructure bootstrap.",
+        help="Build images and deploy Cloud Run only. This is the default; "
+        "Terraform owns static infrastructure.",
     )
     parser.add_argument(
         "--provision",
@@ -631,6 +632,12 @@ def main() -> int:
     shared_env = _shared_env(project_number)
 
     if args.provision:
+        print(
+            "WARNING: --provision is emergency bootstrap only. "
+            "Terraform in infra/terraform is the source of truth for APIs, IAM, "
+            "Firestore, Healthcare, Pub/Sub, WIF, secrets containers, and monitoring.",
+            flush=True,
+        )
         steps = [
             _ensure_artifact_registry,
             _ensure_runtime_service_account,
@@ -649,14 +656,8 @@ def main() -> int:
             _deploy_frontend,
         ]
     else:
+        # Default is application rollout only. Static infrastructure is Terraform-owned.
         steps = [
-            _ensure_artifact_registry,
-            _ensure_runtime_service_account,
-            _ensure_runtime_iam,
-            _ensure_secret,
-            _ensure_scheduler_secret,
-            _ensure_session_secret,
-            _ensure_model_armor,
             _build_backend_image,
             lambda: _deploy_api(shared_env),
             lambda: _deploy_worker(shared_env),

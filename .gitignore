@@ -92,3 +92,14 @@ secrets/
 *.pem
 *.key
 !*.example.key
+
+# Terraform local working files (commit .terraform.lock.hcl)
+infra/terraform/.terraform/
+infra/terraform/tfplan
+infra/terraform/tfplan-*
+infra/terraform/*.tfplan
+infra/terraform/crash.log
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/terraform/terraform.tfvars
+!infra/terraform/terraform.tfvars.example

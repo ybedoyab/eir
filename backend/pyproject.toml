@@ -47,5 +47,7 @@ filterwarnings = [
     "error::DeprecationWarning:eir_agents",
     "error::DeprecationWarning:eir_shared",
     "ignore:BaseAgentConfig is deprecated:DeprecationWarning",
-    "ignore:Using `httpx` with `starlette.testclient`:UserWarning",
+    "ignore:\\[EXPERIMENTAL\\] feature FeatureName.JSON_SCHEMA_FOR_FUNC_DECL:UserWarning",
+    "ignore:Inheritance class AiohttpClientSession from ClientSession is discouraged:DeprecationWarning",
+    "ignore:Using `httpx` with `starlette.testclient`",
 ]

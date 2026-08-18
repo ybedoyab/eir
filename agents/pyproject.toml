@@ -29,3 +29,9 @@ dev = [
 pythonpath = ["."]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+filterwarnings = [
+    "error::DeprecationWarning:eir_agents",
+    "ignore:BaseAgentConfig is deprecated:DeprecationWarning",
+    "ignore:\\[EXPERIMENTAL\\] feature FeatureName.JSON_SCHEMA_FOR_FUNC_DECL:UserWarning",
+    "ignore:Inheritance class AiohttpClientSession from ClientSession is discouraged:DeprecationWarning",
+]

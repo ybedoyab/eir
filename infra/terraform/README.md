@@ -23,7 +23,9 @@ terraform validate
 terraform plan   # after imports resolve
 ```
 
-Import blocks live in `imports.tf`. Remove each block after a successful `terraform apply`.
+Import blocks lived in `imports.tf` and were removed after the 2026-08-18 apply
+that adopted existing production resources into GCS remote state.
+Do not recreate working resources. New environments start from this module.
 
 ## What Terraform owns
 

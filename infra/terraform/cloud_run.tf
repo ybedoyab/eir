@@ -4,6 +4,11 @@ resource "google_cloud_run_v2_service" "api" {
   project  = var.project_id
   ingress  = "INGRESS_TRAFFIC_ALL"
 
+  scaling {
+    min_instance_count    = 0
+    manual_instance_count = 0
+  }
+
   template {
     service_account = google_service_account.runtime.email
 
@@ -14,6 +19,7 @@ resource "google_cloud_run_v2_service" "api" {
       }
       resources {
         limits = {
+          cpu    = "1000m"
           memory = "1Gi"
         }
       }
@@ -28,6 +34,7 @@ resource "google_cloud_run_v2_service" "api" {
   }
 
   lifecycle {
+    prevent_destroy = true
     ignore_changes = [
       template[0].containers[0].image,
       template[0].containers[0].env,
@@ -47,6 +54,11 @@ resource "google_cloud_run_v2_service" "worker" {
   project  = var.project_id
   ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
 
+  scaling {
+    min_instance_count    = 0
+    manual_instance_count = 0
+  }
+
   template {
     service_account = google_service_account.runtime.email
 
@@ -59,6 +71,7 @@ resource "google_cloud_run_v2_service" "worker" {
       }
       resources {
         limits = {
+          cpu    = "1000m"
           memory = "1Gi"
         }
       }
@@ -73,6 +86,7 @@ resource "google_cloud_run_v2_service" "worker" {
   }
 
   lifecycle {
+    prevent_destroy = true
     ignore_changes = [
       template[0].containers[0].image,
       template[0].containers[0].env,
@@ -92,6 +106,11 @@ resource "google_cloud_run_v2_service" "ui" {
   project  = var.project_id
   ingress  = "INGRESS_TRAFFIC_ALL"
 
+  scaling {
+    min_instance_count    = 0
+    manual_instance_count = 0
+  }
+
   template {
     containers {
       image = var.ui_image
@@ -100,6 +119,7 @@ resource "google_cloud_run_v2_service" "ui" {
       }
       resources {
         limits = {
+          cpu    = "1000m"
           memory = "512Mi"
         }
       }
@@ -114,6 +134,7 @@ resource "google_cloud_run_v2_service" "ui" {
   }
 
   lifecycle {
+    prevent_destroy = true
     ignore_changes = [
       template[0].containers[0].image,
       template[0].containers[0].env,

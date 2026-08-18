@@ -3,6 +3,10 @@ resource "google_iam_workload_identity_pool" "github" {
   display_name              = "GitHub Actions"
   project                   = var.project_id
 
+  lifecycle {
+    prevent_destroy = true
+  }
+
   depends_on = [google_project_service.apis]
 }
 
@@ -18,7 +22,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "attribute.repository" = "assertion.repository"
   }
 
-  attribute_condition = "assertion.repository == '${var.github_repository}'"
+  attribute_condition = "assertion.repository=='${var.github_repository}'"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"

@@ -5,5 +5,9 @@ resource "google_artifact_registry_repository" "eir" {
   format        = "DOCKER"
   project       = var.project_id
 
+  lifecycle {
+    prevent_destroy = true
+  }
+
   depends_on = [google_project_service.apis]
 }

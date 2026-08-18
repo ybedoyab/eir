@@ -19,6 +19,17 @@ fi
 
 gcloud storage buckets update "gs://${BUCKET}" --versioning
 
+# infra-ci applies Terraform; deploy-ci reads state for the CI drift gate.
+gcloud storage buckets add-iam-policy-binding "gs://${BUCKET}" \
+  --member="serviceAccount:eir-infra-ci@${PROJECT}.iam.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin" \
+  --project="${PROJECT}" >/dev/null || true
+
+gcloud storage buckets add-iam-policy-binding "gs://${BUCKET}" \
+  --member="serviceAccount:eir-deploy-ci@${PROJECT}.iam.gserviceaccount.com" \
+  --role="roles/storage.objectViewer" \
+  --project="${PROJECT}" >/dev/null || true
+
 echo "Bucket ready. Next:"
 echo "  cd infra/terraform"
 echo "  terraform init"

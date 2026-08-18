@@ -11,3 +11,8 @@ def test_health() -> None:
         assert body["adapters"]["event_bus"] == "memory"
         assert body["adapters"]["episode_store"] == "memory"
         assert body["adapters"]["fhir_mode"] == "local"
+        assert body["adapters"]["otel"]["capture_message_content_in_spans"] is False
+        flags = body["adapters"]["platform_verification"]
+        assert flags["managed_agent_runtime_verified"] is False
+        assert flags["managed_model_armor_verified"] is False
+        assert flags["otel_cloud_trace_verified"] is False

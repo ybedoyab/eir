@@ -2,6 +2,10 @@ resource "google_pubsub_topic" "recovery_events" {
   name    = "eir-recovery-events"
   project = var.project_id
 
+  lifecycle {
+    prevent_destroy = true
+  }
+
   depends_on = [google_project_service.apis]
 }
 

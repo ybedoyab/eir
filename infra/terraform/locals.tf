@@ -20,6 +20,7 @@ locals {
     "monitoring.googleapis.com",
     "cloudtrace.googleapis.com",
     "iam.googleapis.com",
+    "agentregistry.googleapis.com",
   ]
 
   runtime_roles = [
@@ -32,7 +33,12 @@ locals {
     "roles/secretmanager.secretAccessor",
     "roles/modelarmor.user",
     "roles/cloudtrace.agent",
+    "roles/cloudtrace.user",
     "roles/monitoring.metricWriter",
+    "roles/monitoring.viewer",
+    "roles/logging.viewer",
+    "roles/telemetry.tracesWriter",
+    "roles/telemetry.metricsWriter",
   ]
 
   deploy_roles = [

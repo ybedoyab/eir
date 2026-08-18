@@ -29,7 +29,7 @@ lint:
 	cd frontend && pnpm typecheck
 
 deploy:
-	uv run python infra/gcp/deploy.py
+	uv run python infra/gcp/deploy.py --services-only
 
 e2e:
 	uv run python scripts/e2e_check.py
