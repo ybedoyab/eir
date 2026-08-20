@@ -33,7 +33,7 @@ async function getJson<T>(path: string, authenticated = false): Promise<T> {
 async function postJson<T>(path: string, body: unknown, authenticated = false): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: authenticated ? authHeaders() : undefined,
+    headers: authenticated ? authHeaders() : { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   if (!response.ok) {
