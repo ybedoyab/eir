@@ -35,6 +35,7 @@ uv.lock.bak
 node_modules/
 .pnpm-store/
 .pnpm-debug.log
+frontend/pnpm-workspace.yaml
 .next/
 out/
 .turbo/
@@ -86,6 +87,7 @@ service-account*.json
 gcloud-service-key.json
 application_default_credentials.json
 voximplant-credentials.json
+voximplant-preview.env
 *voximplant*credentials*.json
 .voximplant-preview.env
 *_private.json
