@@ -60,7 +60,7 @@ uv run --package eir-backend uvicorn app.main:app --reload --app-dir backend --p
 Frontend:
 
 ```bash
-cd frontend && pnpm dev
+cd frontend && pnpm run dev
 ```
 
 Demo sign-in users (`password` = `demo-<username>`):
