@@ -24,6 +24,16 @@ var PREVIEW_USERNAME = 'eir-preview-user';
 var NO_ANSWER_CODES = {408: true, 480: true, 487: true};
 var TIMEOUT_MS_DIALLED = 90000;
 var TIMEOUT_MS_WEBRTC = 180000;
+var TURN_TEXT_LIMIT = 4000;
+// End-of-turn tuning. Gemini's default silence window is ~800ms, which reads as
+// a freeze once the patient has clearly finished. END_SENSITIVITY_HIGH commits
+// to end-of-turn sooner and 500ms trims the wait, while staying inside the
+// documented 500-800ms band -- below ~200ms the model starts cutting people off
+// mid-sentence, which is the wrong failure for a clinical check-in where
+// patients pause to think ('my pain is... about a four'). Prefix padding keeps
+// the first syllable from being clipped.
+var VAD_SILENCE_MS = 500;
+var VAD_PREFIX_PADDING_MS = 200;
 
 var SYSTEM_PROMPT =
   'You are EIR, an automated recovery assistant calling after a recent visit. ' +
@@ -218,6 +228,15 @@ function startGeminiLive(session, call, onSubmitted) {
       tools: TOOLS,
       inputAudioTranscription: {},
       outputAudioTranscription: {},
+      realtimeInputConfig: {
+        automaticActivityDetection: {
+          disabled: false,
+          startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
+          endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
+          prefixPaddingMs: VAD_PREFIX_PADDING_MS,
+          silenceDurationMs: VAD_SILENCE_MS,
+        },
+      },
     },
     onWebSocketClose: function () {
       if (!onSubmitted()) {
@@ -265,73 +284,104 @@ function startGeminiLive(session, call, onSubmitted) {
       voiceAIClient.addEventListener(Gemini.Events.WebSocketMediaStarted, bindCallAudio);
     }
 
-    function mergeUtterance(previous, next) {
-      var a = String(previous || '').replace(/\s+/g, ' ').trim();
-      var b = String(next || '').replace(/\s+/g, ' ').trim();
-      if (!a) {
-        return b;
-      }
-      if (!b) {
-        return a;
-      }
-      if (b === a || b.indexOf(a) === 0 || (b.indexOf(a) !== -1 && b.length > a.length)) {
-        return b;
-      }
-      if (a.indexOf(b) === 0 || a.indexOf(b) !== -1) {
-        return a;
-      }
-      return a.length >= b.length ? a : b;
+    // Gemini Live streams transcription incrementally: every ServerContent
+    // carries only the NEW fragment of the utterance, not the whole thing so
+    // far. Deltas are therefore appended, never reconciled against what came
+    // before, and each turn gets an id so the browser can append too instead
+    // of re-receiving (and truncating) the whole turn on every chunk.
+    var turnSeq = 0;
+
+    function normalizeDelta(text) {
+      // Collapse whitespace runs but keep a leading space: it carries the word
+      // break between one delta and the next ('Hi' + ' Alex' vs 'record' + 'ing').
+      return String(text || '').replace(/\s+/g, ' ');
     }
 
-    function pushTranscript(role, text, finished) {
-      var clean = String(text || '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 800);
-      if (!clean) {
-        return;
-      }
-      session.transcript = session.transcript || [];
+    function openTurn(role) {
       var last = session.transcript[session.transcript.length - 1];
       if (last && last.r === role && !last.done) {
-        last.t = mergeUtterance(last.t, clean);
-        last.done = Boolean(finished);
-      } else {
-        last = {r: role, t: clean, done: Boolean(finished)};
-        session.transcript.push(last);
+        return last;
       }
+      // The other speaker starting means every earlier turn is over.
+      for (var i = 0; i < session.transcript.length; i += 1) {
+        session.transcript[i].done = true;
+      }
+      turnSeq += 1;
+      var turn = {i: turnSeq, r: role, t: '', done: false};
+      session.transcript.push(turn);
       if (session.transcript.length > 24) {
         session.transcript = session.transcript.slice(-24);
       }
+      return turn;
+    }
+
+    function sendTurnDelta(turn, delta) {
       try {
-        call.sendMessage(JSON.stringify({r: role, t: last.t.slice(0, 400), f: last.done ? 1 : 0}));
+        call.sendMessage(
+          JSON.stringify({i: turn.i, r: turn.r, d: delta, f: turn.done ? 1 : 0}),
+        );
       } catch (error) {
         // ignore
       }
     }
 
-    function transcriptionFinished(block, payload) {
-      if (!block) {
-        return Boolean(payload.turnComplete || payload.generationComplete);
+    function finishTurn(role) {
+      var last = session.transcript[session.transcript.length - 1];
+      if (!last || last.done || (role && last.r !== role)) {
+        return;
       }
-      if (typeof block.finished === 'boolean') {
+      last.done = true;
+      sendTurnDelta(last, '');
+    }
+
+    function pushTranscript(role, text, finished) {
+      var delta = normalizeDelta(text);
+      if (!delta.replace(/ /g, '')) {
+        if (finished) {
+          finishTurn(role);
+        }
+        return;
+      }
+      var turn = openTurn(role);
+      var next = turn.t ? turn.t + delta : delta.replace(/^ /, '');
+      turn.t = next.length > TURN_TEXT_LIMIT ? next.slice(0, TURN_TEXT_LIMIT) : next;
+      if (finished) {
+        turn.done = true;
+      }
+      sendTurnDelta(turn, delta);
+    }
+
+    function transcriptionFinished(block, payload, role) {
+      if (block && typeof block.finished === 'boolean') {
         return block.finished;
       }
-      return Boolean(payload.turnComplete || payload.generationComplete);
+      // turnComplete/generationComplete describe the MODEL's turn, so they say
+      // nothing about whether the patient has stopped speaking.
+      if (role === 'a') {
+        return Boolean(payload.turnComplete || payload.generationComplete);
+      }
+      return false;
     }
 
     voiceAIClient.addEventListener(Gemini.LiveAPIEvents.ServerContent, function (event) {
       var payload = (event && event.data && event.data.payload) || (event && event.data) || {};
-      var input = payload.inputTranscription || payload.input_transcription || {};
-      var output = payload.outputTranscription || payload.output_transcription || {};
-      if (input.text && transcriptionFinished(input, payload)) {
-        pushTranscript('p', input.text, true);
+      var input = payload.inputTranscription || payload.input_transcription || null;
+      var output = payload.outputTranscription || payload.output_transcription || null;
+      if (input && typeof input.text === 'string') {
+        pushTranscript('p', input.text, transcriptionFinished(input, payload, 'p'));
       }
-      if (output.text) {
-        pushTranscript('a', output.text, transcriptionFinished(output, payload));
+      if (output && typeof output.text === 'string') {
+        pushTranscript('a', output.text, transcriptionFinished(output, payload, 'a'));
       }
-      if (payload.interrupted && voiceAIClient.clearMediaBuffer) {
-        voiceAIClient.clearMediaBuffer();
+      if (payload.turnComplete || payload.generationComplete) {
+        finishTurn('a');
+      }
+      if (payload.interrupted) {
+        // The patient cut in: whatever EIR was mid-sentence on is over.
+        finishTurn('a');
+        if (voiceAIClient.clearMediaBuffer) {
+          voiceAIClient.clearMediaBuffer();
+        }
       }
     });
 

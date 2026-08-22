@@ -21,6 +21,14 @@ import {
 
 type Status = "idle" | "connecting" | "dialing" | "in_call" | "ended";
 type AudioState = "idle" | "waiting" | "playing" | "blocked";
+/** What the conversation is doing right now, from the patient's point of view. */
+type Phase = "idle" | "listening" | "hearing" | "thinking" | "speaking";
+
+// Local mic thresholds. Speech has to clear VOICE_ON to register, then stay
+// under it for VOICE_OFF_MS before the turn counts as over -- without that
+// hysteresis the indicator strobes on every syllable gap.
+const VOICE_ON = 0.025;
+const VOICE_OFF_MS = 260;
 
 type PreviewRenderer = {
   kind?: string;
@@ -118,6 +126,22 @@ function statusLabel(status: Status): string {
   return "Ready to start";
 }
 
+function phaseLabel(phase: Phase): string {
+  if (phase === "hearing") {
+    return "Listening to you…";
+  }
+  if (phase === "thinking") {
+    return "EIR is thinking…";
+  }
+  if (phase === "speaking") {
+    return "EIR is speaking";
+  }
+  if (phase === "listening") {
+    return "Go ahead — EIR is listening";
+  }
+  return "Not connected";
+}
+
 function audioLabel(state: AudioState): string {
   if (state === "playing") {
     return "Remote audio active";
@@ -142,10 +166,16 @@ export default function VoicePreviewClient() {
   const routedStreams = useRef(new WeakSet<MediaStream>());
   const wiredEndpoints = useRef(new WeakSet<object>());
   const micHandlerSet = useRef(false);
+  const meterRef = useRef<HTMLDivElement | null>(null);
+  const meterFrameRef = useRef<number | null>(null);
+  const meterSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const voiceSinceRef = useRef(0);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [micReady, setMicReady] = useState(false);
   const [micSending, setMicSending] = useState(false);
+  const [micSpeaking, setMicSpeaking] = useState(false);
+  const [awaitingReply, setAwaitingReply] = useState(false);
   const [audioState, setAudioState] = useState<AudioState>("idle");
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -168,6 +198,8 @@ export default function VoicePreviewClient() {
   useEffect(() => {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
   }, [lines]);
+
+  useEffect(() => stopMicMeter, []);
 
   // Resolve where to dial and which episode this patient is checking in on.
   useEffect(() => {
@@ -237,6 +269,84 @@ export default function VoicePreviewClient() {
       await ctx.resume();
     }
     return ctx;
+  }
+
+  function stopMicMeter() {
+    if (meterFrameRef.current !== null) {
+      cancelAnimationFrame(meterFrameRef.current);
+      meterFrameRef.current = null;
+    }
+    meterSourceRef.current?.disconnect();
+    meterSourceRef.current = null;
+    voiceSinceRef.current = 0;
+    setMicSpeaking(false);
+    if (meterRef.current) {
+      meterRef.current.style.transform = "scaleX(0)";
+    }
+  }
+
+  /**
+   * Level meter on the audio actually being sent, taken from the outbound RTC
+   * track rather than a second getUserMedia so there is no competing capture.
+   * This is the only "we can hear you" signal that costs no round trip: the
+   * transcript can only confirm it after Gemini has transcribed the audio.
+   */
+  function startMicMeter(call: PreviewCall) {
+    const ctx = ctxRef.current;
+    const pc = getRawPeerConnection(call);
+    if (!ctx || !pc || meterSourceRef.current) {
+      return;
+    }
+    const track = pc.getSenders().find((sender) => sender.track?.kind === "audio")?.track;
+    if (!track) {
+      voiceDebug.warn("no outbound audio track to meter");
+      return;
+    }
+    let source: MediaStreamAudioSourceNode;
+    let analyser: AnalyserNode;
+    try {
+      source = ctx.createMediaStreamSource(new MediaStream([track]));
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.6;
+      // Deliberately not connected to ctx.destination: this only measures the
+      // mic, and routing it to the speakers would play the patient back to
+      // themselves.
+      source.connect(analyser);
+    } catch (err) {
+      voiceDebug.warn("mic meter unavailable", err);
+      return;
+    }
+    meterSourceRef.current = source;
+    const samples = new Float32Array(analyser.fftSize);
+
+    const tick = () => {
+      meterFrameRef.current = requestAnimationFrame(tick);
+      analyser.getFloatTimeDomainData(samples);
+      let sum = 0;
+      for (const sample of samples) {
+        sum += sample * sample;
+      }
+      const rms = Math.sqrt(sum / samples.length);
+      // The bar is written straight to the DOM: at 60fps this would re-render
+      // the whole card, and only the speaking/quiet flip is React's business.
+      if (meterRef.current) {
+        const scale = Math.min(1, rms / 0.25);
+        meterRef.current.style.transform = `scaleX(${scale.toFixed(3)})`;
+      }
+      const now = performance.now();
+      if (rms >= VOICE_ON) {
+        voiceSinceRef.current = now;
+        setMicSpeaking(true);
+      } else if (voiceSinceRef.current && now - voiceSinceRef.current > VOICE_OFF_MS) {
+        voiceSinceRef.current = 0;
+        setMicSpeaking(false);
+        // The patient just finished a turn, so a reply is now owed. Cleared by
+        // EIR's first transcription delta.
+        setAwaitingReply(true);
+      }
+    };
+    meterFrameRef.current = requestAnimationFrame(tick);
   }
 
   function routeStreamToSpeakers(stream: MediaStream | null | undefined) {
@@ -384,6 +494,9 @@ export default function VoicePreviewClient() {
           const turn = parsed.i;
           const delta = typeof parsed.d === "string" ? parsed.d : "";
           const finished = parsed.f === 1;
+          if (role === "eir" && delta) {
+            setAwaitingReply(false);
+          }
           setLines((current) => appendTranscript(current, turn, role, delta, finished));
         }
       } catch {
@@ -402,6 +515,7 @@ export default function VoicePreviewClient() {
       call.unmutePlayback();
       attachRemote(call);
       logPeerState(call, "connected");
+      startMicMeter(call);
       setAudioState("waiting");
       setStatus("in_call");
     });
@@ -425,17 +539,21 @@ export default function VoicePreviewClient() {
     call.on(events.CallEvents.Disconnected, () => {
       voiceDebug.info("call disconnected");
       callRef.current = null;
+      stopMicMeter();
       setStatus("ended");
       setAudioState("idle");
       setMicSending(false);
+      setAwaitingReply(false);
     });
     call.on(events.CallEvents.Failed, (payload) => {
       const failed = payload as { code?: number; reason?: string };
       voiceDebug.error("call failed", failed.code, failed.reason);
       callRef.current = null;
+      stopMicMeter();
       setStatus("ended");
       setAudioState("idle");
       setMicSending(false);
+      setAwaitingReply(false);
     });
   }
 
@@ -536,7 +654,9 @@ export default function VoicePreviewClient() {
       remoteBytesRef.current = 0;
       micBytesRef.current = 0;
       wiredEndpoints.current = new WeakSet();
+      stopMicMeter();
       setMicSending(false);
+      setAwaitingReply(false);
 
       const call = sdk.call({
         number: session.number,
@@ -579,12 +699,24 @@ export default function VoicePreviewClient() {
       // ignore
     }
     callRef.current = null;
+    stopMicMeter();
     setStatus("ended");
     setAudioState("idle");
+    setAwaitingReply(false);
   }
 
   const dialing = status === "dialing";
   const live = status === "in_call";
+  const lastLine = lines[lines.length - 1];
+  const phase: Phase = !live
+    ? "idle"
+    : micSpeaking
+      ? "hearing"
+      : lastLine?.role === "eir" && lastLine.pending
+        ? "speaking"
+        : awaitingReply || lastLine?.role === "you"
+          ? "thinking"
+          : "listening";
   const idle = status === "idle" || status === "ended";
   const disabled = busy || !episodeId || !signedInAsPatient || config?.enabled === false;
 
@@ -681,9 +813,56 @@ export default function VoicePreviewClient() {
               ) : null}
             </div>
 
-            <div className="min-h-12 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
-              {live ? audioLabel(audioState) : "Audio starts playing here once the check-in begins."}
-            </div>
+            {live ? (
+              <div
+                className={`space-y-3 rounded-xl border px-4 py-3 ${
+                  phase === "hearing"
+                    ? "border-teal-300 bg-teal-50"
+                    : phase === "thinking"
+                      ? "border-amber-200 bg-amber-50"
+                      : "border-slate-200 bg-slate-50"
+                }`}
+                aria-live="polite"
+              >
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <span
+                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                      phase === "hearing"
+                        ? "bg-teal-600"
+                        : phase === "thinking"
+                          ? "animate-pulse bg-amber-500"
+                          : phase === "speaking"
+                            ? "bg-slate-700"
+                            : "bg-slate-400"
+                    }`}
+                  />
+                  <span
+                    className={
+                      phase === "hearing"
+                        ? "text-teal-900"
+                        : phase === "thinking"
+                          ? "text-amber-900"
+                          : "text-slate-700"
+                    }
+                  >
+                    {phaseLabel(phase)}
+                  </span>
+                </div>
+                {/* Driven by requestAnimationFrame through meterRef, not React state. */}
+                <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    ref={meterRef}
+                    className="h-full origin-left rounded-full bg-teal-600 transition-transform duration-75"
+                    style={{ transform: "scaleX(0)" }}
+                  />
+                </div>
+                <p className="text-xs text-slate-500">{audioLabel(audioState)}</p>
+              </div>
+            ) : (
+              <div className="min-h-12 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
+                Audio starts playing here once the check-in begins.
+              </div>
+            )}
             {/* The SDK appends its <audio> element here, not into the box above:
                 React owns that node's children and would fight the SDK over it.
                 Hidden because the card already reports transport state. */}
@@ -709,9 +888,7 @@ export default function VoicePreviewClient() {
           >
             {lines.length === 0 ? (
               <p className="text-sm text-slate-500">
-                {idle
-                  ? "Transcript appears here once the check-in starts."
-                  : "Waiting for the first spoken turn…"}
+                {idle ? "Transcript appears here once the check-in starts." : phaseLabel(phase)}
               </p>
             ) : (
               lines.map((line) => (
