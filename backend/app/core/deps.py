@@ -57,6 +57,7 @@ from app.repositories.runtime_telemetry import (
 from app.repositories.scheduler_idempotency import build_scheduler_idempotency_store
 from app.services.access_service import PatientAccessService
 from app.services.appointment_service import AppointmentService
+from app.services.voice_web_session import web_voice_enabled, web_voice_login
 
 MOCKS_DIR = Path(__file__).resolve().parents[3] / "mocks"
 logger = logging.getLogger("eir.deps")
@@ -416,6 +417,10 @@ def _voice_status(*, testing: bool, voice: Any) -> dict[str, Any]:
         "destination_configured": bool(settings.eir_demo_phone_e164) if not testing else False,
         "caller_id_configured": bool(settings.voximplant_caller_id_e164) if not testing else False,
         "voice_transport": "pstn" if testing else (settings.voximplant_voice_transport or "pstn"),
+        # The in-page WebRTC check-in is independent of the PSTN path above: the
+        # browser dials the scenario directly, so it works with no Caller ID.
+        "browser_voice_enabled": web_voice_enabled() if not testing else False,
+        "browser_voice_login_configured": bool(web_voice_login()) if not testing else False,
     }
 
 

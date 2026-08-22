@@ -1,8 +1,16 @@
 /**
- * EIR outbound recovery check-in.
- * Transport is selected from compact custom data; Gemini Live is shared.
+ * EIR recovery check-in. Two entry points, one conversation.
+ *
+ *   AppEvents.Started       EIR places the call   (PSTN, or a registered user)
+ *   AppEvents.CallAlerting  the patient's browser dials in over WebRTC
+ *
+ * Both converge on driveCall(), so Gemini Live, the required
+ * submit_recovery_checkin tool call, and the EIR callback are identical
+ * regardless of how the audio leg was established.
  *
  * Custom data (max 200 bytes): {"eid","cid","n"[, "t":"user","u":"eir-preview-user"]}
+ * Inbound legs are forced to the webrtc transport by the entry point itself --
+ * never by custom data, which the browser controls.
  * PSTN destination and Caller ID come from VoxEngine secret storage only.
  * Do not log phones, tokens, passwords, or transcripts.
  */
@@ -14,6 +22,8 @@ var VERTEX_PROJECT = 'eir-ata';
 var VERTEX_LOCATION = 'us-central1';
 var PREVIEW_USERNAME = 'eir-preview-user';
 var NO_ANSWER_CODES = {408: true, 480: true, 487: true};
+var TIMEOUT_MS_DIALLED = 90000;
+var TIMEOUT_MS_WEBRTC = 180000;
 
 var SYSTEM_PROMPT =
   'You are EIR, an automated recovery assistant calling after a recent visit. ' +
@@ -82,20 +92,25 @@ function previewUsername(raw) {
   return user.slice(0, 40);
 }
 
-function parseCustomData() {
-  var raw = VoxEngine.customData() || '{}';
-  var data = JSON.parse(raw);
+function parseCustomData(raw, forcedTransport) {
+  var data = JSON.parse(raw || '{}');
   if (!data.eid || !data.cid) {
     throw new Error('invalid_custom_data');
   }
+  // forcedTransport wins: an inbound leg is WebRTC because of how it arrived,
+  // not because the caller said so.
   var transport =
-    data.t === 'user' || data.transport === 'voximplant_user' ? 'voximplant_user' : 'pstn';
+    forcedTransport ||
+    (data.t === 'user' || data.transport === 'voximplant_user' ? 'voximplant_user' : 'pstn');
   return {
     episodeId: String(data.eid),
     correlationId: String(data.cid),
     displayName: String(data.n || 'Alex').slice(0, 24),
     transport: transport,
     destinationUser: previewUsername(data.u || PREVIEW_USERNAME),
+    // Set only by encode_script_custom_data(outbound=True), i.e. a real
+    // StartScenarios launch. A browser leg omits it.
+    outbound: data.o === 1,
   };
 }
 
@@ -367,9 +382,23 @@ function startGeminiLive(session, call, onSubmitted) {
   });
 }
 
-VoxEngine.addEventListener(AppEvents.Started, async function () {
-  var session;
-  var call;
+function baseSession(custom) {
+  return {
+    episodeId: custom.episodeId,
+    correlationId: custom.correlationId,
+    displayName: custom.displayName,
+    transport: custom.transport,
+    destinationUser: custom.destinationUser,
+    callbackUrl: secret('EIR_CALLBACK_URL'),
+    callbackToken: secret('EIR_CALLBACK_TOKEN'),
+    destination: '',
+    callerId: '',
+    callId: '',
+    transcript: [],
+  };
+}
+
+function driveCall(session, call, timeoutMs) {
   var voiceAIClient;
   var submitted = false;
   var finished = false;
@@ -396,78 +425,112 @@ VoxEngine.addEventListener(AppEvents.Started, async function () {
     return submitted;
   }
 
-  try {
-    var custom = parseCustomData();
-    session = {
-      episodeId: custom.episodeId,
-      correlationId: custom.correlationId,
-      displayName: custom.displayName,
-      transport: custom.transport,
-      destinationUser: custom.destinationUser,
-      callbackUrl: secret('EIR_CALLBACK_URL'),
-      callbackToken: secret('EIR_CALLBACK_TOKEN'),
-      destination: '',
-      callerId: '',
-      callId: '',
-      transcript: [],
-    };
+  session.callId = call.id();
 
+  call.addEventListener(CallEvents.Failed, function (event) {
+    var code = event && event.code;
+    var state = NO_ANSWER_CODES[code] ? 'NO_ANSWER' : 'CALL_FAILED';
+    notify(session, state, {failure_reason: state.toLowerCase()}).then(finish);
+  });
+
+  call.addEventListener(CallEvents.Disconnected, function () {
+    if (!submitted) {
+      notify(session, 'CALL_FAILED', {failure_reason: 'disconnected'}).then(finish);
+      return;
+    }
+    finish();
+  });
+
+  call.addEventListener(CallEvents.Connected, async function () {
+    await notify(session, 'CALL_CONNECTED');
+    try {
+      call.sendMessage(JSON.stringify({r: 'm', eid: session.episodeId}));
+    } catch (error) {
+      // ignore
+    }
+    startGeminiLive(session, call, markSubmitted)
+      .then(function (client) {
+        voiceAIClient = client;
+      })
+      .catch(function () {
+        notify(session, 'CALL_FAILED', {failure_reason: 'gemini_setup'}).then(finish);
+      });
+    setTimeout(function () {
+      if (!submitted) {
+        notify(session, 'CALL_FAILED', {failure_reason: 'timeout'}).then(function () {
+          try {
+            call.hangup();
+          } catch (error) {
+            finish();
+          }
+        });
+      }
+    }, timeoutMs);
+  });
+
+  return finish;
+}
+
+function failStart(session) {
+  if (session) {
+    notify(session, 'CALL_FAILED', {failure_reason: 'scenario_error'}).then(function () {
+      VoxEngine.terminate();
+    });
+    return;
+  }
+  VoxEngine.terminate();
+}
+
+VoxEngine.addEventListener(AppEvents.Started, function () {
+  var session;
+  var custom;
+  var raw = String(VoxEngine.customData() || '').trim();
+  if (!raw) {
+    return;
+  }
+  try {
+    custom = parseCustomData(raw);
+  } catch (error) {
+    return;
+  }
+  if (!custom.outbound) {
+    return;
+  }
+  try {
+    session = baseSession(custom);
     if (session.transport !== 'voximplant_user') {
       session.destination = secret('EIR_DEMO_PHONE_E164');
       session.callerId = secret('VOXIMPLANT_CALLER_ID_E164');
     }
-
-    call = startDestinationCall(session);
-    session.callId = call.id();
+    driveCall(session, startDestinationCall(session), TIMEOUT_MS_DIALLED);
     if (session.transport === 'voximplant_user') {
       notify(session, 'CALL_STARTED');
     }
-
-    call.addEventListener(CallEvents.Failed, function (event) {
-      var code = event && event.code;
-      var state = NO_ANSWER_CODES[code] ? 'NO_ANSWER' : 'CALL_FAILED';
-      notify(session, state, {failure_reason: state.toLowerCase()}).then(finish);
-    });
-
-    call.addEventListener(CallEvents.Disconnected, function () {
-      if (!submitted) {
-        notify(session, 'CALL_FAILED', {failure_reason: 'disconnected'}).then(finish);
-        return;
-      }
-      finish();
-    });
-
-    call.addEventListener(CallEvents.Connected, async function () {
-      await notify(session, 'CALL_CONNECTED');
-      try {
-        call.sendMessage(JSON.stringify({r: 'm', eid: session.episodeId}));
-      } catch (error) {
-        // ignore
-      }
-      startGeminiLive(session, call, markSubmitted)
-        .then(function (client) {
-          voiceAIClient = client;
-        })
-        .catch(function () {
-          notify(session, 'CALL_FAILED', {failure_reason: 'gemini_setup'}).then(finish);
-        });
-      setTimeout(function () {
-        if (!submitted) {
-          notify(session, 'CALL_FAILED', {failure_reason: 'timeout'}).then(function () {
-            try {
-              call.hangup();
-            } catch (error) {
-              finish();
-            }
-          });
-        }
-      }, 90000);
-    });
   } catch (error) {
-    if (session) {
-      notify(session, 'CALL_FAILED', {failure_reason: 'scenario_error'}).then(finish);
-      return;
+    failStart(session);
+  }
+});
+
+// Inbound: the patient's browser dials the application over WebRTC. There is
+// no PSTN leg, so no Caller ID and no destination number are involved.
+VoxEngine.addEventListener(AppEvents.CallAlerting, function (event) {
+  var session;
+  var call = event && event.call;
+  if (!call) {
+    VoxEngine.terminate();
+    return;
+  }
+  try {
+    session = baseSession(parseCustomData(event.customData, 'webrtc'));
+    driveCall(session, call, TIMEOUT_MS_WEBRTC);
+    notify(session, 'CALL_STARTED');
+    call.answer();
+  } catch (error) {
+    try {
+      call.reject();
+    } catch (inner) {
+      // ignore
     }
-    finish();
+    failStart(session);
   }
 });

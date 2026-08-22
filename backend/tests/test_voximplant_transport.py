@@ -38,12 +38,14 @@ def test_pstn_custom_data_omits_transport_and_phones() -> None:
     )
     parsed = parse_script_custom_data(raw)
     assert parsed["transport"] == TRANSPORT_PSTN
+    assert parsed["outbound"] is True
     assert set(parsed) == {
         "episode_id",
         "correlation_id",
         "display_name",
         "transport",
         "destination_user",
+        "outbound",
     }
     assert "+" not in raw
     assert "15555550199" not in raw
@@ -139,18 +141,23 @@ def test_provisioner_can_sync_scenario_without_pstn_secrets() -> None:
     assert "eir-infra-ci@eir-ata.iam.gserviceaccount.com" in workflow
 
 
-def test_voice_preview_page_uses_node2_and_not_hosted_webphone() -> None:
+def test_voice_page_dials_out_and_never_holds_a_password() -> None:
     root = Path(__file__).resolve().parents[2]
     preview_client = root / "frontend" / "src" / "app" / "voice-preview" / "VoicePreviewClient.tsx"
     page = preview_client.read_text(encoding="utf-8")
     helper_path = root / "frontend" / "src" / "lib" / "voximplantPreview.ts"
     helper = helper_path.read_text(encoding="utf-8")
-    smoke = (root / "infra" / "voximplant" / "smoke_test.py").read_text(encoding="utf-8")
     assert "ConnectionNode.NODE_2" in page
     assert "unmutePlayback" in page
-    assert "phone.voximplant.com" in page
     assert 'VOX_PREVIEW_NODE = "NODE_2"' in helper
-    assert "/voice-preview" in smoke
+    # The browser dials the application; it no longer waits to be rung.
+    assert "sdk.call(" in page
+    assert "IncomingCall" not in page
+    # Login is a server-signed one-time key, never a password typed into the page.
+    assert "loginWithOneTimeKey" in page
+    assert "requestOneTimeLoginKey" in page
+    assert 'type="password"' not in page
+    assert "sdk.login(" not in page
 
 
 def test_scenario_forwards_transcript_without_logging_it() -> None:
@@ -165,3 +172,41 @@ def test_scenario_forwards_transcript_without_logging_it() -> None:
     assert "Logger.write" not in source
     assert "privacy: true" in source
     assert "trace: false" in source
+
+
+def test_browser_custom_data_omits_the_outbound_marker() -> None:
+    """The browser leg must not look like a StartScenarios launch.
+
+    VoxEngine promotes an inbound leg's customData to scenario-level custom
+    data, so AppEvents.Started fires for a browser check-in too and sees the
+    same {eid,cid,n} shape an outbound PSTN dial uses. Without a marker it read
+    the browser's payload as a dial request, hit the demo-phone secret, and
+    terminated the session milliseconds after CallAlerting had answered.
+    """
+    web = encode_script_custom_data(
+        episode_id="ep-1",
+        correlation_id="web-abc123",
+        display_name="Alex",
+        outbound=False,
+    )
+    assert '"o"' not in web
+    assert parse_script_custom_data(web)["outbound"] is False
+
+    dialled = encode_script_custom_data(episode_id="ep-1", correlation_id="cid-1")
+    assert parse_script_custom_data(dialled)["outbound"] is True
+
+    for raw in (web, dialled):
+        assert len(raw.encode("utf-8")) <= CUSTOM_DATA_LIMIT
+
+
+def test_scenario_started_handler_stands_down_for_inbound_legs() -> None:
+    """The outbound entry point must gate on the marker, not on event ordering."""
+    source = SCENARIO.read_text(encoding="utf-8")
+    gate = source.find("custom.outbound")
+    pstn_secret = source.find("secret('EIR_DEMO_PHONE_E164')")
+    assert gate != -1, "Started must check the outbound marker"
+    assert pstn_secret != -1
+    # Standing down has to happen before any PSTN secret is touched, or a browser
+    # leg throws missing_secret and failStart kills the answered call.
+    assert gate < pstn_secret
+    assert "outbound: data.o === 1" in source

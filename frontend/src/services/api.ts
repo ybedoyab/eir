@@ -64,6 +64,39 @@ export async function loginDemo(username: string, password: string): Promise<Aut
   };
 }
 
+export interface CurrentUser {
+  sub: string;
+  name: string;
+  role: string;
+  patient_id?: string | null;
+  permissions: string[];
+  exp: number;
+}
+
+/**
+ * Verify the stored token against the server.
+ *
+ * Returns null when it is absent, expired, or rejected. Demo tokens last 24h
+ * and carry their own `exp`, so a stale localStorage session still looks
+ * perfectly valid to the client — only the server can settle it.
+ */
+export async function getCurrentUser(): Promise<CurrentUser | null> {
+  if (typeof window === "undefined" || !loadSession()?.token) {
+    return null;
+  }
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+    cache: "no-store",
+    headers: authHeaders(),
+  });
+  if (response.status === 401 || response.status === 403) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(`/api/v1/auth/me failed (${response.status})`);
+  }
+  return response.json();
+}
+
 export async function listDemoUsers() {
   return getJson<
     Array<{
@@ -224,5 +257,38 @@ export async function simulatePromptInjection(episodeId: string) {
   return postJson<{ published: string; episode_id: string }>(
     `/api/v1/security/demo/prompt-injection/${episodeId}`,
     {},
+  );
+}
+
+export interface VoiceWebConfig {
+  enabled: boolean;
+  login: string;
+  number: string;
+  transport: string;
+  gemini_live_model: string;
+  gemini_live_voice: string;
+}
+
+export interface VoiceWebSession {
+  login: string;
+  hash: string;
+  number: string;
+  correlation_id: string;
+  custom_data: string;
+}
+
+export async function getVoiceWebConfig() {
+  return getJson<VoiceWebConfig>("/api/v1/voice/web-session");
+}
+
+/**
+ * Authorize a browser check-in on one episode. Pass a Voximplant one-time key to
+ * also get a server-signed login hash; omit it once the client is registered.
+ */
+export async function startVoiceWebSession(episodeId: string, oneTimeKey = "") {
+  return postJson<VoiceWebSession>(
+    "/api/v1/voice/web-session",
+    { episode_id: episodeId, one_time_key: oneTimeKey },
+    true,
   );
 }

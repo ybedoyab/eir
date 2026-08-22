@@ -53,6 +53,10 @@ BASE_ENV = [
     "ADK_ALLOW_DIRECT_FALLBACK=false",
     "VOICE_PROVIDER=synthetic",
     "VOXIMPLANT_VOICE_TRANSPORT=pstn",
+    "VOXIMPLANT_ACCOUNT_NAME=ysbedoya0",
+    "VOXIMPLANT_APPLICATION_NAME=eir-recovery",
+    "VOXIMPLANT_WEB_USER=eir-preview-user",
+    "VOXIMPLANT_WEB_NUMBER=eir-checkin",
     "GEMINI_LIVE_MODEL=gemini-live-2.5-flash-native-audio",
     "GEMINI_LIVE_LOCATION=us-central1",
     "GEMINI_LIVE_VOICE=Sulafat",
@@ -68,6 +72,9 @@ VOICE_SECRET_BINDINGS = (
     ("VOXIMPLANT_RUNTIME_CREDENTIALS", "eir-voximplant-runtime-credentials"),
     ("EIR_DEMO_PHONE_E164", "eir-demo-phone-e164"),
     ("VOXIMPLANT_CALLER_ID_E164", "eir-voximplant-caller-id"),
+    # Signs browser one-time login keys. Required for the in-page voice check-in,
+    # which needs no Caller ID and no phone number.
+    ("VOXIMPLANT_WEB_PASSWORD", "eir-voximplant-web-password"),
 )
 VOXIMPLANT_APPLICATION_ID = "11191282"
 VOXIMPLANT_RULE_ID = "1523546"
@@ -130,7 +137,8 @@ def _service_url(service: str, project_number: str) -> str:
     return f"https://{service}-{project_number}.{REGION}.run.app"
 
 
-def _secret_exists(name: str) -> bool:
+def _secret_container_exists(name: str) -> bool:
+    """True when the secret container exists, with or without a version."""
     completed = subprocess.run(
         [_gcloud(), "secrets", "describe", name, f"--project={PROJECT}"],
         capture_output=True,
@@ -138,6 +146,31 @@ def _secret_exists(name: str) -> bool:
         check=False,
     )
     return completed.returncode == 0
+
+
+def _secret_exists(name: str) -> bool:
+    """True only when the secret has a readable version.
+
+    `gcloud secrets describe` also succeeds for an empty container, and binding
+    `<name>:latest` for one of those makes the Cloud Run revision fail to start.
+    """
+    completed = subprocess.run(
+        [
+            _gcloud(),
+            "secrets",
+            "versions",
+            "list",
+            name,
+            f"--project={PROJECT}",
+            "--filter=state=ENABLED",
+            "--limit=1",
+            "--format=value(name)",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return completed.returncode == 0 and bool(completed.stdout.strip())
 
 
 def _shared_env(project_number: str) -> list[str]:
@@ -155,13 +188,31 @@ def _shared_env(project_number: str) -> list[str]:
             key = line.split("=", 1)[0]
             merged[key] = line.strip()
         env = list(merged.values())
-    elif _secret_exists("eir-voximplant-runtime-credentials"):
+    elif _pstn_ready():
         merged = {item.split("=", 1)[0]: item for item in env}
         merged["VOICE_PROVIDER"] = "VOICE_PROVIDER=voximplant"
         merged["VOXIMPLANT_APPLICATION_ID"] = f"VOXIMPLANT_APPLICATION_ID={VOXIMPLANT_APPLICATION_ID}"
         merged["VOXIMPLANT_RULE_ID"] = f"VOXIMPLANT_RULE_ID={VOXIMPLANT_RULE_ID}"
         env = list(merged.values())
     return env
+
+
+def _pstn_ready() -> bool:
+    """Every secret an outbound PSTN call needs, not just the API credential.
+
+    Flipping VOICE_PROVIDER on the credential alone makes outbound follow-ups
+    raise "demo destination or caller ID is not configured" at call time instead
+    of degrading to the synthetic provider. The browser check-in is unaffected
+    either way -- it reaches the scenario directly and never uses this provider.
+    """
+    return all(
+        _secret_exists(name)
+        for name in (
+            "eir-voximplant-runtime-credentials",
+            "eir-voximplant-caller-id",
+            "eir-demo-phone-e164",
+        )
+    )
 
 
 def _voice_secret_flags() -> str:
@@ -418,7 +469,7 @@ def _ensure_scheduler_secret() -> int:
 
 
 def _ensure_session_secret() -> int:
-    if not _secret_exists(SESSION_SECRET_NAME):
+    if not _secret_container_exists(SESSION_SECRET_NAME):
         if _run(["gcloud", "secrets", "create", SESSION_SECRET_NAME, f"--project={PROJECT}"]) != 0:
             return 1
     versions = subprocess.run(

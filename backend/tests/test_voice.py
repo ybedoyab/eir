@@ -77,8 +77,11 @@ def test_voximplant_start_scenarios_custom_data(monkeypatch) -> None:
     params = api.calls[0][1]
     assert params["rule_id"] == 42
     custom = json.loads(params["script_custom_data"])
-    assert set(custom) <= {"eid", "cid", "n"}
+    # "o" marks this as a StartScenarios launch, which is what lets the scenario's
+    # Started handler tell an outbound dial from a browser leg's custom data.
+    assert set(custom) <= {"eid", "cid", "n", "o"}
     assert custom["eid"] == "ep-1"
+    assert custom["o"] == 1
 
 
 def test_admin_credentials_not_used_by_runtime_factory(monkeypatch) -> None:

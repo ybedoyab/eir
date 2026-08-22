@@ -41,6 +41,7 @@ GCP_CALLBACK_SECRET = "eir-voximplant-callback-token"
 GCP_RUNTIME_SECRET = "eir-voximplant-runtime-credentials"
 GCP_DEMO_PHONE_SECRET = "eir-demo-phone-e164"
 GCP_CALLER_SECRET = "eir-voximplant-caller-id"
+GCP_WEB_PASSWORD_SECRET = "eir-voximplant-web-password"
 API_URL = "https://eir-api-658898892127.us-central1.run.app"
 CALLBACK_PATH = "/api/v1/voice/voximplant/callback"
 
@@ -562,12 +563,20 @@ def _preview_password() -> str:
 
 
 def _read_preview_password() -> str:
-    if not PREVIEW_ENV.is_file():
-        return ""
-    for line in PREVIEW_ENV.read_text(encoding="utf-8").splitlines():
-        if line.startswith("VOXIMPLANT_PREVIEW_PASSWORD="):
-            return line.split("=", 1)[1].strip()
-    return ""
+    """The password we already believe in, if any.
+
+    `.env`'s VOXIMPLANT_WEB_PASSWORD is honoured as a fallback because that is
+    what a local backend signs one-time keys with. Without it, a run that finds
+    no `.voximplant-preview.env` would mint a fresh password, push it, and
+    silently orphan local dev against the value still sitting in `.env`.
+    """
+    if PREVIEW_ENV.is_file():
+        for line in PREVIEW_ENV.read_text(encoding="utf-8").splitlines():
+            if line.startswith("VOXIMPLANT_PREVIEW_PASSWORD="):
+                stored = line.split("=", 1)[1].strip()
+                if stored:
+                    return stored
+    return _env_path("VOXIMPLANT_WEB_PASSWORD")
 
 
 def preview_login(account_name: str) -> str:
@@ -620,7 +629,7 @@ def ensure_preview_user(api: VoximplantAPI, application_id: int, account_name: s
                 "Generate a strong password and save it locally as .voximplant-preview.env. "
                 "Do not paste the password into chat."
             ]
-    elif not stored:
+    else:
         user_id = existing.get("user_id")
         updated = api.call(
             "SetUserInfo",
@@ -637,6 +646,25 @@ def ensure_preview_user(api: VoximplantAPI, application_id: int, account_name: s
                 "Set a password and save it to .voximplant-preview.env. Do not paste it into chat."
             ]
     _write_preview_env(login=login, password=password)
+    # Cloud Run signs browser one-time login keys with this password. It is never
+    # served to a client -- see backend/app/services/voice_web_session.py.
+    try:
+        _ensure_gcp_secret(GCP_WEB_PASSWORD_SECRET, password)
+    except FileNotFoundError:
+        return [
+            "gcloud is required to store the browser voice password in Secret Manager as "
+            f"{GCP_WEB_PASSWORD_SECRET}. Until it exists, /api/v1/voice/web-session reports "
+            "enabled=false and the in-page check-in stays disabled."
+        ]
+    except RuntimeError as exc:
+        return [str(exc)]
+    local = _env_path("VOXIMPLANT_WEB_PASSWORD")
+    if local and local != password:
+        return [
+            "`.env` VOXIMPLANT_WEB_PASSWORD does not match the password now set on "
+            f"{PREVIEW_USER}. Copy VOXIMPLANT_PREVIEW_PASSWORD from {PREVIEW_ENV.name} "
+            "into `.env` or the local browser check-in will fail with AuthResult 401."
+        ]
     return []
 
 
@@ -649,7 +677,7 @@ def route_price(api: VoximplantAPI, destination: str) -> dict[str, Any]:
     return {"raw_present": "error" not in payload, "groups": _as_list(result)}
 
 
-def _write_runtime_env(application_id: int, rule_id: int) -> None:
+def _write_runtime_env(application_id: int, rule_id: int, account_name: str) -> None:
     cursor = ROOT / ".cursor"
     cursor.mkdir(parents=True, exist_ok=True)
     (cursor / "voximplant-runtime.env").write_text(
@@ -662,6 +690,10 @@ def _write_runtime_env(application_id: int, rule_id: int) -> None:
                 "GEMINI_LIVE_LOCATION=us-central1",
                 "GEMINI_LIVE_VOICE=Sulafat",
                 "VOXIMPLANT_VOICE_TRANSPORT=pstn",
+                f"VOXIMPLANT_ACCOUNT_NAME={str(account_name).split('@')[0]}",
+                f"VOXIMPLANT_APPLICATION_NAME={APP_NAME}",
+                f"VOXIMPLANT_WEB_USER={PREVIEW_USER}",
+                "VOXIMPLANT_WEB_NUMBER=eir-checkin",
             ]
         )
         + "\n",
@@ -742,7 +774,7 @@ def main() -> int:
     manuals.extend(ensure_phone_secrets(api, application_id))
     manuals.extend(ensure_runtime_key(api))
     manuals.extend(ensure_google_live_sa(api, application_id))
-    _write_runtime_env(application_id, rule_id)
+    _write_runtime_env(application_id, rule_id, str(info["account_name"]))
 
     verified = verified_caller_ids(api)
     print()

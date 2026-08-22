@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     gemini_live_voice: str = "Sulafat"
     voice_allow_non_synthetic: bool = False
     voximplant_voice_transport: str = "pstn"
+    voximplant_account_name: str = ""
+    voximplant_application_name: str = "eir-recovery"
+    voximplant_web_user: str = "eir-preview-user"
+    voximplant_web_password: str = ""
+    voximplant_web_number: str = "eir-checkin"
     event_bus: str = "memory"
     episode_store: str = "memory"
     fhir_mode: str = "local"
