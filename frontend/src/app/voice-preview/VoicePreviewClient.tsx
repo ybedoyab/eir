@@ -9,7 +9,7 @@ import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { clearSession, loadSession } from "@/lib/auth";
 import { VOX_PREVIEW_NODE } from "@/lib/voximplantPreview";
-import { applyTranscript, type TranscriptLine } from "@/lib/voiceTranscript";
+import { appendTranscript, type TranscriptLine, type TranscriptRole } from "@/lib/voiceTranscript";
 import {
   getCurrentUser,
   getVoiceWebConfig,
@@ -372,16 +372,19 @@ export default function VoicePreviewClient() {
     call.on(events.CallEvents.MessageReceived, (payload) => {
       const raw = String((payload as { text?: string }).text || "");
       try {
-        const parsed = JSON.parse(raw) as { r?: string; t?: string; eid?: string; f?: number };
+        const parsed = JSON.parse(raw) as { r?: string; d?: string; i?: number; eid?: string; f?: number };
         if (parsed.eid) {
           setEpisodeId(parsed.eid);
         }
-        const finished = parsed.f === 1;
-        if (parsed.r === "p" && parsed.t) {
-          setLines((current) => applyTranscript(current, "you", parsed.t!, finished));
-        }
-        if (parsed.r === "a" && parsed.t) {
-          setLines((current) => applyTranscript(current, "eir", parsed.t!, finished));
+        // The scenario sends one delta per Gemini transcription chunk, tagged
+        // with the turn it belongs to. Chunks are appended, never reconciled.
+        const role: TranscriptRole | null =
+          parsed.r === "p" ? "you" : parsed.r === "a" ? "eir" : null;
+        if (role && typeof parsed.i === "number") {
+          const turn = parsed.i;
+          const delta = typeof parsed.d === "string" ? parsed.d : "";
+          const finished = parsed.f === 1;
+          setLines((current) => appendTranscript(current, turn, role, delta, finished));
         }
       } catch {
         // ignore non-JSON signaling
@@ -711,9 +714,9 @@ export default function VoicePreviewClient() {
                   : "Waiting for the first spoken turn…"}
               </p>
             ) : (
-              lines.map((line, index) => (
+              lines.map((line) => (
                 <div
-                  key={`${line.role}-${index}-${line.text.slice(0, 24)}`}
+                  key={line.id}
                   className={
                     line.role === "eir"
                       ? "max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm"
