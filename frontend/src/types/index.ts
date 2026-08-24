@@ -39,6 +39,7 @@ export interface DomainEvent {
 export interface HumanReview {
   id: string;
   episode_id: string;
+  workflow?: string;
   reason: string;
   capability: string;
   agent_name: string;
@@ -46,6 +47,7 @@ export interface HumanReview {
   created_at: string;
   resolved_at: string | null;
   note: string;
+  pending_capability?: string;
 }
 
 export interface AgentDescriptor {
@@ -154,4 +156,103 @@ export interface RuntimeStatus {
       cloud_logging_verified?: boolean;
     };
   };
+}
+
+export type StockStatus = "HEALTHY" | "LOW" | "CRITICAL" | "OUT_OF_STOCK";
+
+export type SupplyUrgency = "NORMAL" | "HIGH" | "CRITICAL";
+
+export type ReplenishmentStatus =
+  | "ACTIVE"
+  | "SOURCING"
+  | "AWAITING_APPROVAL"
+  | "BLOCKED"
+  | "ORDERED"
+  | "COMPLETED"
+  | "CANCELLED";
+
+export type PurchaseOrderStatus =
+  | "DRAFT"
+  | "APPROVED"
+  | "PLACED"
+  | "RECEIVED"
+  | "CANCELLED";
+
+export interface InventoryItem {
+  sku: string;
+  name: string;
+  form: string;
+  unit: string;
+  on_hand: number;
+  reorder_point: number;
+  target_level: number;
+  daily_usage: number;
+  critical: boolean;
+  updated_at: string;
+  status: StockStatus;
+  days_of_cover: number | null;
+}
+
+export interface SupplierCatalogEntry {
+  sku: string;
+  unit_price: number;
+  available_units: number;
+  currency: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contact_name: string;
+  phone_e164: string;
+  lead_time_days: number;
+  catalog: SupplierCatalogEntry[];
+}
+
+export interface SupplierQuote {
+  supplier_id: string;
+  supplier_name: string;
+  sku: string;
+  unit_price: number;
+  currency: string;
+  available_units: number;
+  lead_time_days: number;
+  quoted_at: string;
+  call_id: string;
+  provider: string;
+  transcript: Array<{ role: string; text: string }>;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  case_id: string;
+  sku: string;
+  supplier_id: string;
+  supplier_name: string;
+  quantity: number;
+  unit_price: number;
+  currency: string;
+  lead_time_days: number;
+  status: PurchaseOrderStatus;
+  drafted_at: string;
+  approved_by: string;
+  approved_at: string | null;
+  expected_delivery: string | null;
+  total_cost: number;
+}
+
+export interface ReplenishmentCase {
+  id: string;
+  sku: string;
+  item_name: string;
+  status: ReplenishmentStatus;
+  urgency: SupplyUrgency;
+  opened_at: string;
+  closed_at: string | null;
+  requested_quantity: number;
+  rationale: string;
+  quotes: SupplierQuote[];
+  purchase_order: PurchaseOrder | null;
+  contacted_supplier_ids: string[];
+  assigned_agents: string[];
 }

@@ -20,6 +20,7 @@ class ReviewStatus(StrEnum):
 class HumanReview(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     episode_id: str
+    workflow: str = "recovery"
     reason: str
     capability: str
     agent_name: str
@@ -43,8 +44,15 @@ class InMemoryReviewRepository:
     def get(self, review_id: str) -> HumanReview | None:
         return self._items.get(review_id)
 
-    def list(self, *, pending_only: bool = False) -> list[HumanReview]:
+    def list(
+        self,
+        *,
+        pending_only: bool = False,
+        workflow: str | None = None,
+    ) -> list[HumanReview]:
         items = list(self._items.values())
+        if workflow is not None:
+            items = [item for item in items if item.workflow == workflow]
         if pending_only:
             return [item for item in items if item.status == ReviewStatus.PENDING]
         return items

@@ -93,6 +93,56 @@ class VoiceCallFailed(DomainEvent):
     event_type: Literal["VoiceCallFailed"] = "VoiceCallFailed"
 
 
+class InventoryLevelLow(DomainEvent):
+    """Emitted by the stock monitor when on-hand stock crosses the reorder point."""
+
+    event_type: Literal["InventoryLevelLow"] = "InventoryLevelLow"
+    sku: str = ""
+
+
+class ReplenishmentRequested(DomainEvent):
+    event_type: Literal["ReplenishmentRequested"] = "ReplenishmentRequested"
+    sku: str = ""
+
+
+class SupplierContacted(DomainEvent):
+    event_type: Literal["SupplierContacted"] = "SupplierContacted"
+    supplier_id: str = ""
+
+
+class SupplierQuoteReceived(DomainEvent):
+    event_type: Literal["SupplierQuoteReceived"] = "SupplierQuoteReceived"
+    supplier_id: str = ""
+
+
+class SupplierUnavailable(DomainEvent):
+    event_type: Literal["SupplierUnavailable"] = "SupplierUnavailable"
+    supplier_id: str = ""
+
+
+class PurchaseOrderDrafted(DomainEvent):
+    event_type: Literal["PurchaseOrderDrafted"] = "PurchaseOrderDrafted"
+    purchase_order_id: str = ""
+
+
+class SupplyApprovalGranted(DomainEvent):
+    """Operations sign-off. Mirrors ClinicianResolved for the supply workflow."""
+
+    event_type: Literal["SupplyApprovalGranted"] = "SupplyApprovalGranted"
+    review_id: str = ""
+    note: str = ""
+
+
+class PurchaseOrderApproved(DomainEvent):
+    event_type: Literal["PurchaseOrderApproved"] = "PurchaseOrderApproved"
+    purchase_order_id: str = ""
+
+
+class RestockScheduled(DomainEvent):
+    event_type: Literal["RestockScheduled"] = "RestockScheduled"
+    purchase_order_id: str = ""
+
+
 EVENT_TYPE_MAP: dict[str, type[DomainEvent]] = {
     "RecoveryEpisodeStarted": RecoveryEpisodeStarted,
     "FollowUpDue": FollowUpDue,
@@ -108,7 +158,35 @@ EVENT_TYPE_MAP: dict[str, type[DomainEvent]] = {
     "VoiceCallConnected": VoiceCallConnected,
     "VoiceCallCompleted": VoiceCallCompleted,
     "VoiceCallFailed": VoiceCallFailed,
+    "InventoryLevelLow": InventoryLevelLow,
+    "ReplenishmentRequested": ReplenishmentRequested,
+    "SupplierContacted": SupplierContacted,
+    "SupplierQuoteReceived": SupplierQuoteReceived,
+    "SupplierUnavailable": SupplierUnavailable,
+    "PurchaseOrderDrafted": PurchaseOrderDrafted,
+    "SupplyApprovalGranted": SupplyApprovalGranted,
+    "PurchaseOrderApproved": PurchaseOrderApproved,
+    "RestockScheduled": RestockScheduled,
 }
+
+# Each workflow runtime subscribes to its own slice of EVENT_TYPE_MAP. A runtime
+# silently drops events whose aggregate it does not own, so the split must be
+# explicit rather than "everything in the map".
+SUPPLY_EVENT_TYPES: frozenset[str] = frozenset(
+    {
+        "InventoryLevelLow",
+        "ReplenishmentRequested",
+        "SupplierContacted",
+        "SupplierQuoteReceived",
+        "SupplierUnavailable",
+        "PurchaseOrderDrafted",
+        "SupplyApprovalGranted",
+        "PurchaseOrderApproved",
+        "RestockScheduled",
+    }
+)
+
+RECOVERY_EVENT_TYPES: frozenset[str] = frozenset(EVENT_TYPE_MAP) - SUPPLY_EVENT_TYPES
 
 
 def parse_event(event_type: str, **kwargs: Any) -> DomainEvent:

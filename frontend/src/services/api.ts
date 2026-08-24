@@ -8,6 +8,14 @@ import type {
   SlotOption,
 } from "@/lib/auth";
 
+import type {
+  DomainEvent,
+  HumanReview,
+  InventoryItem,
+  ReplenishmentCase,
+  Supplier,
+} from "@/types";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 function authHeaders(): Record<string, string> {
@@ -291,4 +299,53 @@ export async function startVoiceWebSession(episodeId: string, oneTimeKey = "") {
     { episode_id: episodeId, one_time_key: oneTimeKey },
     true,
   );
+}
+
+export async function listInventory() {
+  return getJson<InventoryItem[]>("/api/v1/inventory", true);
+}
+
+export async function listLowStock() {
+  return getJson<InventoryItem[]>("/api/v1/inventory/low-stock", true);
+}
+
+export async function listSuppliers(sku?: string) {
+  const query = sku ? `?sku=${encodeURIComponent(sku)}` : "";
+  return getJson<Supplier[]>(`/api/v1/inventory/suppliers${query}`, true);
+}
+
+export async function adjustStock(sku: string, delta: number, reason = "") {
+  return postJson<InventoryItem>(
+    `/api/v1/inventory/${encodeURIComponent(sku)}/adjust`,
+    { delta, reason },
+    true,
+  );
+}
+
+export async function listReplenishmentCases(openOnly = false) {
+  return getJson<ReplenishmentCase[]>(`/api/v1/supply/cases?open_only=${openOnly}`, true);
+}
+
+export async function getReplenishmentCase(caseId: string) {
+  return getJson<ReplenishmentCase>(`/api/v1/supply/cases/${caseId}`, true);
+}
+
+export async function listReplenishmentEvents(caseId: string) {
+  return getJson<DomainEvent[]>(`/api/v1/supply/cases/${caseId}/events`, true);
+}
+
+export async function listPurchaseApprovals(pending = true) {
+  return getJson<HumanReview[]>(`/api/v1/supply/approvals?pending=${pending}`, true);
+}
+
+export async function approvePurchaseOrder(caseId: string, note = "") {
+  return postJson<ReplenishmentCase>(`/api/v1/supply/cases/${caseId}/approve`, { note }, true);
+}
+
+export async function receiveDelivery(caseId: string) {
+  return postJson<ReplenishmentCase>(`/api/v1/supply/cases/${caseId}/receive`, {}, true);
+}
+
+export async function cancelReplenishmentCase(caseId: string, reason = "") {
+  return postJson<ReplenishmentCase>(`/api/v1/supply/cases/${caseId}/cancel`, { reason }, true);
 }

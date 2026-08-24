@@ -1,4 +1,11 @@
-import type { EpisodeStatus, RiskLevel } from "@/types";
+import type {
+  EpisodeStatus,
+  PurchaseOrderStatus,
+  ReplenishmentStatus,
+  RiskLevel,
+  StockStatus,
+  SupplyUrgency,
+} from "@/types";
 
 export type StatusTone = "success" | "warning" | "danger" | "info" | "neutral" | "brand";
 
@@ -57,4 +64,51 @@ export function platformStatus(ok: boolean | null | undefined, liveLabel = "Live
   if (ok === true) return { label: liveLabel, tone: "success" };
   if (ok === false) return { label: "Unverified", tone: "warning" };
   return { label: "Unknown", tone: "neutral" };
+}
+
+const STOCK_STATUS: Record<StockStatus, StatusView> = {
+  HEALTHY: { label: "In stock", tone: "success" },
+  LOW: { label: "Low stock", tone: "warning" },
+  CRITICAL: { label: "Critically low", tone: "danger" },
+  OUT_OF_STOCK: { label: "Out of stock", tone: "danger" },
+};
+
+const REPLENISHMENT_STATUS: Record<ReplenishmentStatus, StatusView> = {
+  ACTIVE: { label: "Opened", tone: "brand" },
+  SOURCING: { label: "Sourcing", tone: "info" },
+  AWAITING_APPROVAL: { label: "Awaiting authorization", tone: "warning" },
+  BLOCKED: { label: "Needs a buyer", tone: "danger" },
+  ORDERED: { label: "Ordered", tone: "brand" },
+  COMPLETED: { label: "Delivered", tone: "success" },
+  CANCELLED: { label: "Cancelled", tone: "neutral" },
+};
+
+const SUPPLY_URGENCY: Record<SupplyUrgency, StatusView> = {
+  NORMAL: { label: "Routine", tone: "neutral" },
+  HIGH: { label: "Urgent", tone: "warning" },
+  CRITICAL: { label: "Critical medication", tone: "danger" },
+};
+
+const PURCHASE_ORDER_STATUS: Record<PurchaseOrderStatus, StatusView> = {
+  DRAFT: { label: "Draft", tone: "warning" },
+  APPROVED: { label: "Approved", tone: "info" },
+  PLACED: { label: "Placed", tone: "brand" },
+  RECEIVED: { label: "Received", tone: "success" },
+  CANCELLED: { label: "Cancelled", tone: "neutral" },
+};
+
+export function stockStatus(status: StockStatus): StatusView {
+  return STOCK_STATUS[status] ?? { label: status, tone: "neutral" };
+}
+
+export function replenishmentStatus(status: ReplenishmentStatus): StatusView {
+  return REPLENISHMENT_STATUS[status] ?? { label: status, tone: "neutral" };
+}
+
+export function supplyUrgency(urgency: SupplyUrgency): StatusView {
+  return SUPPLY_URGENCY[urgency] ?? { label: urgency, tone: "neutral" };
+}
+
+export function purchaseOrderStatus(status: PurchaseOrderStatus): StatusView {
+  return PURCHASE_ORDER_STATUS[status] ?? { label: status, tone: "neutral" };
 }

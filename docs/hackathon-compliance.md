@@ -7,8 +7,8 @@ Synthetic data only. No real PHI. Voice is not verified until a paid PSTN/WebRTC
 | Gemini 3.5+ | Vertex `gemini-3.5-flash` orchestration + outreach | Vertex AI Gemini | `/health` → `runtime_verification.vertex_model_probe`; worker logs `GoogleLLMVariant.VERTEX_AI` | VERIFIED MANAGED |
 | Google ADK | `AdkAgentRunner` + domain tools on Cloud Run | ADK 2.7.1 on Cloud Run worker | `ADK_RUNNER_MODE=adk`, worker telemetry | VERIFIED GCP |
 | Cloud Run | `eir-api`, `eir-worker`, `eir-ui` SHA-tagged images | Cloud Run | Deploy pipeline + `/health` | VERIFIED MANAGED |
-| Pub/Sub | Recovery event bus | Pub/Sub `eir-recovery-events` | Worker consumed `RecoveryEpisodeStarted` | VERIFIED MANAGED |
-| Firestore | Episodes, reviews, access sessions, waitlist | Firestore `(default)` | `episode_store=firestore`, access session reload | VERIFIED MANAGED |
+| Pub/Sub | Recovery + supply event bus | Pub/Sub `eir-recovery-events` | Worker consumed `RecoveryEpisodeStarted` | VERIFIED MANAGED |
+| Firestore | Episodes, reviews, access sessions, waitlist, inventory + replenishment cases | Firestore `(default)` | `episode_store=firestore`, access session reload | VERIFIED MANAGED |
 | Cloud Healthcare FHIR | Appointment lifecycle + patient fixtures | FHIR R4 `fhir-r4` (`enableUpdateCreate=true`) | List/search/book/reschedule/cancel on synthetic Alex | VERIFIED GCP |
 | Agent Registry | `google_agent_registry_service.patient_access` → live Agent resource | Agent Registry | URN `urn:agent:projects-658898892127:projects:658898892127:locations:us-central1:agentregistry:services:eir-patient-access` | VERIFIED MANAGED |
 | Agent Runtime | ADK `AdkApp` on ReasoningEngine `3041998479602745344` | Agent Runtime | Remote `async_stream_query` → `get_upcoming_appointments` → GCP FHIR Alex cardiology 2026-08-27 | VERIFIED MANAGED |
@@ -30,6 +30,8 @@ Synthetic data only. No real PHI. Voice is not verified until a paid PSTN/WebRTC
 - **Scheduling** — FHIR Schedule/Slot/Appointment lifecycle (GCP)
 - **Recovery** — Pub/Sub worker, scheduler follow-ups (verified)
 - **Records / Risk / Human Review** — existing recovery + escalation paths
+- **Supply & Replenishment** — stock monitor, inventory + procurement agents, supplier voice,
+  purchase authorization gated on a human (synthetic catalog, no real vendors)
 - **Operations** — admin fleet + Cloud Monitoring dashboard
 
 ## Explicit non-claims
@@ -37,6 +39,10 @@ Synthetic data only. No real PHI. Voice is not verified until a paid PSTN/WebRTC
 - No HIPAA compliance claim
 - No real patient data
 - No autonomous diagnosis
+- No autonomous purchasing: the procurement agent drafts orders, an operations admin
+  authorizes every one, and no order reaches a real supplier
+- Supplier calls run on a scripted synthetic provider; no vendor is dialled and the
+  catalog uses reserved fictional phone numbers
 - No verified paid voice call in this sprint
 - In-process `AgentGateway` / SafetyGate remains a secondary application defense; it is not the Google managed Agent Gateway
 - ReasoningEngine packaging is pickle-based; source-based deploy is not the live path and was not required to attach Agent Gateway

@@ -1,4 +1,40 @@
 const EVENT_LABELS: Record<string, { title: string; description: string }> = {
+  InventoryLevelLow: {
+    title: "Stock crossed the reorder point",
+    description: "Stock monitor opened a replenishment case for this medication.",
+  },
+  ReplenishmentRequested: {
+    title: "Replenishment sized",
+    description: "Inventory agent sized the order against usage and supplier lead time.",
+  },
+  SupplierContacted: {
+    title: "Supplier called",
+    description: "Procurement agent placed an outbound call to a vendor.",
+  },
+  SupplierQuoteReceived: {
+    title: "Quotes recorded",
+    description: "Prices and availability captured from the supplier calls.",
+  },
+  SupplierUnavailable: {
+    title: "No supplier could fulfil",
+    description: "Sourcing failed; a human buyer has to take the case.",
+  },
+  PurchaseOrderDrafted: {
+    title: "Purchase order drafted",
+    description: "Procurement agent selected a supplier and prepared the order.",
+  },
+  SupplyApprovalGranted: {
+    title: "Purchase authorized",
+    description: "Operations approved the drafted order before it was placed.",
+  },
+  PurchaseOrderApproved: {
+    title: "Purchase order placed",
+    description: "The authorized order was sent to the supplier.",
+  },
+  RestockScheduled: {
+    title: "Restock scheduled",
+    description: "Delivery window confirmed for the placed order.",
+  },
   RecoveryEpisodeStarted: {
     title: "Recovery monitoring started",
     description: "EIR opened a longitudinal recovery episode.",
@@ -67,6 +103,39 @@ export function eventLabel(eventType: string): { title: string; description: str
 }
 
 export function eventOutcome(event: { event_type: string; payload: Record<string, unknown> }): string {
+  if (event.event_type === "InventoryLevelLow") {
+    return `${String(event.payload.on_hand ?? "?")} on hand · reorder point ${String(
+      event.payload.reorder_point ?? "?",
+    )}`;
+  }
+  if (event.event_type === "ReplenishmentRequested") {
+    return `Requested ${String(event.payload.quantity ?? "?")} ${String(
+      event.payload.unit ?? "units",
+    )}`;
+  }
+  if (event.event_type === "SupplierContacted") {
+    return `Called ${String(event.payload.supplier_name ?? "supplier")}`;
+  }
+  if (event.event_type === "SupplierQuoteReceived") {
+    return `${String(event.payload.quote_count ?? 0)} quote(s) recorded`;
+  }
+  if (event.event_type === "SupplierUnavailable") {
+    return String(event.payload.reason ?? "No supplier could fulfil");
+  }
+  if (event.event_type === "PurchaseOrderDrafted") {
+    return String(event.payload.selection_reason ?? "Draft prepared");
+  }
+  if (event.event_type === "SupplyApprovalGranted") {
+    return `Authorized by ${String(event.payload.approved_by ?? "operations")}`;
+  }
+  if (event.event_type === "PurchaseOrderApproved") {
+    return `${String(event.payload.purchase_order_id ?? "Order")} placed · ${String(
+      event.payload.total_cost ?? "",
+    )} ${String(event.payload.currency ?? "")}`.trim();
+  }
+  if (event.event_type === "RestockScheduled") {
+    return `Expected in ${String(event.payload.lead_time_days ?? "?")} day(s)`;
+  }
   if (event.event_type === "ContentSecurityBlocked") {
     const category = String(event.payload.filter_category ?? event.payload.reason ?? "blocked");
     return `Blocked by ${String(event.payload.adapter ?? "content guard")} (${category})`;

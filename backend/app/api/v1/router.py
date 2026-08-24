@@ -8,11 +8,13 @@ from app.api.v1 import (
     appointments,
     auth,
     demo,
+    inventory,
     patients,
     recovery,
     reviews,
     runtime,
     security,
+    supply,
     traces,
     voice,
 )
@@ -25,6 +27,8 @@ router.include_router(
 )
 router.include_router(appointments.router, prefix="/appointments", tags=["appointments"])
 router.include_router(admin.router, prefix="/admin", tags=["admin"])
+router.include_router(inventory.router, prefix="/inventory", tags=["inventory"])
+router.include_router(supply.router, prefix="/supply", tags=["supply"])
 router.include_router(patients.router, prefix="/patients", tags=["patients"])
 router.include_router(recovery.router, prefix="/recovery", tags=["recovery"])
 router.include_router(reviews.router, prefix="/reviews", tags=["reviews"])

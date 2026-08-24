@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     pubsub_topic: str = "eir-recovery-events"
     pubsub_subscription: str = "eir-recovery-events-worker"
     voice_provider: str = "mock"
+    # Supplier calls are business calls, not patient calls. They get their own
+    # provider so the patient voice path and its synthetic-patient guard are
+    # never widened to reach a vendor.
+    supplier_voice_provider: str = "synthetic"
     voximplant_runtime_credentials: str = ""
     voximplant_application_id: str = ""
     voximplant_rule_id: str = ""

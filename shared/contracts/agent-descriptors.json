@@ -2,27 +2,38 @@
   "agents": [
     {
       "name": "recovery_orchestrator",
-      "capabilities": ["recovery.orchestrate"],
+      "capabilities": [
+        "recovery.orchestrate"
+      ],
       "risk_level": "LOW"
     },
     {
       "name": "outreach",
-      "capabilities": ["patient.contact"],
+      "capabilities": [
+        "patient.contact"
+      ],
       "risk_level": "MEDIUM"
     },
     {
       "name": "adherence",
-      "capabilities": ["adherence.check"],
+      "capabilities": [
+        "adherence.check"
+      ],
       "risk_level": "LOW"
     },
     {
       "name": "risk",
-      "capabilities": ["risk.assess"],
+      "capabilities": [
+        "risk.assess"
+      ],
       "risk_level": "HIGH"
     },
     {
       "name": "scheduling",
-      "capabilities": ["appointment.read", "appointment.schedule"],
+      "capabilities": [
+        "appointment.read",
+        "appointment.schedule"
+      ],
       "risk_level": "LOW"
     },
     {
@@ -38,7 +49,33 @@
     },
     {
       "name": "escalation",
-      "capabilities": ["escalation.request"],
+      "capabilities": [
+        "escalation.request"
+      ],
+      "risk_level": "HIGH"
+    },
+    {
+      "name": "supply_orchestrator",
+      "capabilities": [
+        "supply.orchestrate"
+      ],
+      "risk_level": "LOW"
+    },
+    {
+      "name": "inventory",
+      "capabilities": [
+        "inventory.read",
+        "supply.forecast"
+      ],
+      "risk_level": "LOW"
+    },
+    {
+      "name": "procurement",
+      "capabilities": [
+        "supplier.contact",
+        "purchase_order.draft",
+        "purchase_order.approve"
+      ],
       "risk_level": "HIGH"
     }
   ]

@@ -1,0 +1,70 @@
+{
+  "items": [
+    {
+      "sku": "MED-ENOX-40",
+      "name": "Enoxaparin sodium",
+      "form": "40 mg / 0.4 mL prefilled syringe",
+      "unit": "syringe",
+      "on_hand": 40,
+      "reorder_point": 120,
+      "target_level": 400,
+      "daily_usage": 18.0,
+      "critical": true
+    },
+    {
+      "sku": "MED-METF-850",
+      "name": "Metformin hydrochloride",
+      "form": "850 mg tablet",
+      "unit": "tablet",
+      "on_hand": 480,
+      "reorder_point": 500,
+      "target_level": 2000,
+      "daily_usage": 70.0,
+      "critical": false
+    },
+    {
+      "sku": "MED-INSU-GLA",
+      "name": "Insulin glargine",
+      "form": "100 U/mL 3 mL pen",
+      "unit": "pen",
+      "on_hand": 210,
+      "reorder_point": 90,
+      "target_level": 320,
+      "daily_usage": 11.0,
+      "critical": true
+    },
+    {
+      "sku": "MED-AMOX-500",
+      "name": "Amoxicillin",
+      "form": "500 mg capsule",
+      "unit": "capsule",
+      "on_hand": 1850,
+      "reorder_point": 600,
+      "target_level": 2400,
+      "daily_usage": 95.0,
+      "critical": false
+    },
+    {
+      "sku": "MED-SALB-INH",
+      "name": "Salbutamol",
+      "form": "100 mcg metered-dose inhaler",
+      "unit": "inhaler",
+      "on_hand": 74,
+      "reorder_point": 60,
+      "target_level": 240,
+      "daily_usage": 6.0,
+      "critical": false
+    },
+    {
+      "sku": "MED-PARA-500",
+      "name": "Paracetamol",
+      "form": "500 mg tablet",
+      "unit": "tablet",
+      "on_hand": 3400,
+      "reorder_point": 1200,
+      "target_level": 5000,
+      "daily_usage": 210.0,
+      "critical": false
+    }
+  ]
+}

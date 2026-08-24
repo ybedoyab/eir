@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from eir_shared.capabilities import Capability
+from eir_shared.capabilities import SUPPLY_CAPABILITIES, Capability
 from eir_shared.events import DomainEvent
 from eir_shared.gemini_config import (
     configure_genai_environment,
@@ -28,6 +28,37 @@ from eir_agents.runtime.domain_tools import DomainToolKit, required_tool_for
 logger = logging.getLogger("eir.adk_runner")
 
 
+def _invocation_prompt(ctx: InvocationContext, required_tool: str) -> str:
+    """Capability-scoped instructions for the delegated step.
+
+    Supply work never touches a patient record, so it must not be handed the
+    clinical framing (or the patient id) that recovery steps get.
+    """
+    if ctx.capability in SUPPLY_CAPABILITIES:
+        return (
+            "Execute the delegated pharmacy supply step using domain tools only. "
+            "You may call the read-only stock and supplier tools first to gather context. "
+            f"You MUST call `{required_tool}` exactly once before finishing. "
+            "Never state a price or availability figure a supplier did not give you, and "
+            "never place an order that has not been authorized.\n"
+            f"capability={ctx.capability}\n"
+            f"event_type={ctx.event.event_type}\n"
+            f"case_id={ctx.episode_id}\n"
+            f"payload={json.dumps(ctx.event.payload)}"
+        )
+    return (
+        "Execute the delegated recovery workflow step using domain tools only. "
+        "You may call read-only FHIR tools first to gather context. "
+        f"You MUST call `{required_tool}` exactly once before finishing. "
+        "Do not diagnose. Do not skip the required action tool.\n"
+        f"capability={ctx.capability}\n"
+        f"event_type={ctx.event.event_type}\n"
+        f"episode_id={ctx.episode_id}\n"
+        f"patient_id={ctx.patient_id}\n"
+        f"payload={json.dumps(ctx.event.payload)}"
+    )
+
+
 @dataclass
 class InvocationContext:
     capability: str
@@ -38,6 +69,8 @@ class InvocationContext:
     voice: VoiceProvider
     memory: AgentMemory
     summarizer: FollowUpSummarizer
+    supply: Any = None
+    supplier_voice: Any = None
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -123,6 +156,8 @@ class AdkAgentRunner:
             voice=ctx.voice,
             memory=ctx.memory,
             summarizer=ctx.summarizer,
+            supply=ctx.supply,
+            supplier_voice=ctx.supplier_voice,
         )
         required = toolkit.required_tool()
         tool = getattr(toolkit, required, None)
@@ -160,24 +195,16 @@ class AdkAgentRunner:
             voice=ctx.voice,
             memory=ctx.memory,
             summarizer=ctx.summarizer,
+            supply=ctx.supply,
+            supplier_voice=ctx.supplier_voice,
         )
         tools = toolkit.tools_for_capability()
         agent = self._agent_for(ctx.capability, tools)
         required_tool = toolkit.required_tool()
-        prompt = (
-            "Execute the delegated recovery workflow step using domain tools only. "
-            "You may call read-only FHIR tools first to gather context. "
-            f"You MUST call `{required_tool}` exactly once before finishing. "
-            "Do not diagnose. Do not skip the required action tool.\n"
-            f"capability={ctx.capability}\n"
-            f"event_type={ctx.event.event_type}\n"
-            f"episode_id={ctx.episode_id}\n"
-            f"patient_id={ctx.patient_id}\n"
-            f"payload={json.dumps(ctx.event.payload)}"
-        )
+        prompt = _invocation_prompt(ctx, required_tool)
         runner = Runner(
             agent=agent,
-            app_name="eir-recovery",
+            app_name="eir-supply" if ctx.capability in SUPPLY_CAPABILITIES else "eir-recovery",
             session_service=InMemorySessionService(),
             auto_create_session=True,
         )
@@ -278,6 +305,10 @@ class AdkAgentRunner:
             Capability.ESCALATION_REQUEST: "escalation_agent",
             Capability.ADHERENCE_CHECK: "adherence_agent",
             Capability.APPOINTMENT_SCHEDULE: "scheduling_agent",
+            Capability.SUPPLY_FORECAST: "inventory_agent",
+            Capability.SUPPLIER_CONTACT: "procurement_agent",
+            Capability.PURCHASE_ORDER_DRAFT: "procurement_agent",
+            Capability.PURCHASE_ORDER_APPROVE: "procurement_agent",
         }
         return templates.get(capability, "recovery_specialist")
 
@@ -286,7 +317,9 @@ class AdkAgentRunner:
 
         from eir_agents.adherence.agent import root_agent as adherence_agent
         from eir_agents.escalation.agent import root_agent as escalation_agent
+        from eir_agents.inventory.agent import root_agent as inventory_agent
         from eir_agents.outreach.agent import root_agent as outreach_agent
+        from eir_agents.procurement.agent import root_agent as procurement_agent
         from eir_agents.risk.agent import root_agent as risk_agent
         from eir_agents.scheduling.agent import root_agent as scheduling_agent
 
@@ -296,12 +329,22 @@ class AdkAgentRunner:
             Capability.ESCALATION_REQUEST: escalation_agent,
             Capability.ADHERENCE_CHECK: adherence_agent,
             Capability.APPOINTMENT_SCHEDULE: scheduling_agent,
+            Capability.SUPPLY_FORECAST: inventory_agent,
+            Capability.SUPPLIER_CONTACT: procurement_agent,
+            Capability.PURCHASE_ORDER_DRAFT: procurement_agent,
+            Capability.PURCHASE_ORDER_APPROVE: procurement_agent,
         }
         template = templates.get(capability)
         required_tool = required_tool_for(capability)
+        if capability in SUPPLY_CAPABILITIES:
+            default_instruction = "Execute pharmacy supply workflow step."
+            context_line = "You may inspect read-only stock and supplier tools first. "
+        else:
+            default_instruction = "Execute recovery workflow step."
+            context_line = "You may inspect read-only FHIR tools before acting. "
         instruction = (
-            f"{template.instruction if template else 'Execute recovery workflow step.'} "
-            "You may inspect read-only FHIR tools before acting. "
+            f"{template.instruction if template else default_instruction} "
+            f"{context_line}"
             f"Call `{required_tool}` exactly once."
         )
         if template is None:

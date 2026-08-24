@@ -11,12 +11,20 @@
     "adherence.check",
     "risk.assess",
     "escalation.request",
-    "recovery.orchestrate"
+    "recovery.orchestrate",
+    "inventory.read",
+    "supply.forecast",
+    "supplier.contact",
+    "purchase_order.draft",
+    "purchase_order.approve",
+    "supply.orchestrate"
   ],
   "high_risk": [
     "patient.contact",
     "observation.write",
     "appointment.schedule",
-    "escalation.request"
+    "escalation.request",
+    "supplier.contact",
+    "purchase_order.approve"
   ]
 }

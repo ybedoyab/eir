@@ -1,6 +1,6 @@
 # Architecture overview
 
-EIR is a longitudinal recovery agent fleet. A Recovery Episode is a persistent workflow that may last days or weeks. The system coordinates outreach, adherence checks, risk signals, scheduling, records access, and human escalation. It does not autonomously diagnose patients or replace clinicians.
+EIR is a longitudinal healthcare agent fleet. A Recovery Episode is a persistent workflow that may last days or weeks, and a Replenishment Case applies the same machinery to pharmacy supply. The system coordinates outreach, adherence checks, risk signals, scheduling, records access, and human escalation. It does not autonomously diagnose patients or replace clinicians.
 
 ## Conceptual architecture
 
@@ -101,3 +101,54 @@ Firestore/file stores and in-memory implementations are **fallback adapters**. A
 External systems are reached only through interfaces: FHIR, voice, event bus, identity, observability. Adapters are labeled **REAL** vs **fallback** in `docs/hackathon-compliance.md` (e.g. `FirestoreAgentMemoryFallback`, managed Model Armor vs `RegexContentGuardFallback`, Voximplant vs `SyntheticVoiceProvider`).
 
 Production Model Armor uses template `eir-agent-guard` in `us-central1` (separate from Gemini `global` endpoint). Managed screening status is exposed via `/api/v1/runtime/status` → `model_armor`.
+
+## Supply & Replenishment module
+
+A second long-running workflow shares the platform without sharing the recovery
+state machine. A **Replenishment Case** is to purchasing what a Recovery Episode
+is to a patient: durable, event-sourced, and outliving any HTTP request.
+
+```text
+Cloud Scheduler → StockMonitor.process_due()
+        |
+        v  InventoryLevelLow
+Supply Orchestrator  (same registry, same SafetyGate)
+        |
+        v  supply.forecast          → inventory_agent
+        v  supplier.contact         → procurement_agent → supplier voice
+        v  purchase_order.draft     → procurement_agent
+        v  purchase_order.approve   → BLOCKED at the safety gate
+        |
+        v  operations authorizes  (SupplyApprovalGranted)
+        v  purchase_order.approve replays → order placed
+```
+
+### Why a separate runtime
+
+`WorkflowRuntime._handle` returns silently when no Recovery Episode matches
+`episode_id`. A shared subscription would therefore swallow supply events with no
+trace. Each runtime subscribes to its own slice of `EVENT_TYPE_MAP`
+(`RECOVERY_EVENT_TYPES` / `SUPPLY_EVENT_TYPES`, asserted disjoint in tests), and
+`SupplyWorkflowRuntime` owns `ReplenishmentCase` the way `WorkflowRuntime` owns
+`RecoveryEpisode`. They share the registry, the SafetyGate, the AgentGateway, the
+ADK runner, and the human-review queue.
+
+### The spend boundary
+
+`purchase_order.approve` is in `PRE_APPROVAL_CAPABILITIES`, so the safety gate
+parks it before execution and stores the triggering event verbatim on the review.
+The agent drafts and negotiates; the placed order replays only after a person
+authorizes it, and records who did. This is the same deferred-execution path
+`observation.write` uses on the clinical side.
+
+Supply reviews carry `workflow="supply"` so purchase orders never appear in the
+clinician queue, and `/api/v1/reviews` cannot resolve them.
+
+### Data boundary
+
+Stock is operational, not clinical: nothing in this module reads or writes FHIR.
+Supplier calls use a dedicated `SupplierVoiceProvider` rather than the patient
+outreach provider, so the synthetic-patient guard on the clinical voice path is
+never widened to reach a vendor. Catalog phone numbers are in the reserved
+`+1555…` fictional range and the default provider is a scripted stub that places
+no calls.
