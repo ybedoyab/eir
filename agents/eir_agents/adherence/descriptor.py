@@ -3,8 +3,8 @@ from eir_shared.registry import AgentDescriptor, AgentRiskLevel
 
 DESCRIPTOR = AgentDescriptor(
     name="adherence",
-    version="0.1.0",
+    version="0.2.0",
     capabilities=[Capability.ADHERENCE_CHECK],
     risk_level=AgentRiskLevel.LOW,
-    description="Checks whether prescribed recovery tasks were completed.",
+    description="Checks whether prescribed medications were taken and escalates critical skips.",
 )

@@ -109,6 +109,7 @@ class DomainToolKit:
             self.event,
             patient_id=self.patient_id,
             fhir=self.fhir,
+            supply=self.supply,
         )
         return self._record("check_adherence", result)
 
@@ -162,7 +163,7 @@ class DomainToolKit:
 
     def size_replenishment(self) -> dict[str, Any]:
         """Size the replenishment order against usage, lead time, and target level."""
-        result = forecast_replenishment(self.event, supply=self.supply)
+        result = forecast_replenishment(self.event, supply=self.supply, fhir=self.fhir)
         return self._record("size_replenishment", result)
 
     def call_suppliers(self) -> dict[str, Any]:

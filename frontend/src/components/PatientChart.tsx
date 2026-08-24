@@ -5,6 +5,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   HeartPulse,
+  Pill,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -22,12 +23,13 @@ import { eventLabel } from "@/lib/eventLabels";
 import {
   getPatient,
   listAppointments,
+  listPatientMedications,
   listRecovery,
   listRecoveryEvents,
   listReviews,
 } from "@/services/api";
 import type { Appointment } from "@/lib/auth";
-import type { DomainEvent, HumanReview, Patient, RecoveryEpisode } from "@/types";
+import type { DomainEvent, HumanReview, Patient, PatientMedication, RecoveryEpisode } from "@/types";
 
 export function PatientChart({ patientId }: { patientId: string }) {
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -35,6 +37,7 @@ export function PatientChart({ patientId }: { patientId: string }) {
   const [episodes, setEpisodes] = useState<RecoveryEpisode[]>([]);
   const [events, setEvents] = useState<DomainEvent[]>([]);
   const [reviews, setReviews] = useState<HumanReview[]>([]);
+  const [medications, setMedications] = useState<PatientMedication[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSystem, setShowSystem] = useState(false);
@@ -43,12 +46,14 @@ export function PatientChart({ patientId }: { patientId: string }) {
     setLoading(true);
     setError(null);
     try {
-      const [nextPatient, appointmentItems, episodeItems, reviewItems] = await Promise.all([
-        getPatient(patientId),
-        listAppointments(),
-        listRecovery(),
-        listReviews(false),
-      ]);
+      const [nextPatient, appointmentItems, episodeItems, reviewItems, medicationItems] =
+        await Promise.all([
+          getPatient(patientId),
+          listAppointments(),
+          listRecovery(),
+          listReviews(false),
+          listPatientMedications(patientId),
+        ]);
       const ownAppointments = appointmentItems.filter((item) => item.patient_id === patientId);
       const ownEpisodes = episodeItems.filter((item) => item.patient_id === patientId);
       const eventLists = await Promise.all(ownEpisodes.map((item) => listRecoveryEvents(item.id)));
@@ -59,6 +64,7 @@ export function PatientChart({ patientId }: { patientId: string }) {
       setReviews(
         reviewItems.filter((review) => ownEpisodes.some((item) => item.id === review.episode_id)),
       );
+      setMedications(medicationItems);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load patient");
     } finally {
@@ -78,6 +84,20 @@ export function PatientChart({ patientId }: { patientId: string }) {
     [appointments],
   );
   const activeRecovery = episodes.find((item) => !["COMPLETED", "CANCELLED"].includes(item.status));
+  const latestCheckin = useMemo(
+    () =>
+      [...events]
+        .filter((item) => item.event_type === "PatientResponded")
+        .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())[0],
+    [events],
+  );
+  const latestAdherence = useMemo(
+    () =>
+      [...events]
+        .filter((item) => item.event_type === "AdherenceConcernDetected")
+        .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())[0],
+    [events],
+  );
   const timeline = useMemo(() => {
     const items = [
       ...appointments.map((item) => ({
@@ -90,9 +110,13 @@ export function PatientChart({ patientId }: { patientId: string }) {
       })),
       ...events
         .filter((item) =>
-          ["PatientResponded", "RiskEscalated", "HumanReviewRequested", "ClinicianResolved"].includes(
-            item.event_type,
-          ),
+          [
+            "PatientResponded",
+            "AdherenceConcernDetected",
+            "RiskEscalated",
+            "HumanReviewRequested",
+            "ClinicianResolved",
+          ].includes(item.event_type),
         )
         .map((item) => ({
           id: item.event_id,
@@ -172,6 +196,58 @@ export function PatientChart({ patientId }: { patientId: string }) {
           )}
         </Card>
       </div>
+      <Card>
+        <h2 className="mb-4 text-base font-semibold text-slate-900">Medications and adherence</h2>
+        <p className="mb-4 text-sm text-slate-600">
+          Latest check-in reports whether prescribed medications were taken. Drug names are
+          matched on the server after the call — the voice check-in asks about medications in
+          general.
+        </p>
+        <dl className="mb-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Last reported adherence</dt>
+            <dd className="mt-1 text-sm text-slate-800">
+              {String(latestCheckin?.payload.medication_adherence ?? "Not yet recorded")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Adherence concern</dt>
+            <dd className="mt-1 text-sm text-slate-800">
+              {latestAdherence
+                ? formatWhen(latestAdherence.occurred_at)
+                : "None recorded"}
+            </dd>
+          </div>
+        </dl>
+        {medications.length ? (
+          <ul className="space-y-3">
+            {medications.map((medication) => (
+              <li
+                key={`${medication.sku || medication.rxnorm_code || medication.name}`}
+                className="rounded-xl border border-slate-200 p-4"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Pill aria-hidden className="h-4 w-4 text-teal-700" />
+                  <p className="font-medium text-slate-900">{medication.name}</p>
+                  {medication.critical ? (
+                    <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-200">
+                      Critical
+                    </span>
+                  ) : null}
+                </div>
+                {medication.dose ? (
+                  <p className="mt-1 text-sm text-slate-600">{medication.dose}</p>
+                ) : null}
+                {medication.sku ? (
+                  <p className="mt-1 font-mono text-xs text-slate-400">{medication.sku}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState title="No prescribed medications" icon={Pill} />
+        )}
+      </Card>
       <Card>
         <h2 className="mb-4 text-base font-semibold text-slate-900">Timeline</h2>
         {timeline.length ? <Timeline items={timeline} /> : <EmptyState title="No timeline yet" />}

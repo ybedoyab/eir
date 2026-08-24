@@ -9,6 +9,13 @@ from pydantic import BaseModel, Field
 
 from app.api.deps.auth import require_role
 from app.core.deps import get_container
+from app.services.medications import (
+    InventoryItemView,
+    medications_by_patient,
+    overlay_daily_usage,
+    patient_counts_by_sku,
+    prescription_demand_by_sku,
+)
 from app.services.supply_service import SupplyService
 
 router = APIRouter()
@@ -32,14 +39,33 @@ def _service() -> SupplyService:
     return SupplyService(get_container().supply)
 
 
-@router.get("", response_model=list[InventoryItem])
-def list_inventory(_claims: AdminOrClinician) -> list[InventoryItem]:
-    return _service().list_items()
+def _inventory_views() -> list[InventoryItemView]:
+    container = get_container()
+    items = _service().list_items()
+    patient_ids = [patient.id for patient in container.patients.list()]
+    by_patient = medications_by_patient(container.fhir, patient_ids)
+    counts = patient_counts_by_sku(by_patient, items)
+    demand = prescription_demand_by_sku(by_patient, items)
+    views: list[InventoryItemView] = []
+    for item in items:
+        overlaid = overlay_daily_usage(item, demand.get(item.sku, 0.0))
+        payload = overlaid.model_dump(exclude={"status", "days_of_cover"})
+        views.append(
+            InventoryItemView.model_validate(
+                {**payload, "patient_count": counts.get(item.sku, 0)}
+            )
+        )
+    return views
 
 
-@router.get("/low-stock", response_model=list[InventoryItem])
-def list_low_stock(_claims: AdminOrClinician) -> list[InventoryItem]:
-    return _service().low_stock_items()
+@router.get("", response_model=list[InventoryItemView])
+def list_inventory(_claims: AdminOrClinician) -> list[InventoryItemView]:
+    return _inventory_views()
+
+
+@router.get("/low-stock", response_model=list[InventoryItemView])
+def list_low_stock(_claims: AdminOrClinician) -> list[InventoryItemView]:
+    return [item for item in _inventory_views() if item.needs_replenishment()]
 
 
 @router.get("/suppliers", response_model=list[Supplier])
@@ -47,12 +73,12 @@ def list_suppliers(_claims: AdminOrClinician, sku: str | None = None) -> list[Su
     return _service().list_suppliers(sku)
 
 
-@router.get("/{sku}", response_model=InventoryItem)
-def get_inventory_item(sku: str, _claims: AdminOrClinician) -> InventoryItem:
-    item = _service().get_item(sku)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Inventory item not found")
-    return item
+@router.get("/{sku}", response_model=InventoryItemView)
+def get_inventory_item(sku: str, _claims: AdminOrClinician) -> InventoryItemView:
+    for item in _inventory_views():
+        if item.sku == sku:
+            return item
+    raise HTTPException(status_code=404, detail="Inventory item not found")
 
 
 @router.post("/{sku}/adjust", response_model=InventoryItem)

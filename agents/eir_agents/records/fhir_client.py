@@ -117,6 +117,10 @@ class LocalFhirClient:
         return None
 
     def _load(self, patient_id: str, filename: str) -> dict[str, Any] | None:
+        payload = self._load_payload(patient_id, filename)
+        return payload if isinstance(payload, dict) else None
+
+    def _load_payload(self, patient_id: str, filename: str) -> Any:
         patient_dir = self._patient_dir(patient_id)
         if patient_dir is None:
             return None
@@ -146,12 +150,17 @@ class LocalFhirClient:
         return []
 
     def get_medications(self, patient_id: str) -> list[dict[str, Any]]:
-        resource = self._load(patient_id, self._FILES["medication"])
-        if resource is None:
+        from eir_agents.records.fhir_utils import expand_fhir_resources
+
+        payload = self._load_payload(patient_id, self._FILES["medication"])
+        if payload is None:
             return []
-        if self._matches_patient(resource, patient_id):
-            return [resource]
-        return []
+        return [
+            resource
+            for resource in expand_fhir_resources(payload)
+            if resource.get("resourceType") == "MedicationRequest"
+            and self._matches_patient(resource, patient_id)
+        ]
 
     def get_care_plan(self, patient_id: str) -> dict[str, Any] | None:
         resource = self._load(patient_id, self._FILES["care_plan"])

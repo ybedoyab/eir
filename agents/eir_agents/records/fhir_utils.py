@@ -20,3 +20,26 @@ def pain_score_from_observation(observation: dict[str, Any], *, default: int = 2
     if value is None:
         return default
     return int(value)
+
+
+def expand_fhir_resources(payload: Any) -> list[dict[str, Any]]:
+    """Unwrap a Bundle, a JSON list, or a single resource into resources."""
+    if payload is None:
+        return []
+    if isinstance(payload, list):
+        resources: list[dict[str, Any]] = []
+        for item in payload:
+            resources.extend(expand_fhir_resources(item))
+        return resources
+    if not isinstance(payload, dict):
+        return []
+    resource_type = str(payload.get("resourceType") or "")
+    if resource_type == "Bundle":
+        resources = []
+        for entry in payload.get("entry") or []:
+            if isinstance(entry, dict):
+                resources.extend(expand_fhir_resources(entry.get("resource")))
+        return resources
+    if resource_type:
+        return [payload]
+    return []

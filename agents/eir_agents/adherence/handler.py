@@ -1,11 +1,14 @@
-"""Adherence checks against synthetic medication tasks."""
+"""Adherence checks against prescribed medications and inventory criticality."""
 
 from __future__ import annotations
 
-from eir_shared.events import AdherenceConcernDetected, DomainEvent
+from eir_shared.events import DomainEvent, RiskEscalated
+from eir_shared.supply import medication_display_name, sku_for_medication_request
 
 from eir_agents.common.types import HandlerResult
 from eir_agents.records.fhir_client import FhirClient, LocalFhirClient
+from eir_agents.risk.handler import medication_adherence_missed
+from eir_agents.supply.store import SupplyStore
 
 
 def check_task_completion(
@@ -13,30 +16,54 @@ def check_task_completion(
     *,
     patient_id: str | None = None,
     fhir: FhirClient | None = None,
+    supply: SupplyStore | None = None,
 ) -> HandlerResult:
     fhir = fhir or LocalFhirClient()
     payload = event.payload or {}
-    completed = bool(payload.get("completed", True))
-    missed_doses = int(payload.get("missed_doses", 0))
-
-    if patient_id:
-        medications = fhir.get_medications(patient_id)
-        if medications and not completed:
-            missed_doses = max(missed_doses, 1)
-
-    if completed and missed_doses == 0:
+    if not medication_adherence_missed(payload):
         return HandlerResult(
-            summary="Recovery medication tasks marked complete (synthetic).",
+            summary="Prescribed medications reported as taken.",
             episode_status="WAITING_FOR_NEXT_FOLLOWUP",
         )
 
-    concern = AdherenceConcernDetected(
-        episode_id=event.episode_id,
-        payload={"missed_doses": missed_doses, "synthetic": True},
-    )
+    medications = fhir.get_medications(patient_id) if patient_id else []
+    items = supply.list_items() if supply is not None else []
+    recorded: list[dict[str, str | bool]] = []
+    critical_hits: list[dict[str, str | bool]] = []
+    for resource in medications:
+        sku = sku_for_medication_request(resource, items) or ""
+        item = next((entry for entry in items if entry.sku == sku), None) if sku else None
+        entry: dict[str, str | bool] = {
+            "sku": sku,
+            "name": medication_display_name(resource),
+            "critical": bool(item and item.critical),
+        }
+        recorded.append(entry)
+        if entry["critical"]:
+            critical_hits.append(entry)
+
+    if not critical_hits:
+        names = ", ".join(str(item["name"]) for item in recorded) or "prescribed medication"
+        return HandlerResult(
+            summary=f"Adherence concern recorded for {names}; no critical medication missed.",
+            episode_status="WAITING_FOR_NEXT_FOLLOWUP",
+            risk_level="LOW",
+        )
+
+    names = ", ".join(str(item["name"]) for item in critical_hits)
     return HandlerResult(
-        summary=f"Adherence concern: {missed_doses} missed dose(s) (synthetic).",
+        summary=f"Critical medication not taken: {names}.",
         episode_status="ACTIVE",
-        risk_level="MEDIUM",
-        next_events=[concern],
+        risk_level="HIGH",
+        next_events=[
+            RiskEscalated(
+                episode_id=event.episode_id,
+                risk_level="HIGH",
+                payload={
+                    "reason": "critical_medication_adherence",
+                    "medications": critical_hits,
+                    "medication_adherence": payload.get("medication_adherence") or "no",
+                },
+            )
+        ],
     )

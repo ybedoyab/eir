@@ -113,6 +113,15 @@ def test_scenario_shares_gemini_after_transport_split() -> None:
     assert "createLiveAPIClient" not in user_branch
 
 
+def test_scenario_fetches_medication_context_without_packing_names() -> None:
+    source = SCENARIO.read_text(encoding="utf-8")
+    assert "function loadCallContext" in source
+    assert "/context" in source
+    assert "medications:" in source
+    assert "medication_adherence" in source
+    assert "function systemPromptFor" in source
+
+
 def test_missing_pipeline_events_reports_exact_gaps() -> None:
     assert missing_pipeline_events(["VoiceCallStarted", "PatientResponded"]) == [
         "VoiceCallConnected",

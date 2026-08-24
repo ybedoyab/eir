@@ -5,7 +5,12 @@ from __future__ import annotations
 import math
 
 from eir_shared.events import DomainEvent, ReplenishmentRequested
-from eir_shared.supply import ReplenishmentStatus, SupplyUrgency
+from eir_shared.supply import (
+    ReplenishmentStatus,
+    SupplyUrgency,
+    daily_units_from_medication_request,
+    sku_for_medication_request,
+)
 
 from eir_agents.common.types import HandlerResult
 from eir_agents.supply.store import SupplyStore
@@ -17,6 +22,7 @@ def forecast_replenishment(
     event: DomainEvent,
     *,
     supply: SupplyStore | None = None,
+    fhir: object | None = None,
 ) -> HandlerResult:
     if supply is None:
         return HandlerResult(summary="supply store unavailable; cannot size replenishment")
@@ -35,13 +41,17 @@ def forecast_replenishment(
     suppliers = supply.list_suppliers(case.sku)
     lead_time_days = max((supplier.lead_time_days for supplier in suppliers), default=3)
 
+    derived = _prescription_usage(fhir, case.sku, supply.list_items())
+    daily_usage = max(float(item.daily_usage), derived)
+    days_of_cover = round(item.on_hand / daily_usage, 1) if daily_usage > 0 else None
+
     # Order back to target, but never less than the stock consumed while the
     # delivery is in transit plus a safety buffer.
     to_target = item.suggested_quantity()
-    in_transit_need = math.ceil(item.daily_usage * (lead_time_days + SAFETY_STOCK_DAYS))
+    in_transit_need = math.ceil(daily_usage * (lead_time_days + SAFETY_STOCK_DAYS))
     quantity = max(to_target, in_transit_need, 1)
 
-    cover = item.days_of_cover
+    cover = days_of_cover
     urgency = SupplyUrgency.NORMAL
     if cover is not None and cover < lead_time_days:
         urgency = SupplyUrgency.CRITICAL if item.critical else SupplyUrgency.HIGH
@@ -88,3 +98,18 @@ def forecast_replenishment(
         risk_level=urgency.value,
         next_events=[requested],
     )
+
+
+def _prescription_usage(fhir: object | None, sku: str, items: list) -> float:
+    if fhir is None or not hasattr(fhir, "get_medications"):
+        return 0.0
+    mocks_dir = getattr(fhir, "mocks_dir", None)
+    patient_ids: list[str] = []
+    if mocks_dir is not None:
+        patient_ids = [path.name for path in mocks_dir.iterdir() if path.is_dir()]
+    total = 0.0
+    for patient_id in patient_ids:
+        for resource in fhir.get_medications(patient_id):
+            if sku_for_medication_request(resource, items) == sku:
+                total += daily_units_from_medication_request(resource)
+    return total

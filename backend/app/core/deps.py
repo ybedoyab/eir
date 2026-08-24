@@ -289,6 +289,7 @@ class Container:
             adk_runner=self.adk_runner,
             gateway=AgentGateway(armor=armor),
             voice=_build_voice(testing=testing),
+            supply=self.supply,
         )
         self.supplier_voice = _build_supplier_voice(testing=testing)
         self.supply_runtime = SupplyWorkflowRuntime(

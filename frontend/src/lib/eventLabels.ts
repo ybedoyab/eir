@@ -142,13 +142,34 @@ export function eventOutcome(event: { event_type: string; payload: Record<string
   }
   if (event.event_type === "PatientResponded") {
     const pain = event.payload.pain_score;
+    const adherence = String(event.payload.medication_adherence ?? "").trim();
     const issue = String(event.payload.issue_summary ?? "").trim();
+    const bits = [`Channel: ${String(event.payload.channel ?? "unknown")}`];
     if (pain !== undefined && pain !== null) {
-      return `Channel: ${String(event.payload.channel ?? "unknown")} · pain ${String(pain)}/10`;
+      bits.push(`pain ${String(pain)}/10`);
     }
-    return issue
-      ? `Channel: ${String(event.payload.channel ?? "unknown")} · ${issue}`
-      : `Channel: ${String(event.payload.channel ?? "unknown")}`;
+    if (adherence) {
+      bits.push(`medications ${adherence}`);
+    } else if (issue) {
+      bits.push(issue);
+    }
+    return bits.join(" · ");
+  }
+  if (event.event_type === "AdherenceConcernDetected") {
+    const meds = event.payload.medications;
+    if (Array.isArray(meds) && meds.length) {
+      const names = meds
+        .map((item) =>
+          typeof item === "object" && item && "name" in item
+            ? String((item as { name?: string }).name)
+            : "",
+        )
+        .filter(Boolean);
+      if (names.length) {
+        return `Missed: ${names.join(", ")}`;
+      }
+    }
+    return `Adherence: ${String(event.payload.medication_adherence ?? "no")}`;
   }
   if (event.event_type === "RiskEscalated") {
     return `Risk level: ${String(event.payload.risk_level ?? "HIGH")}`;

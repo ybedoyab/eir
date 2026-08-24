@@ -124,6 +124,12 @@ export async function getPatient(id: string) {
   return getJson<import("@/types").Patient>(`/api/v1/patients/${id}`);
 }
 
+export async function listPatientMedications(patientId: string) {
+  return getJson<import("@/types").PatientMedication[]>(
+    `/api/v1/patients/${encodeURIComponent(patientId)}/medications`,
+  );
+}
+
 export async function listAppointments() {
   return getJson<Appointment[]>("/api/v1/appointments", true);
 }

@@ -197,13 +197,14 @@ export default function AdminInventoryPage() {
         <CardSkeleton />
       ) : rows.length ? (
         <Card className="overflow-x-auto p-0">
-          <table className="w-full min-w-[46rem] text-left text-sm">
+          <table className="w-full min-w-[52rem] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50/80 text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th scope="col" className="px-5 py-3 font-medium">Medication</th>
                 <th scope="col" className="px-5 py-3 font-medium">On hand</th>
                 <th scope="col" className="px-5 py-3 font-medium">Reorder point</th>
                 <th scope="col" className="px-5 py-3 font-medium">Cover</th>
+                <th scope="col" className="px-5 py-3 font-medium">Patients</th>
                 <th scope="col" className="px-5 py-3 font-medium">Status</th>
                 <th scope="col" className="px-5 py-3 font-medium">Replenishment</th>
               </tr>
@@ -232,6 +233,10 @@ export default function AdminInventoryPage() {
                     </td>
                     <td className="px-5 py-4 text-slate-600">{item.reorder_point}</td>
                     <td className="px-5 py-4 text-slate-600">{coverLabel(item)}</td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {item.patient_count ?? 0}{" "}
+                      {(item.patient_count ?? 0) === 1 ? "patient" : "patients"}
+                    </td>
                     <td className="px-5 py-4">
                       <StatusBadge status={stockStatus(item.status)} />
                     </td>

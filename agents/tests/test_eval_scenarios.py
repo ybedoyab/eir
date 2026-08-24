@@ -16,9 +16,20 @@ def test_conversation_extracts_jordan_signals() -> None:
         {"role": "agent", "text": "Pain scale?"},
         {"role": "patient", "text": "It is an 8 and I noticed swelling near the incision."},
     ]
-    reported_issue, pain = signals_from_conversation(conversation)
+    reported_issue, pain, _adherence = signals_from_conversation(conversation)
     assert reported_issue is True
     assert pain == 8
+
+
+def test_conversation_extracts_missed_medications() -> None:
+    from eir_agents.outreach.conversation import signals_from_conversation
+
+    conversation = [
+        {"role": "agent", "text": "Have you been taking your prescribed medications?"},
+        {"role": "patient", "text": "No, I have not been taking my medications."},
+    ]
+    _issue, _pain, adherence = signals_from_conversation(conversation)
+    assert adherence == "no"
 
 
 def test_regex_content_guard_blocks_prompt_injection() -> None:

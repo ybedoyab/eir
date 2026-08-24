@@ -85,7 +85,9 @@ async def handle_follow_up(
     await voice.end_call(launch.call_id)
     conversation = launch.conversation or []
     if conversation:
-        reported_issue, pain_from_conversation = signals_from_conversation(conversation)
+        reported_issue, pain_from_conversation, adherence = signals_from_conversation(
+            conversation
+        )
         pain_score = pain_from_conversation if pain_from_conversation is not None else 2
     else:
         reported_issue = reported_issue_from_observation(observation)
@@ -93,6 +95,7 @@ async def handle_follow_up(
             observation,
             default=2 if not reported_issue else 8,
         )
+        adherence = None
 
     payload = {
         "channel": "voice",
@@ -102,6 +105,8 @@ async def handle_follow_up(
         "synthetic": True,
         "provider": launch.provider,
     }
+    if adherence is not None:
+        payload["medication_adherence"] = adherence
     payload["llm_summary"] = summarizer.summarize(payload)
     await memory.set(event.episode_id, "outreach", "last_response", payload)
 

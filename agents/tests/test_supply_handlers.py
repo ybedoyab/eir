@@ -46,6 +46,9 @@ class FakeSupplyStore:
     def get_item(self, sku: str) -> InventoryItem | None:
         return self._item if sku == self._item.sku else None
 
+    def list_items(self) -> list[InventoryItem]:
+        return [self._item]
+
     def get_supplier(self, supplier_id: str) -> Supplier | None:
         return self._suppliers.get(supplier_id)
 

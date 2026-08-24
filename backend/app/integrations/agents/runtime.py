@@ -47,6 +47,7 @@ class WorkflowRuntime:
         adk_runner: AdkAgentRunner | None = None,
         voice: VoiceProvider | None = None,
         gateway: Any | None = None,
+        supply: Any | None = None,
     ) -> None:
         self.event_bus = event_bus
         self.episodes = episodes
@@ -60,6 +61,7 @@ class WorkflowRuntime:
         self.voice = voice or MockVoiceProvider()
         self.adk_runner = adk_runner or AdkAgentRunner(mode="direct")
         self.gateway = gateway
+        self.supply = supply
         self._bound = False
         self._depth = 0
 
@@ -213,6 +215,7 @@ class WorkflowRuntime:
             voice=self.voice,
             memory=self.agent_memory,
             summarizer=self.summarizer,
+            supply=self.supply,
         )
         return await self.adk_runner.invoke(ctx)
 

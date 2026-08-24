@@ -18,6 +18,15 @@ export interface Patient {
   preferred_contact_channel: ContactChannel;
 }
 
+export interface PatientMedication {
+  sku: string;
+  name: string;
+  dose: string;
+  critical: boolean;
+  rxnorm_code: string;
+  status: string;
+}
+
 export interface RecoveryEpisode {
   id: string;
   patient_id: string;
@@ -188,6 +197,8 @@ export interface InventoryItem {
   target_level: number;
   daily_usage: number;
   critical: boolean;
+  rxnorm_code?: string;
+  patient_count?: number;
   updated_at: string;
   status: StockStatus;
   days_of_cover: number | null;

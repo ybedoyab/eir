@@ -72,8 +72,10 @@ class RecoveryOrchestrator:
                 return Capability.ESCALATION_REQUEST
             return None
 
-        if event.event_type == "AdherenceConcernDetected" and status != "ACTIVE":
-            return None
+        if event.event_type == "AdherenceConcernDetected":
+            if status in {"ESCALATED", "COMPLETED", "CANCELLED"}:
+                return None
+            return Capability.ADHERENCE_CHECK
 
         return base
 

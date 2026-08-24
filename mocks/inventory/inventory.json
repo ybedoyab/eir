@@ -9,7 +9,8 @@
       "reorder_point": 120,
       "target_level": 400,
       "daily_usage": 18.0,
-      "critical": true
+      "critical": true,
+      "rxnorm_code": "67108"
     },
     {
       "sku": "MED-METF-850",
@@ -20,7 +21,8 @@
       "reorder_point": 500,
       "target_level": 2000,
       "daily_usage": 70.0,
-      "critical": false
+      "critical": false,
+      "rxnorm_code": "6809"
     },
     {
       "sku": "MED-INSU-GLA",
@@ -31,7 +33,8 @@
       "reorder_point": 90,
       "target_level": 320,
       "daily_usage": 11.0,
-      "critical": true
+      "critical": true,
+      "rxnorm_code": "274783"
     },
     {
       "sku": "MED-AMOX-500",
@@ -42,7 +45,8 @@
       "reorder_point": 600,
       "target_level": 2400,
       "daily_usage": 95.0,
-      "critical": false
+      "critical": false,
+      "rxnorm_code": "723"
     },
     {
       "sku": "MED-SALB-INH",
@@ -53,7 +57,8 @@
       "reorder_point": 60,
       "target_level": 240,
       "daily_usage": 6.0,
-      "critical": false
+      "critical": false,
+      "rxnorm_code": "435"
     },
     {
       "sku": "MED-PARA-500",
@@ -64,7 +69,8 @@
       "reorder_point": 1200,
       "target_level": 5000,
       "daily_usage": 210.0,
-      "critical": false
+      "critical": false,
+      "rxnorm_code": "161"
     }
   ]
 }

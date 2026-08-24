@@ -8,10 +8,15 @@ These live in shared because both the agents package (procurement handlers) and
 the backend (repositories, API) need them typed, the same way appointments do.
 """
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field, computed_field
+
+PHARMACY_SKU_SYSTEM = "https://eir.local/pharmacy-sku"
+RXNORM_SYSTEM = "http://www.nlm.nih.gov/research/umls/rxnorm"
 
 
 def _utcnow() -> datetime:
@@ -63,6 +68,7 @@ class InventoryItem(BaseModel):
     target_level: int = 0
     daily_usage: float = 0.0
     critical: bool = False
+    rxnorm_code: str = ""
     updated_at: datetime = Field(default_factory=_utcnow)
 
     @computed_field  # type: ignore[prop-decorator]
@@ -90,6 +96,77 @@ class InventoryItem(BaseModel):
     def suggested_quantity(self) -> int:
         """Order back up to target level, never below one unit."""
         return max(self.target_level - self.on_hand, 1)
+
+
+def _codings(resource: dict[str, Any]) -> list[dict[str, Any]]:
+    concept = resource.get("medicationCodeableConcept") or {}
+    coding = concept.get("coding") or []
+    return [item for item in coding if isinstance(item, dict)]
+
+
+def sku_for_medication_request(
+    resource: dict[str, Any],
+    items: Iterable[InventoryItem] | None = None,
+) -> str | None:
+    """Pharmacy SKU coded on the request, else a reverse lookup by RxNorm."""
+    for coding in _codings(resource):
+        system = str(coding.get("system") or "")
+        code = str(coding.get("code") or "").strip()
+        if system == PHARMACY_SKU_SYSTEM and code:
+            return code
+    rxnorm = rxnorm_for_medication_request(resource)
+    if not rxnorm or items is None:
+        return None
+    for item in items:
+        if item.rxnorm_code and item.rxnorm_code == rxnorm:
+            return item.sku
+    return None
+
+
+def rxnorm_for_medication_request(resource: dict[str, Any]) -> str:
+    for coding in _codings(resource):
+        system = str(coding.get("system") or "")
+        code = str(coding.get("code") or "").strip()
+        if (system == RXNORM_SYSTEM or "rxnorm" in system.lower()) and code:
+            return code
+    return ""
+
+
+def medication_display_name(resource: dict[str, Any]) -> str:
+    concept = resource.get("medicationCodeableConcept") or {}
+    text = str(concept.get("text") or "").strip()
+    if text:
+        return text
+    for coding in _codings(resource):
+        display = str(coding.get("display") or "").strip()
+        if display:
+            return display
+    return str(resource.get("id") or "Medication")
+
+
+def daily_units_from_medication_request(resource: dict[str, Any]) -> float:
+    """Units consumed per day from FHIR timing.repeat. 0 when unknown."""
+    if str(resource.get("status") or "").lower() not in {"", "active"}:
+        return 0.0
+    for instruction in resource.get("dosageInstruction") or []:
+        if not isinstance(instruction, dict):
+            continue
+        repeat = ((instruction.get("timing") or {}).get("repeat") or {})
+        try:
+            frequency = float(repeat.get("frequency") or 0)
+            period = float(repeat.get("period") or 0)
+        except (TypeError, ValueError):
+            continue
+        if frequency <= 0 or period <= 0:
+            continue
+        unit = str(repeat.get("periodUnit") or "d").lower()
+        if unit in {"d", "day", "days"}:
+            return round(frequency / period, 4)
+        if unit in {"h", "hour", "hours"}:
+            return round(frequency * (24.0 / period), 4)
+        if unit in {"wk", "week", "weeks"}:
+            return round(frequency / (period * 7.0), 4)
+    return 0.0
 
 
 class SupplierCatalogEntry(BaseModel):

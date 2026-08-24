@@ -65,6 +65,17 @@ var TOOLS = [
             },
             symptoms_worsening: {type: 'boolean'},
             medication_adherence: {type: 'string', enum: ['yes', 'no', 'unknown']},
+            medications: {
+              type: 'array',
+              description: 'Per-medication taken flags. Keep medication_adherence for compatibility.',
+              items: {
+                type: 'object',
+                properties: {
+                  sku: {type: 'string'},
+                  taken: {type: 'boolean'},
+                },
+              },
+            },
             patient_requests_clinician: {type: 'boolean'},
             call_outcome: {type: 'string', enum: ['completed']},
           },
@@ -186,6 +197,54 @@ function clampPain(value) {
   return score;
 }
 
+function contextUrl(callbackUrl, episodeId) {
+  return (
+    String(callbackUrl || '').replace(/\/voximplant\/callback\/?$/, '/context') +
+    '?episode_id=' +
+    encodeURIComponent(episodeId)
+  );
+}
+
+function loadCallContext(session) {
+  return Net.httpRequestAsync(contextUrl(session.callbackUrl, session.episodeId), {
+    method: 'GET',
+    headers: ['X-EIR-Voice-Token: ' + session.callbackToken],
+    timeout: 5,
+  })
+    .then(function (response) {
+      if (!response || response.code < 200 || response.code >= 300) {
+        return {medications: []};
+      }
+      try {
+        return JSON.parse(response.text || '{}');
+      } catch (error) {
+        return {medications: []};
+      }
+    })
+    .catch(function () {
+      return {medications: []};
+    });
+}
+
+function systemPromptFor(medications) {
+  var extra = 'Ask generically about prescribed medications.';
+  if (medications && medications.length) {
+    var names = medications
+      .map(function (item) {
+        return item && item.name ? String(item.name) : '';
+      })
+      .filter(Boolean)
+      .join(', ');
+    if (names) {
+      extra =
+        'Ask whether the patient has been taking each of these prescribed medications: ' +
+        names +
+        '. When you call submit_recovery_checkin, fill medications with sku and taken for each.';
+    }
+  }
+  return SYSTEM_PROMPT + ' ' + extra;
+}
+
 function validateCheckin(args) {
   args = args || {};
   var pain = clampPain(args.pain_score);
@@ -196,12 +255,29 @@ function validateCheckin(args) {
   if (adherence !== 'yes' && adherence !== 'no') {
     adherence = 'unknown';
   }
+  var medications = [];
+  var listed = args.medications;
+  if (listed && listed.length) {
+    for (var i = 0; i < listed.length; i += 1) {
+      var item = listed[i] || {};
+      var sku = String(item.sku || '').slice(0, 24);
+      if (!sku) {
+        continue;
+      }
+      var taken = Boolean(item.taken);
+      medications.push({sku: sku, taken: taken});
+      if (!taken) {
+        adherence = 'no';
+      }
+    }
+  }
   return {
     pain_score: pain,
     reported_issue: Boolean(args.reported_issue),
     issue_summary: String(args.issue_summary || '').slice(0, 240),
     symptoms_worsening: Boolean(args.symptoms_worsening),
     medication_adherence: adherence,
+    medications: medications,
     patient_requests_clinician: Boolean(args.patient_requests_clinician),
     call_outcome: 'completed',
   };
@@ -209,7 +285,9 @@ function validateCheckin(args) {
 
 function startGeminiLive(session, call, onSubmitted) {
   var credentials = secret('EIR_GEMINI_VERTEX_CREDENTIALS');
-  return Gemini.createLiveAPIClient({
+  return loadCallContext(session).then(function (context) {
+    var prompt = systemPromptFor((context && context.medications) || []);
+    return Gemini.createLiveAPIClient({
     credentials: credentials,
     model: GEMINI_LIVE_MODEL,
     backend: Gemini.Backend.VERTEX_AI,
@@ -224,7 +302,7 @@ function startGeminiLive(session, call, onSubmitted) {
           prebuiltVoiceConfig: {voiceName: GEMINI_LIVE_VOICE},
         },
       },
-      systemInstruction: {parts: [{text: SYSTEM_PROMPT}]},
+      systemInstruction: {parts: [{text: prompt}]},
       tools: TOOLS,
       inputAudioTranscription: {},
       outputAudioTranscription: {},
@@ -429,6 +507,7 @@ function startGeminiLive(session, call, onSubmitted) {
       }
     });
     return voiceAIClient;
+  });
   });
 }
 

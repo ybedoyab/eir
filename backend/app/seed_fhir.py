@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from eir_agents.records.fhir_utils import expand_fhir_resources
 from eir_shared.demo_hospital import (
     PATIENTS,
     build_appointments,
@@ -42,9 +43,10 @@ def _load_patient_resources(mocks: Path) -> list[dict[str, Any]]:
             path = patient_dir / name
             if not path.is_file():
                 continue
-            resource = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(resource, dict) and resource.get("resourceType"):
-                resources.append(resource)
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            for resource in expand_fhir_resources(payload):
+                if isinstance(resource, dict) and resource.get("resourceType"):
+                    resources.append(resource)
     return resources
 
 
