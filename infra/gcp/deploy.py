@@ -44,7 +44,7 @@ BASE_ENV = [
     "EVENT_BUS=pubsub",
     "PUBSUB_TOPIC=eir-recovery-events",
     "PUBSUB_SUBSCRIPTION=eir-recovery-events-worker",
-    "OUTREACH_LLM=true",
+    "OUTREACH_LLM=false",
     "GEMINI_MODEL=gemini-3.5-flash",
     "GEMINI_LOCATION=global",
     "GOOGLE_GENAI_USE_VERTEXAI=TRUE",
@@ -194,6 +194,14 @@ def _shared_env(project_number: str) -> list[str]:
         merged["VOXIMPLANT_APPLICATION_ID"] = f"VOXIMPLANT_APPLICATION_ID={VOXIMPLANT_APPLICATION_ID}"
         merged["VOXIMPLANT_RULE_ID"] = f"VOXIMPLANT_RULE_ID={VOXIMPLANT_RULE_ID}"
         env = list(merged.values())
+        print("VOICE_PROVIDER=voximplant (PSTN secrets present)", flush=True)
+    else:
+        print(
+            "WARNING: PSTN secrets missing; VOICE_PROVIDER stays synthetic. "
+            "Need enabled versions of eir-voximplant-runtime-credentials, "
+            "eir-voximplant-caller-id, and eir-demo-phone-e164.",
+            flush=True,
+        )
     return env
 
 

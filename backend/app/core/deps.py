@@ -444,6 +444,9 @@ def _build_voice(*, testing: bool) -> Any:
             allow_non_synthetic=settings.voice_allow_non_synthetic,
         )
     except Exception:
+        if settings.environment.strip().lower() == "production":
+            logger.exception("Voximplant voice provider unavailable")
+            raise
         logger.exception("Voximplant voice provider unavailable; using synthetic fallback")
         return voice_provider("synthetic")
 

@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 from uuid import uuid4
 
+import pytest
 from app.core.config import settings
-from app.core.deps import get_container
+from app.core.deps import _build_voice, get_container
 from app.integrations.voice.providers import (
     SyntheticVoiceProvider,
     VoximplantVoiceProvider,
@@ -430,3 +431,21 @@ def test_runtime_status_exposes_voice_honestly() -> None:
         assert voice["voice_transport"] == "pstn"
         assert "destination" not in voice
         assert DEMO_PHONE not in json.dumps(voice)
+
+
+def test_production_does_not_fall_back_to_synthetic_voice(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "voice_provider", "voximplant")
+    monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(settings, "voximplant_runtime_credentials", "")
+    monkeypatch.setattr(settings, "voximplant_rule_id", "1")
+    with pytest.raises(RuntimeError, match="VOXIMPLANT_RUNTIME_CREDENTIALS"):
+        _build_voice(testing=False)
+
+
+def test_non_production_falls_back_to_synthetic_voice(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "voice_provider", "voximplant")
+    monkeypatch.setattr(settings, "environment", "development")
+    monkeypatch.setattr(settings, "voximplant_runtime_credentials", "")
+    monkeypatch.setattr(settings, "voximplant_rule_id", "1")
+    voice = _build_voice(testing=False)
+    assert voice.provider_name == "synthetic"

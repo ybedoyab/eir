@@ -27,6 +27,15 @@ from eir_agents.runtime.domain_tools import DomainToolKit, required_tool_for
 
 logger = logging.getLogger("eir.adk_runner")
 
+# Supplier talk still uses the LLM to pick tools. Recovery steps already have a
+# single required domain tool — waiting 15s+ for Gemini to call it is what made
+# the recovery demo feel lagged. Patient Gemini Live runs on the phone, not here.
+LLM_ROUTED_CAPABILITIES: frozenset[str] = frozenset(
+    {
+        Capability.SUPPLIER_CONTACT,
+    }
+)
+
 
 def _invocation_prompt(ctx: InvocationContext, required_tool: str) -> str:
     """Capability-scoped instructions for the delegated step.
@@ -107,10 +116,13 @@ class AdkAgentRunner:
         self._telemetry = telemetry
         self._service_name = service_name
 
+    def _uses_llm_routing(self, capability: str) -> bool:
+        return self.mode == "adk" and capability in LLM_ROUTED_CAPABILITIES
+
     async def invoke(self, ctx: InvocationContext) -> HandlerResult:
-        if self.mode == "direct":
-            return await self._invoke_direct(ctx)
         agent_name = self._agent_name_for(ctx.capability)
+        if not self._uses_llm_routing(ctx.capability):
+            return await self._invoke_direct_recorded(ctx, agent_name=agent_name)
         try:
             result = await self._invoke_adk(ctx, agent_name=agent_name)
             self._record_telemetry(ctx, agent_name=agent_name, success=True, error=None)
@@ -145,6 +157,32 @@ class AdkAgentRunner:
             )
             self._record_telemetry(ctx, agent_name=agent_name, success=False, error=exc)
             return await self._invoke_direct(ctx)
+
+    async def _invoke_direct_recorded(
+        self,
+        ctx: InvocationContext,
+        *,
+        agent_name: str,
+    ) -> HandlerResult:
+        try:
+            result = await self._invoke_direct(ctx)
+            self._record_telemetry(ctx, agent_name=agent_name, success=True, error=None)
+            return result
+        except Exception as exc:
+            logger.exception("Direct runner failed for %s", ctx.capability)
+            self.last_report = AdkRunReport(
+                model=resolve_gemini_model(),
+                mode=self.mode,
+                adk_invocation_succeeded=False,
+                enterprise_endpoint_active=False,
+                error=str(exc),
+                capability=ctx.capability,
+                agent_name=agent_name,
+                episode_id=ctx.episode_id,
+                model_location=resolve_gemini_location(),
+            )
+            self._record_telemetry(ctx, agent_name=agent_name, success=False, error=exc)
+            raise
 
     async def _invoke_direct(self, ctx: InvocationContext) -> HandlerResult:
         toolkit = DomainToolKit(
