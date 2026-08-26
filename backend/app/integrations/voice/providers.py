@@ -45,6 +45,39 @@ class SyntheticVoiceProvider(MockVoiceProvider):
         )
 
 
+class BrowserAwaitVoiceProvider:
+    """Wait for the in-page Gemini Live check-in. Do not invent a transcript."""
+
+    provider_name = "voximplant-web"
+    mode: VoiceMode = "async"
+
+    async def start_outbound_call(
+        self,
+        *,
+        to: str,
+        episode_id: str,
+        patient_id: str = "",
+        metadata: dict[str, Any] | None = None,
+    ) -> VoiceLaunchResult:
+        correlation_id = f"web-{uuid4().hex[:16]}"
+        return VoiceLaunchResult(
+            call_id=correlation_id,
+            correlation_id=correlation_id,
+            provider=self.provider_name,
+            mode=self.mode,
+            metadata={
+                "gemini_live_model": str((metadata or {}).get("gemini_live_model") or ""),
+                "transport": "webrtc",
+            },
+        )
+
+    async def send_audio(self, call_id: str, audio: bytes) -> None:
+        return None
+
+    async def end_call(self, call_id: str) -> None:
+        return None
+
+
 class VoximplantVoiceProvider:
     """Starts a VoxEngine scenario. Never waits for the phone conversation."""
 
@@ -138,6 +171,8 @@ def _synthetic_conversation(patient_id: str) -> list[dict[str, str]]:
 
 
 def voice_provider(name: str, **kwargs: Any) -> Any:
+    if name in {"browser", "webrtc", "voximplant-web"}:
+        return BrowserAwaitVoiceProvider()
     if name in {"gemini", "synthetic", "mock"}:
         if name == "mock":
             return MockVoiceProvider()

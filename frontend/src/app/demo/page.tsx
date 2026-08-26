@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -7,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import { loadSession, saveSession } from "@/lib/auth";
 import {
   agentChain,
   armorLabel,
@@ -30,6 +32,7 @@ import {
   isConcerningResponse,
   isScriptedVoice,
   isVoximplantEvent,
+  isWebVoiceEvent,
 } from "@/lib/demoStory";
 import { eventLabel } from "@/lib/eventLabels";
 import { cn } from "@/lib/cn";
@@ -37,11 +40,13 @@ import { episodeBadgeClass, riskBadgeClass } from "@/lib/status";
 import {
   advanceDemoFollowUp,
   bootstrapDemo,
+  getDemoContext,
   getRecovery,
   getRuntimeHistory,
   getRuntimeStatus,
   listRecoveryEvents,
   listReviews,
+  loginDemo,
   resolveReview,
   simulateConcerningSignal,
   simulatePromptInjection,
@@ -51,9 +56,15 @@ import type {
   AdkWorkerTelemetry,
   DomainEvent,
   HumanReview,
+  PatientMedication,
   RecoveryEpisode,
   RuntimeStatus,
 } from "@/types";
+
+const VoicePreviewClient = dynamic(() => import("../voice-preview/VoicePreviewClient"), {
+  ssr: false,
+  loading: () => <p className="text-sm text-slate-600">Loading live check-in…</p>,
+});
 
 type AwaitKind = "follow-up" | "attack" | "concerning" | "review" | null;
 type BusyKind = "start" | "advance" | "attack" | "concerning" | "review" | "retry" | null;
@@ -105,6 +116,8 @@ export default function DemoPage() {
   const [awaiting, setAwaiting] = useState<AwaitKind>(null);
   const [stalled, setStalled] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [medications, setMedications] = useState<PatientMedication[]>([]);
+  const [alexReady, setAlexReady] = useState(false);
   const awaitingSince = useRef<number | null>(null);
 
   const completed = useMemo(
@@ -137,18 +150,22 @@ export default function DemoPage() {
   const concerningFromVoice = events.some(isConcerningResponse);
 
   const refresh = useCallback(async (id: string) => {
-    const [nextEpisode, nextEvents, nextHistory, nextReviews, nextRuntime] = await Promise.all([
+    const [nextEpisode, nextEvents, nextHistory, nextReviews, nextRuntime, nextContext] = await Promise.all([
       getRecovery(id),
       listRecoveryEvents(id),
       getRuntimeHistory(25, id),
       listReviews(true),
       getRuntimeStatus(),
+      getDemoContext(id).catch(() => null),
     ]);
     setEpisode(nextEpisode);
     setEvents(nextEvents);
     setHistory(nextHistory.items);
     setReviews(nextReviews.filter((review) => review.episode_id === id));
     setRuntime(nextRuntime);
+    if (nextContext?.medications) {
+      setMedications(nextContext.medications);
+    }
   }, []);
 
   useEffect(() => {
@@ -233,6 +250,8 @@ export default function DemoPage() {
     setReviews([]);
     setEpisode(null);
     setPatientName(null);
+    setMedications([]);
+    setAlexReady(false);
   }
 
   async function startDemo() {
@@ -246,6 +265,7 @@ export default function DemoPage() {
       );
       setEpisodeId(boot.episode_id);
       setPatientName(boot.patient_name ?? null);
+      setMedications(boot.medications ?? []);
       await refresh(boot.episode_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start demo");
@@ -351,16 +371,59 @@ export default function DemoPage() {
   const actionLocked = busy !== null || reviewLocked;
   const showFastForward = Boolean(episodeId) && !completed[2] && awaiting !== "follow-up";
   const voiceStarted = latestEvent(events, "VoiceCallStarted");
-  const inCall =
+  const inPstnCall =
     isVoximplantEvent(voiceStarted) &&
     !hasEvent(events, "VoiceCallCompleted") &&
-    !callFailed;
+    !callFailed &&
+    !completed[3];
+  const webWaiting =
+    Boolean(episodeId) &&
+    !completed[3] &&
+    !callFailed &&
+    (isWebVoiceEvent(voiceStarted) ||
+      (awaiting === "follow-up" &&
+        Boolean(runtime?.fleet.voice?.browser_voice_enabled) &&
+        !isVoximplantEvent(voiceStarted) &&
+        !isScriptedVoice(voiceStarted)));
   const pstnCheckin = Boolean(checkin) && isVoximplantEvent(checkin) && !isScriptedVoice(checkin);
+  const webCheckin = Boolean(checkin) && isWebVoiceEvent(checkin) && !isScriptedVoice(checkin);
   const showAttack = completed[3] && !completed[6] && awaiting !== "attack";
   const showConcerning =
-    (callFailed || (completed[3] && !concerningFromVoice)) &&
+    (callFailed || stalled || (completed[3] && !concerningFromVoice && !webWaiting)) &&
     !completed[4] &&
     awaiting !== "concerning";
+  const adherenceEvent = latestEvent(events, "AdherenceConcernDetected");
+
+  useEffect(() => {
+    if (!webWaiting) {
+      return;
+    }
+    let cancelled = false;
+    async function prepareAlex() {
+      try {
+        const existing = loadSession();
+        if (existing?.role === "PATIENT" && existing.patient_id === "patient-synthetic-001") {
+          if (!cancelled) {
+            setAlexReady(true);
+          }
+          return;
+        }
+        const session = await loginDemo("alex", "demo-alex");
+        saveSession(session);
+        if (!cancelled) {
+          setAlexReady(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Could not open the in-page voice check-in");
+        }
+      }
+    }
+    void prepareAlex();
+    return () => {
+      cancelled = true;
+    };
+  }, [webWaiting]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 px-4 py-8 sm:px-6">
@@ -440,6 +503,46 @@ export default function DemoPage() {
             </p>
           </Card>
 
+          {medications.length ? (
+            <Card className="p-4">
+              <h2 className="text-xl font-semibold text-slate-900">Prescribed medications</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                The same catalog the replenishment fleet uses. Gemini asks whether medications
+                were taken; names are matched after the check-in.
+              </p>
+              <ul className="mt-4 space-y-2">
+                {medications.map((medication) => (
+                  <li
+                    key={`${medication.sku || medication.rxnorm_code || medication.name}`}
+                    className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3"
+                  >
+                    <div>
+                      <p className="font-medium text-slate-900">{medication.name}</p>
+                      {medication.dose ? (
+                        <p className="mt-1 text-sm text-slate-600">{medication.dose}</p>
+                      ) : null}
+                      {medication.sku ? (
+                        <p className="mt-1 font-mono text-[11px] text-slate-400">{medication.sku}</p>
+                      ) : null}
+                    </div>
+                    {medication.critical ? (
+                      <Badge className="bg-rose-100 text-rose-800">Critical</Badge>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              {checkin ? (
+                <p className="mt-3 text-sm text-slate-700">
+                  Latest adherence:{" "}
+                  <span className="font-medium">
+                    {String(checkin.payload.medication_adherence ?? "unknown")}
+                  </span>
+                  {adherenceEvent ? " · adherence agent flagged this episode" : ""}
+                </p>
+              ) : null}
+            </Card>
+          ) : null}
+
           <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {DEMO_STEPS.map((step, index) => {
               const done = completed[index];
@@ -488,7 +591,7 @@ export default function DemoPage() {
             </Card>
           ) : null}
 
-          {inCall ? (
+          {inPstnCall ? (
             <Card className="border-teal-300 bg-teal-50/80 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-teal-800">
                 REAL VOICE OUTREACH
@@ -507,10 +610,36 @@ export default function DemoPage() {
             </Card>
           ) : null}
 
+          {webWaiting ? (
+            <Card className="border-teal-300 bg-teal-50/40 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-teal-800">
+                LIVE GEMINI CHECK-IN
+              </p>
+              <h2 className="mt-1 text-xl font-semibold text-teal-950">
+                Answer as Alex in this tab
+              </h2>
+              <p className="mt-1 text-sm text-teal-900">
+                WebRTC to Gemini Live — close any other Voximplant softphone first. Say pain,
+                symptoms, and whether you took enoxaparin.
+              </p>
+              <div className="mt-4">
+                {alexReady && episodeId ? (
+                  <VoicePreviewClient episodeId={episodeId} compact />
+                ) : (
+                  <p className="text-sm text-teal-800">Preparing the in-page check-in…</p>
+                )}
+              </div>
+            </Card>
+          ) : null}
+
           {checkin ? (
             <Card className="border-emerald-200 bg-emerald-50/50 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
-                {pstnCheckin ? "REAL PHONE FOLLOW-UP COMPLETED" : "SYNTHETIC CHECK-IN COMPLETED"}
+                {pstnCheckin
+                  ? "REAL PHONE FOLLOW-UP COMPLETED"
+                  : webCheckin
+                    ? "LIVE GEMINI CHECK-IN COMPLETED"
+                    : "SYNTHETIC CHECK-IN COMPLETED"}
               </p>
               <h2 className="mt-1 text-xl font-semibold text-emerald-950">
                 Recovery check-in received
@@ -638,7 +767,14 @@ export default function DemoPage() {
             <Card className="border-emerald-300 bg-emerald-50/80 p-5">
               <h2 className="text-2xl font-semibold text-emerald-950">EIR recovery loop completed</h2>
               <ul className="mt-3 space-y-1 text-sm text-emerald-900">
-                <li>live phone follow-up completed</li>
+                <li>
+                  {pstnCheckin
+                    ? "live PSTN follow-up completed"
+                    : webCheckin
+                      ? "in-page Gemini Live check-in completed"
+                      : "recovery check-in completed"}
+                </li>
+                <li>medication adherence evaluated</li>
                 <li>Gemini + ADK tools executed</li>
                 <li>Model Armor blocked unsafe input</li>
                 <li>spoken recovery signal escalated</li>

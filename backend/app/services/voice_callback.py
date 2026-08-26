@@ -73,10 +73,12 @@ def _structured_payload(body: VoiceCallbackRequest) -> dict[str, Any]:
     )
     if any(not item["taken"] for item in medications):
         adherence = "no"
+    transport = "webrtc" if str(body.correlation_id).startswith("web-") else "pstn"
     return {
         "channel": "voice",
         "provider": "voximplant",
         "synthetic": False,
+        "transport": transport,
         "correlation_id": body.correlation_id,
         "call_id": body.call_id,
         "pain_score": pain,

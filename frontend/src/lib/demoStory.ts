@@ -44,14 +44,32 @@ export function isOutreachResponse(event: DomainEvent): boolean {
   }
   const channel = String(event.payload.channel ?? "");
   const provider = String(event.payload.provider ?? "");
-  return channel === "voice" || provider === "voximplant" || event.payload.synthetic === true;
+  const transport = String(event.payload.transport ?? "");
+  return (
+    channel === "voice" ||
+    transport === "webrtc" ||
+    provider === "voximplant" ||
+    provider === "voximplant-web" ||
+    event.payload.synthetic === true
+  );
 }
 
 export function isVoximplantEvent(event: DomainEvent | undefined): boolean {
   if (!event) {
     return false;
   }
-  return String(event.payload.provider ?? "") === "voximplant";
+  const provider = String(event.payload.provider ?? "");
+  const transport = String(event.payload.transport ?? "");
+  return provider === "voximplant" && transport !== "webrtc";
+}
+
+export function isWebVoiceEvent(event: DomainEvent | undefined): boolean {
+  if (!event) {
+    return false;
+  }
+  const provider = String(event.payload.provider ?? "");
+  const transport = String(event.payload.transport ?? "");
+  return provider === "voximplant-web" || transport === "webrtc";
 }
 
 export function isScriptedVoice(event: DomainEvent | undefined): boolean {
@@ -155,6 +173,12 @@ export function demoActivity(input: {
     return { title: "Starting phone outreach…" };
   }
   const voiceStarted = latestEvent(events, "VoiceCallStarted");
+  if (awaiting === "follow-up" && isWebVoiceEvent(voiceStarted) && !completed[3]) {
+    return {
+      title: "Answer the check-in in this tab",
+      detail: "Gemini Live is waiting here. Allow the microphone and speak — no phone number is dialled.",
+    };
+  }
   if (
     awaiting === "follow-up" &&
     isVoximplantEvent(voiceStarted) &&
@@ -223,6 +247,9 @@ export function runtimeProof(runtime: RuntimeStatus): { label: string; value: st
   const armorManaged = runtime.model_armor.mode === "managed";
   const fhirGcp = runtime.fleet.fhir_mode === "gcp";
   const pubsubLive = runtime.fleet.event_bus === "pubsub";
+  const pstnLive = Boolean(runtime.fleet.voice?.pstn_enabled);
+  const browserVoice = Boolean(runtime.fleet.voice?.browser_voice_enabled);
+  const liveAudio = pstnLive || browserVoice;
 
   return [
     { label: runtime.fleet.gemini_model || "Gemini", value: geminiLive ? "LIVE" : "UNVERIFIED", live: geminiLive },
@@ -237,13 +264,13 @@ export function runtimeProof(runtime: RuntimeStatus): { label: string; value: st
     { label: "Pub/Sub", value: pubsubLive ? "LIVE" : runtime.fleet.event_bus.toUpperCase(), live: pubsubLive },
     {
       label: "Voximplant PSTN",
-      value: runtime.fleet.voice?.pstn_enabled ? "LIVE" : (runtime.fleet.voice?.active_provider ?? "synthetic").toUpperCase(),
-      live: Boolean(runtime.fleet.voice?.pstn_enabled),
+      value: pstnLive ? "LIVE" : "OFF",
+      live: pstnLive,
     },
     {
       label: runtime.fleet.voice?.gemini_live_model || "Gemini Live",
-      value: runtime.fleet.voice?.pstn_enabled ? "LIVE" : "FALLBACK",
-      live: Boolean(runtime.fleet.voice?.pstn_enabled),
+      value: liveAudio ? "LIVE" : "OFF",
+      live: liveAudio,
     },
   ];
 }
@@ -252,7 +279,10 @@ export function voiceCheckin(events: DomainEvent[]): DomainEvent | undefined {
   return [...events].reverse().find(
     (event) =>
       event.event_type === "PatientResponded" &&
-      (event.payload.channel === "voice" || event.payload.provider === "voximplant"),
+      (event.payload.channel === "voice" ||
+        event.payload.provider === "voximplant" ||
+        event.payload.provider === "voximplant-web" ||
+        event.payload.transport === "webrtc"),
   );
 }
 

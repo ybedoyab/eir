@@ -104,6 +104,7 @@ export interface DemoBootstrapResponse {
   next_follow_up_at: string | null;
   fast_forwarded: boolean;
   monitoring?: boolean;
+  medications?: PatientMedication[];
 }
 
 export interface DemoAdvanceResponse {
@@ -153,6 +154,8 @@ export interface RuntimeStatus {
       gemini_live_location: string;
       gemini_live_voice: string;
       admin_credentials_used_at_runtime: boolean;
+      browser_voice_enabled?: boolean;
+      browser_voice_login_configured?: boolean;
     };
     platform?: {
       managed_agent_runtime_verified?: boolean;

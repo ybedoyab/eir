@@ -72,6 +72,9 @@ async def handle_follow_up(
             "mode": launch.mode,
             "call_id": launch.call_id,
             "gemini_live_model": (launch.metadata or {}).get("gemini_live_model"),
+            "transport": (launch.metadata or {}).get("transport") or (
+                "webrtc" if launch.provider == "voximplant-web" else None
+            ),
         },
     )
 

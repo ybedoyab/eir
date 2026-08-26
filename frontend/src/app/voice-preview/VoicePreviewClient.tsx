@@ -155,7 +155,13 @@ function audioLabel(state: AudioState): string {
   return "Audio idle";
 }
 
-export default function VoicePreviewClient() {
+export default function VoicePreviewClient({
+  episodeId: forcedEpisodeId,
+  compact = false,
+}: {
+  episodeId?: string;
+  compact?: boolean;
+} = {}) {
   const sdkRef = useRef<ReturnType<typeof VoxSdk.getInstance> | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
   const eventsRef = useRef<typeof VoxSdk | null>(null);
@@ -210,7 +216,7 @@ export default function VoicePreviewClient() {
         const [webConfig, me, episodes] = await Promise.all([
           getVoiceWebConfig(),
           getCurrentUser(),
-          listRecovery(),
+          forcedEpisodeId ? Promise.resolve([]) : listRecovery(),
         ]);
         if (cancelled) {
           return;
@@ -223,7 +229,9 @@ export default function VoicePreviewClient() {
             clearSession();
           }
           setSession(null);
-          setEpisodeId(null);
+          if (!forcedEpisodeId) {
+            setEpisodeId(null);
+          }
           return;
         }
         setSession(me);
@@ -234,7 +242,9 @@ export default function VoicePreviewClient() {
           ? episodes.filter((episode) => episode.patient_id === patientId)
           : [];
         const active = mine.find((episode) => episode.status === "ACTIVE") ?? mine[0];
-        setEpisodeId(active?.id ?? null);
+        if (!forcedEpisodeId) {
+          setEpisodeId(active?.id ?? null);
+        }
       } catch (err) {
         if (!cancelled) {
           setError(describeError(err));
@@ -249,7 +259,13 @@ export default function VoicePreviewClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [forcedEpisodeId]);
+
+  useEffect(() => {
+    if (forcedEpisodeId) {
+      setEpisodeId(forcedEpisodeId);
+    }
+  }, [forcedEpisodeId]);
 
   function getAudioContextCtor(): typeof AudioContext {
     const Ctor =
@@ -722,23 +738,27 @@ export default function VoicePreviewClient() {
 
   return (
     <div>
-      <PageHeader
-        eyebrow="Voice check-in"
-        title="Talk to EIR"
-        description="Start a spoken recovery check-in in this tab. Audio runs over WebRTC — no phone call is placed and no number is dialled. Allow the microphone when your browser asks."
-      />
+      {compact ? null : (
+        <PageHeader
+          eyebrow="Voice check-in"
+          title="Talk to EIR"
+          description="Start a spoken recovery check-in in this tab. Audio runs over WebRTC — no phone call is placed and no number is dialled. Allow the microphone when your browser asks."
+        />
+      )}
       {error ? <ErrorAlert message={error} /> : null}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+      <div className={compact ? "grid gap-4" : "grid gap-6 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]"}>
         <Card className="overflow-hidden p-0">
           <div
-            className={`relative px-6 py-10 text-center text-white ${
-              dialing ? "bg-emerald-700" : live ? "bg-teal-800" : "bg-slate-800"
-            }`}
+            className={`relative px-6 text-center text-white ${
+              compact ? "py-6" : "py-10"
+            } ${dialing ? "bg-emerald-700" : live ? "bg-teal-800" : "bg-slate-800"}`}
           >
             {dialing ? (
               <span className="absolute inset-x-0 top-4 mx-auto h-16 w-16 animate-ping rounded-full bg-white/20" />
             ) : null}
-            <p className="relative text-xs uppercase tracking-[0.24em] text-white/70">EIR Recovery</p>
+            <p className="relative text-xs uppercase tracking-[0.24em] text-white/70">
+              {compact ? "Incoming recovery check-in" : "EIR Recovery"}
+            </p>
             <p className="relative mt-4 text-2xl font-semibold">{statusLabel(status)}</p>
             <p className="relative mt-3 font-mono text-4xl tabular-nums">{live ? formatTimer(elapsed) : "00:00"}</p>
             <div className="relative mt-5 flex flex-wrap justify-center gap-2 text-xs">
@@ -752,21 +772,28 @@ export default function VoicePreviewClient() {
             {idle || status === "connecting" ? (
               <div className="space-y-4">
                 <p className="text-sm text-slate-700">
-                  EIR will ask about your pain level, symptoms, and medication, then flag
-                  anything that needs a clinician. It does not diagnose.
+                  {compact
+                    ? "Answer here to talk with Gemini Live. Allow the microphone, then report pain, symptoms, and whether you took your medications. This is not a PSTN phone call."
+                    : "EIR will ask about your pain level, symptoms, and medication, then flag anything that needs a clinician. It does not diagnose."}
                 </p>
                 {loadingEpisode ? (
                   <p className="text-xs text-slate-500">Finding your recovery episode…</p>
                 ) : !signedInAsPatient ? (
                   <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-                    Sign in as a patient to start a check-in. Your session is missing or has
-                    expired — demo sessions last 24 hours, and this developer page has no
-                    sign-in step of its own.{" "}
-                    <a className="font-medium underline" href="/login">
-                      Go to sign-in
-                    </a>{" "}
-                    (demo patient <span className="font-mono">alex</span> /{" "}
-                    <span className="font-mono">demo-alex</span>), then come back here.
+                    {compact ? (
+                      "Signing in as the synthetic patient so this tab can open Gemini Live…"
+                    ) : (
+                      <>
+                        Sign in as a patient to start a check-in. Your session is missing or has
+                        expired — demo sessions last 24 hours, and this developer page has no
+                        sign-in step of its own.{" "}
+                        <a className="font-medium underline" href="/login">
+                          Go to sign-in
+                        </a>{" "}
+                        (demo patient <span className="font-mono">alex</span> /{" "}
+                        <span className="font-mono">demo-alex</span>), then come back here.
+                      </>
+                    )}
                   </p>
                 ) : episodeId ? (
                   <p className="text-xs text-slate-500">
@@ -789,7 +816,9 @@ export default function VoicePreviewClient() {
                     ? "Connecting…"
                     : status === "ended"
                       ? "Start another check-in"
-                      : "Start voice check-in"}
+                      : compact
+                        ? "Answer check-in"
+                        : "Start voice check-in"}
                 </Button>
               </div>
             ) : null}
@@ -873,18 +902,24 @@ export default function VoicePreviewClient() {
         <Card>
           <CardHeader
             title="Live transcript"
-            description="Turns build up as Gemini hears and speaks. Transcript stays in this browser session only and is not saved to the episode."
+            description={
+              compact
+                ? "Turns stay in this browser tab. Structured pain, symptoms, and medication answers are written to the episode when the check-in closes."
+                : "Turns build up as Gemini hears and speaks. Transcript stays in this browser session only and is not saved to the episode."
+            }
             action={
-              episodeId ? (
+              compact || !episodeId ? null : (
                 <a className="text-sm font-medium text-teal-700 hover:text-teal-800" href={`/recovery/${episodeId}`}>
                   Open episode
                 </a>
-              ) : null
+              )
             }
           />
           <div
             ref={transcriptRef}
-            className="flex max-h-[34rem] min-h-[28rem] flex-col gap-3 overflow-y-auto rounded-xl bg-slate-50 p-4"
+            className={`flex flex-col gap-3 overflow-y-auto rounded-xl bg-slate-50 p-4 ${
+              compact ? "max-h-56 min-h-32" : "max-h-[34rem] min-h-[28rem]"
+            }`}
           >
             {lines.length === 0 ? (
               <p className="text-sm text-slate-500">

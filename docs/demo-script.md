@@ -26,33 +26,29 @@ Home → **Run live demo** → **Start demo**.
 
 Point at the shortened episode id, status, and next follow-up time.
 
-## 0:40–1:40 — Fast-forward → real phone call
+## 0:40–1:40 — Fast-forward → live Gemini check-in
 
-Click **Fast-forward to follow-up**.
+Click **Fast-forward to follow-up**. Point at **Prescribed medications** (enoxaparin, critical).
 
 > Production would normally wait until the scheduled follow-up. I'll fast-forward the clock.
 
-> My phone is now being called by the recovery fleet.
+Until a purchased Caller ID exists, the check-in is **in this tab** (WebRTC + Gemini Live), not a PSTN ring. Close any other Voximplant softphone first so `eir-preview-user` is only registered here.
 
-Wait for **Calling patient…** / **REAL VOICE OUTREACH**. Answer on speaker.
+Wait for **LIVE GEMINI CHECK-IN** / **Answer as Alex in this tab**. Click **Answer check-in**, allow the microphone, and speak.
 
 Let Gemini Live speak. Then say:
 
-> My pain is about an eight and I noticed swelling near the incision this morning.
+> My pain is about an eight and I noticed swelling near the incision this morning. I have not been taking my enoxaparin.
 
 Let Gemini acknowledge, submit the check-in, and close.
 
-Point at **REAL PHONE FOLLOW-UP COMPLETED** and the audit timeline:
+Point at **LIVE GEMINI CHECK-IN COMPLETED** (never **REAL PHONE** unless PSTN is actually live) and the audit timeline:
 
-> That wasn't a prerecorded transcript. The live call produced this PatientResponded event, and the same risk agent that handles every recovery episode is now evaluating what I actually said.
+> That wasn't a prerecorded transcript. The spoken check-in produced this PatientResponded event, and the same risk and adherence agents that handle every recovery episode are now evaluating what I actually said.
 
-Wait for **RiskEscalated** / **Human review required**.
+Wait for **RiskEscalated** / **Human review required**. Missed critical medication and high pain both escalate.
 
-Until PSTN Caller ID exists, validate Gemini Live on `/voice-preview` (not phone.voximplant.com). Close the hosted Web Softphone first so `eir-preview-user` is only registered there.
-
-If PSTN is unavailable, the **Backup demo control** still publishes a concerning `PatientResponded` through the same EventBus. Do not present it as the primary path.
-
-Without PSTN, synthetic fast-forward for Alex reports low pain **and** that prescribed medications were not taken. That is matched server-side to enoxaparin (critical) and opens clinician review. The card says **SYNTHETIC CHECK-IN COMPLETED**, not a real phone call. Gemini does not need to say the drug name on that path; the live scenario can name drugs once the voice context endpoint is serving.
+If the in-page check-in cannot start, the **Backup demo control** still publishes a concerning `PatientResponded` through the same EventBus. Do not present it as the primary path.
 
 On `/admin/inventory`, the **Patients** column is the same SKU catalog the replenishment fleet uses — recovery assignment and supply are one system.
 
