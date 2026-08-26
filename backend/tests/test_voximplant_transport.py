@@ -174,7 +174,7 @@ def test_scenario_forwards_transcript_without_logging_it() -> None:
     assert "outputAudioTranscription" in source
     assert "inputAudioTranscription" in source
     assert "call.sendMessage" in source
-    assert "mergeUtterance" in source
+    assert "pushTranscript" in source
     assert "transcriptionFinished" in source
     assert "PlaybackFinished" not in source
     assert "transcript: transcript" in source
