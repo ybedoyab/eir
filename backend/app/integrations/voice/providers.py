@@ -126,10 +126,14 @@ def _synthetic_conversation(patient_id: str) -> list[dict[str, str]]:
         return [
             {"role": "agent", "text": "How is your pain today on a scale of 0-10?"},
             {"role": "patient", "text": "It is an 8 and I noticed swelling near the incision."},
+            {"role": "agent", "text": "Have you been taking your prescribed medications?"},
+            {"role": "patient", "text": "Yes, I have been taking my medications."},
         ]
     return [
         {"role": "agent", "text": "How is your pain today on a scale of 0-10?"},
         {"role": "patient", "text": "About a 2, recovery is going fine."},
+        {"role": "agent", "text": "Have you been taking your prescribed medications?"},
+        {"role": "patient", "text": "No, I have not been taking my medications."},
     ]
 
 

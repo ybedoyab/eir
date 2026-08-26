@@ -45,15 +45,26 @@ def encode_script_custom_data(
     display_name: str = "Alex",
     transport: str = TRANSPORT_PSTN,
     destination_user: str | None = None,
+    outbound: bool = True,
     **ignored: Any,
 ) -> str:
-    """Build StartScenarios custom data. Extra kwargs (including phones) are dropped."""
+    """Build VoxEngine custom data. Extra kwargs (including phones) are dropped.
+
+    `outbound` marks a StartScenarios launch. A browser leg carries the same
+    {eid,cid,n} shape, and VoxEngine promotes it to scenario-level custom data,
+    so `AppEvents.Started` fires for it too and cannot otherwise tell the two
+    apart -- it read the browser's payload as a PSTN dial request. Absence of
+    the marker is the safe direction: the outbound path stands down unless it
+    is positively told this is its call.
+    """
     del ignored
-    payload: dict[str, str] = {
+    payload: dict[str, str | int] = {
         "eid": str(episode_id),
         "cid": str(correlation_id),
         "n": str(display_name or "Alex")[:24],
     }
+    if outbound:
+        payload["o"] = 1
     resolved = TRANSPORT_USER if transport == TRANSPORT_USER else TRANSPORT_PSTN
     if resolved == TRANSPORT_USER:
         payload["t"] = "user"
@@ -79,6 +90,7 @@ def parse_script_custom_data(raw: str) -> dict[str, str]:
         "display_name": str(data.get("n") or "Alex")[:24],
         "transport": transport,
         "destination_user": sanitize_preview_username(str(data.get("u") or PREVIEW_USERNAME)),
+        "outbound": data.get("o") == 1,
     }
 
 

@@ -14,10 +14,12 @@ from app.services.demo_controls import (
     CONCERNING_MESSAGE,
     claim_demo_action,
     has_concerning_signal,
+    require_demo_sku,
     require_synthetic_episode,
 )
 from app.services.follow_up_scheduler import FollowUpScheduler
 from app.services.recovery_service import RecoveryService
+from app.services.stock_monitor import StockMonitor
 
 router = APIRouter()
 
@@ -176,4 +178,75 @@ async def retry_voice(episode_id: str) -> dict:
         "retried": True,
         "episode_id": episode_id,
         "event": event.event_type,
+    }
+
+
+DEMO_SKU = "MED-ENOX-40"
+
+
+class SupplyDemoRequest(BaseModel):
+    sku: str = Field(default=DEMO_SKU)
+
+
+def _stock_monitor() -> StockMonitor:
+    container = get_container()
+    return StockMonitor(container.supply, idempotency=container.scheduler_idempotency)
+
+
+@router.post("/supply/bootstrap")
+async def bootstrap_supply_demo(body: SupplyDemoRequest) -> dict:
+    """Dispense a synthetic medication down to a stock-out and let the fleet react.
+
+    Consumes stock through the same rule production uses instead of writing a
+    low number directly, so the InventoryLevelLow event is genuinely earned.
+    """
+    container = get_container()
+    require_demo_sku(body.sku)
+    item = container.supply.get_item(body.sku)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+
+    existing = container.supply.open_case_for_sku(body.sku)
+    if existing is not None:
+        return {
+            "opened": False,
+            "case_id": existing.id,
+            "sku": existing.sku,
+            "status": existing.status.value,
+            "reason": "a replenishment case is already open for this SKU",
+            "hint": f"POST /api/v1/supply/cases/{existing.id}/cancel to reset the demo",
+        }
+
+    event = _stock_monitor().drain_stock(body.sku)
+    if event is None:
+        raise HTTPException(status_code=409, detail="Could not open a replenishment case")
+    await container.event_bus.publish(event)
+
+    case = container.supply.get_case(event.episode_id)
+    if case is None:
+        raise HTTPException(status_code=404, detail="Replenishment case not found")
+    updated = container.supply.get_item(body.sku)
+    return {
+        "opened": True,
+        "case_id": case.id,
+        "sku": case.sku,
+        "item_name": case.item_name,
+        "status": case.status.value,
+        "urgency": case.urgency.value,
+        "on_hand": updated.on_hand if updated else None,
+        "reorder_point": updated.reorder_point if updated else None,
+        "requested_quantity": case.requested_quantity,
+        "quotes": len(case.quotes),
+        "purchase_order": case.purchase_order.model_dump(mode="json")
+        if case.purchase_order
+        else None,
+        "assigned_agents": case.assigned_agents,
+        "story": [
+            "Stock dispensed below the reorder point → InventoryLevelLow",
+            "inventory_agent sized the order against usage and supplier lead time",
+            "procurement_agent called every supplier that carries the SKU",
+            "Quotes recorded from the calls; availability beats price",
+            "Purchase order drafted and parked at the safety gate",
+            f"POST /api/v1/supply/cases/{case.id}/approve places the order",
+        ],
     }

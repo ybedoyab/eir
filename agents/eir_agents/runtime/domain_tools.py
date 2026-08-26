@@ -14,7 +14,12 @@ from eir_shared.events import AppointmentRequested, DomainEvent
 from eir_agents.adherence.handler import check_task_completion
 from eir_agents.common.types import HandlerResult
 from eir_agents.escalation.handler import request_human_review
+from eir_agents.inventory.handler import forecast_replenishment
 from eir_agents.outreach.handler import handle_follow_up
+from eir_agents.procurement.handler import commit_purchase_order, contact_suppliers
+from eir_agents.procurement.handler import (
+    draft_purchase_order as draft_purchase_order_handler,
+)
 from eir_agents.risk.handler import assess_response
 from eir_agents.scheduling.handler import schedule_appointment
 
@@ -40,6 +45,8 @@ class DomainToolKit:
     voice: Any
     memory: Any
     summarizer: Any
+    supply: Any = None
+    supplier_voice: Any = None
     handler_result: HandlerResult | None = None
     tools_invoked: list[str] = field(default_factory=list)
 
@@ -102,6 +109,7 @@ class DomainToolKit:
             self.event,
             patient_id=self.patient_id,
             fhir=self.fhir,
+            supply=self.supply,
         )
         return self._record("check_adherence", result)
 
@@ -121,6 +129,64 @@ class DomainToolKit:
         )
         return self._record("schedule_appointment_request", result)
 
+    def read_stock_levels(self) -> dict[str, Any]:
+        """Read the inventory record for the SKU on the current replenishment case."""
+        if self.supply is None:
+            return {"status": "unavailable"}
+        case = self.supply.get_case(self.episode_id)
+        if case is None:
+            return {"status": "case_not_found", "case_id": self.episode_id}
+        item = self.supply.get_item(case.sku)
+        if item is None:
+            return {"status": "not_found", "sku": case.sku}
+        return item.model_dump(mode="json")
+
+    def read_replenishment_case(self) -> dict[str, Any]:
+        """Read the current replenishment case, including any recorded quotes."""
+        if self.supply is None:
+            return {"status": "unavailable"}
+        case = self.supply.get_case(self.episode_id)
+        if case is None:
+            return {"status": "not_found", "case_id": self.episode_id}
+        return case.model_dump(mode="json")
+
+    def list_supplier_catalog(self) -> list[dict[str, Any]]:
+        """List suppliers that carry the SKU on the current case."""
+        if self.supply is None:
+            return []
+        case = self.supply.get_case(self.episode_id)
+        sku = case.sku if case else None
+        return [
+            supplier.model_dump(mode="json")
+            for supplier in self.supply.list_suppliers(sku)
+        ]
+
+    def size_replenishment(self) -> dict[str, Any]:
+        """Size the replenishment order against usage, lead time, and target level."""
+        result = forecast_replenishment(self.event, supply=self.supply, fhir=self.fhir)
+        return self._record("size_replenishment", result)
+
+    def call_suppliers(self) -> dict[str, Any]:
+        """Place outbound supplier calls and record the quotes they state."""
+        result = _run_async(
+            contact_suppliers(
+                self.event,
+                supply=self.supply,
+                voice=self.supplier_voice,
+            )
+        )
+        return self._record("call_suppliers", result)
+
+    def draft_purchase_order(self) -> dict[str, Any]:
+        """Select a supplier from recorded quotes and draft a purchase order."""
+        result = draft_purchase_order_handler(self.event, supply=self.supply)
+        return self._record("draft_purchase_order", result)
+
+    def place_purchase_order(self) -> dict[str, Any]:
+        """Place the drafted order. Reachable only after human authorization."""
+        result = commit_purchase_order(self.event, supply=self.supply)
+        return self._record("place_purchase_order", result)
+
     def tools_for_capability(self) -> list[Any]:
         from google.adk.tools import FunctionTool
 
@@ -131,6 +197,13 @@ class DomainToolKit:
             FunctionTool(self.read_medications),
             FunctionTool(self.write_follow_up_observation),
         ]
+        # Supply capabilities never touch patient records, so they get their own
+        # read-only set rather than the clinical one.
+        supply_common = [
+            FunctionTool(self.read_stock_levels),
+            FunctionTool(self.read_replenishment_case),
+            FunctionTool(self.list_supplier_catalog),
+        ]
         by_capability: dict[str, list[Any]] = {
             Capability.PATIENT_CONTACT: common + [FunctionTool(self.conduct_outreach)],
             Capability.RISK_ASSESS: common + [FunctionTool(self.assess_patient_response)],
@@ -138,6 +211,13 @@ class DomainToolKit:
             Capability.ADHERENCE_CHECK: common + [FunctionTool(self.check_adherence)],
             Capability.APPOINTMENT_SCHEDULE: common
             + [FunctionTool(self.schedule_appointment_request)],
+            Capability.SUPPLY_FORECAST: supply_common
+            + [FunctionTool(self.size_replenishment)],
+            Capability.SUPPLIER_CONTACT: supply_common + [FunctionTool(self.call_suppliers)],
+            Capability.PURCHASE_ORDER_DRAFT: supply_common
+            + [FunctionTool(self.draft_purchase_order)],
+            Capability.PURCHASE_ORDER_APPROVE: supply_common
+            + [FunctionTool(self.place_purchase_order)],
         }
         return by_capability.get(self.capability, common)
 
@@ -148,6 +228,10 @@ class DomainToolKit:
             Capability.ESCALATION_REQUEST: "request_escalation",
             Capability.ADHERENCE_CHECK: "check_adherence",
             Capability.APPOINTMENT_SCHEDULE: "schedule_appointment_request",
+            Capability.SUPPLY_FORECAST: "size_replenishment",
+            Capability.SUPPLIER_CONTACT: "call_suppliers",
+            Capability.PURCHASE_ORDER_DRAFT: "draft_purchase_order",
+            Capability.PURCHASE_ORDER_APPROVE: "place_purchase_order",
         }
         return mapping.get(self.capability, "")
 
@@ -158,6 +242,10 @@ REQUIRED_TOOL_BY_CAPABILITY = {
     Capability.ESCALATION_REQUEST: "request_escalation",
     Capability.ADHERENCE_CHECK: "check_adherence",
     Capability.APPOINTMENT_SCHEDULE: "schedule_appointment_request",
+    Capability.SUPPLY_FORECAST: "size_replenishment",
+    Capability.SUPPLIER_CONTACT: "call_suppliers",
+    Capability.PURCHASE_ORDER_DRAFT: "draft_purchase_order",
+    Capability.PURCHASE_ORDER_APPROVE: "place_purchase_order",
 }
 
 

@@ -6,12 +6,25 @@ Orchestration stays on `gemini-3.5-flash`. Voice uses Vertex Gemini Live:
 
 `gemini-live-2.5-flash-native-audio` in `us-central1`, voice `Sulafat`.
 
-Production Cloud Run stays on **PSTN** (`VoxEngine.callPSTN`). A CLI-only preview transport uses `VoxEngine.callUser` against application user `eir-preview-user` and the official [Web Softphone](https://phone.voximplant.com). After the call connects, Gemini Live, function calling, and the EIR callback are the same path.
+Three transports reach the same conversation. `scenario.js` has two entry points --
+`AppEvents.Started` for calls EIR places, `AppEvents.CallAlerting` for calls the browser
+places -- and both converge on `driveCall()`, so Gemini Live, function calling, and the EIR
+callback are identical in all three cases.
+
+| Transport | Entry point | Needs Caller ID | Trigger |
+|---|---|---|---|
+| **Browser (`webrtc`)** | `CallAlerting` | no | the patient, from `/dev/voice-preview` |
+| PSTN | `Started` | yes | `FollowUpDue` -> `VoximplantVoiceProvider` |
+| `callUser` preview | `Started` | no | `smoke_test.py --transport user` (CLI) |
+
+The browser transport is the one that works today: the account has no verified Caller ID and
+no phone number, so PSTN cannot dial. An inbound leg is forced to `webrtc` by the entry point
+itself -- never by custom data, which the browser controls.
 
 ## Layout
 
 - `provision.py` — create/update application `eir-recovery`, scenario `eir-gemini-outbound`, rule `eir-outbound`, secrets, least-privilege runtime key, preview user
-- `scenario.js` — shared Gemini Live + `submit_recovery_checkin`; `startDestinationCall` selects `callPSTN` or `callUser`
+- `scenario.js` — shared Gemini Live + `submit_recovery_checkin`; `driveCall()` is shared by both entry points, `startDestinationCall` selects `callPSTN` or `callUser`
 - `smoke_test.py` — PSTN preflight / optional `--place-call`; preview: `--transport user`
 
 ## Credentials
@@ -38,13 +51,31 @@ uv run python infra/voximplant/smoke_test.py
 
 Do not place paid PSTN calls from CI. Preview `callUser` does not require Caller ID or `EIR_DEMO_PHONE_E164`.
 
-Voice preview login:
+Browser check-in (no CLI, no password prompt):
 
 1. Close https://phone.voximplant.com so `eir-preview-user` is not registered twice
-2. Open the EIR page `/voice-preview` (Chrome, VPN off)
-3. Username is prefilled; password is in `.voximplant-preview.env` (never paste it into chat)
-4. Click **Connect and wait**, allow the microphone
-5. Run `--place-call` and press **Answer** on `/voice-preview`
+2. Sign in to EIR as a patient (`alex` / `demo-alex`) and open `/dev/voice-preview`
+3. Click **Start voice check-in** and allow the microphone
+
+The CLI `callUser` preview still works for exercising the *outbound* path, but the EIR page no
+longer answers incoming calls, so register `eir-preview-user` in the hosted
+[Web Softphone](https://phone.voximplant.com) instead (password in `.voximplant-preview.env`),
+then run `smoke_test.py --transport user --place-call --wait`. Only one client may hold that
+registration, so close the softphone before using the in-page check-in.
+
+## Secret Manager (GCP)
+
+| Secret | Used by | Required for |
+|---|---|---|
+| `eir-voximplant-callback-token` | API | every transport |
+| `eir-voximplant-web-password` | API | browser check-in |
+| `eir-voximplant-runtime-credentials` | worker | PSTN / `callUser` |
+| `eir-voximplant-caller-id` | worker | PSTN only |
+| `eir-demo-phone-e164` | worker | PSTN only |
+
+`deploy.py` binds a secret only when it has an enabled version, and flips `VOICE_PROVIDER` to
+`voximplant` only when all three PSTN secrets are populated. Until then outbound follow-ups
+stay on the synthetic provider and the browser check-in works regardless.
 
 ## Secrets (Voximplant Secret Storage)
 
@@ -67,6 +98,7 @@ Official Vertex examples sometimes keep the service-account JSON in a second sce
 | Location | `us-central1` |
 | Model | `gemini-live-2.5-flash-native-audio` |
 | Voice | `Sulafat` (`speechConfig.prebuiltVoiceConfig.voiceName`) |
+| Browser transport | inbound WebRTC to `eir-checkin` (no Caller ID) |
 | Production transport | PSTN (`VOXIMPLANT_VOICE_TRANSPORT=pstn`) |
 | Preview transport | `callUser` / `eir-preview-user` (CLI only) |
 | Recording | disabled |

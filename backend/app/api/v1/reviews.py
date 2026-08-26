@@ -13,8 +13,10 @@ class ResolveReviewRequest(BaseModel):
 
 
 @router.get("", response_model=list[HumanReview])
-def list_reviews(pending: bool = True) -> list[HumanReview]:
-    return get_container().reviews.list(pending_only=pending)
+def list_reviews(pending: bool = True, workflow: str = "recovery") -> list[HumanReview]:
+    """Clinical reviews only by default. Supply approvals live under /supply."""
+    selector = None if workflow == "all" else workflow
+    return get_container().reviews.list(pending_only=pending, workflow=selector)
 
 
 @router.post("/{review_id}/resolve", response_model=HumanReview)
@@ -25,6 +27,11 @@ async def resolve_review(review_id: str, body: ResolveReviewRequest) -> HumanRev
         raise HTTPException(status_code=404, detail="Review not found")
     if review.status == ReviewStatus.RESOLVED:
         return review
+    if review.workflow != "recovery":
+        raise HTTPException(
+            status_code=409,
+            detail="Supply approvals are granted at /supply/cases/{case_id}/approve",
+        )
 
     event = ClinicianResolved(
         episode_id=review.episode_id,

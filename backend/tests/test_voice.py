@@ -52,6 +52,21 @@ def test_synthetic_voice_provider_still_sync() -> None:
     assert provider.provider_name == "synthetic"
 
 
+def test_synthetic_alex_conversation_reports_missed_medications() -> None:
+    import asyncio
+
+    result = asyncio.run(
+        handle_follow_up(
+            FollowUpDue(episode_id="ep-synthetic-alex"),
+            patient_id="patient-synthetic-001",
+            voice=SyntheticVoiceProvider(),
+        )
+    )
+    responded = next(event for event in result.next_events if isinstance(event, PatientResponded))
+    assert responded.payload["pain_score"] == 2
+    assert responded.payload["medication_adherence"] == "no"
+
+
 def test_voximplant_start_scenarios_custom_data(monkeypatch) -> None:
     api = FakeVoxAPI()
     provider = VoximplantVoiceProvider(
@@ -77,8 +92,11 @@ def test_voximplant_start_scenarios_custom_data(monkeypatch) -> None:
     params = api.calls[0][1]
     assert params["rule_id"] == 42
     custom = json.loads(params["script_custom_data"])
-    assert set(custom) <= {"eid", "cid", "n"}
+    # "o" marks this as a StartScenarios launch, which is what lets the scenario's
+    # Started handler tell an outbound dial from a browser leg's custom data.
+    assert set(custom) <= {"eid", "cid", "n", "o"}
     assert custom["eid"] == "ep-1"
+    assert custom["o"] == 1
 
 
 def test_admin_credentials_not_used_by_runtime_factory(monkeypatch) -> None:
@@ -209,6 +227,7 @@ def test_completed_callback_publishes_patient_responded(monkeypatch) -> None:
         assert "PatientResponded" in types
         assert "RiskEscalated" in types
         assert "HumanReviewRequested" in types
+        assert "AdherenceConcernDetected" not in types
         payloads = json.dumps(events)
         assert DEMO_PHONE not in payloads
         assert CALLER_ID not in payloads
@@ -217,9 +236,71 @@ def test_completed_callback_publishes_patient_responded(monkeypatch) -> None:
             item for item in events if item["event_type"] == "VoiceCallCompleted"
         )
         assert responded["payload"]["pain_score"] == 8
+        assert responded["payload"]["synthetic"] is False
+        assert responded["payload"]["provider"] == "voximplant"
         assert "transcript" not in responded["payload"]
         assert "transcript" not in completed_event["payload"]
         assert "issue_summary" in responded["payload"]
+
+
+def test_callback_adherence_no_on_critical_medication_escalates(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "voximplant_callback_token", "voice-test-token")
+    with TestClient(app) as client:
+        boot = client.post("/api/v1/demo/bootstrap", json={"fast_forward": False})
+        episode_id = boot.json()["episode_id"]
+        completed = client.post(
+            "/api/v1/voice/voximplant/callback",
+            headers=_headers(),
+            json={
+                "episode_id": episode_id,
+                "correlation_id": str(uuid4()),
+                "state": "CALL_COMPLETED",
+                "pain_score": 2,
+                "reported_issue": False,
+                "issue_summary": "Feeling better",
+                "medication_adherence": "no",
+                "call_outcome": "completed",
+            },
+        )
+        assert completed.status_code == 200
+        events = client.get(f"/api/v1/recovery/{episode_id}/events").json()
+        types = [item["event_type"] for item in events]
+        assert "AdherenceConcernDetected" in types
+        assert "RiskEscalated" in types
+        assert "HumanReviewRequested" in types
+        episode = client.get(f"/api/v1/recovery/{episode_id}").json()
+        assert "adherence" in episode["assigned_agents"]
+        assert episode["status"] == "ESCALATED"
+
+
+def test_callback_adherence_no_on_non_critical_does_not_escalate(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "voximplant_callback_token", "voice-test-token")
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/v1/recovery",
+            json={"patient_id": "patient-synthetic-002"},
+        )
+        episode_id = created.json()["id"]
+        completed = client.post(
+            "/api/v1/voice/voximplant/callback",
+            headers=_headers(),
+            json={
+                "episode_id": episode_id,
+                "correlation_id": str(uuid4()),
+                "state": "CALL_COMPLETED",
+                "pain_score": 2,
+                "reported_issue": False,
+                "medication_adherence": "no",
+                "call_outcome": "completed",
+            },
+        )
+        assert completed.status_code == 200
+        events = client.get(f"/api/v1/recovery/{episode_id}/events").json()
+        types = [item["event_type"] for item in events]
+        assert "AdherenceConcernDetected" in types
+        assert "RiskEscalated" not in types
+        episode = client.get(f"/api/v1/recovery/{episode_id}").json()
+        assert episode["status"] != "ESCALATED"
 
 
 def test_duplicate_callback_is_idempotent(monkeypatch) -> None:
@@ -245,6 +326,52 @@ def test_duplicate_callback_is_idempotent(monkeypatch) -> None:
         events = client.get(f"/api/v1/recovery/{episode_id}/events").json()
         responded = [item for item in events if item["event_type"] == "PatientResponded"]
         assert len(responded) == 1
+
+
+def test_voice_context_returns_alex_medications(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "voximplant_callback_token", "voice-test-token")
+    with TestClient(app) as client:
+        boot = client.post("/api/v1/demo/bootstrap", json={"fast_forward": False})
+        episode_id = boot.json()["episode_id"]
+        denied = client.get(f"/api/v1/voice/context?episode_id={episode_id}")
+        assert denied.status_code == 401
+        response = client.get(
+            f"/api/v1/voice/context?episode_id={episode_id}",
+            headers=_headers(),
+        )
+        assert response.status_code == 200
+        skus = {item["sku"] for item in response.json()["medications"]}
+        assert "MED-ENOX-40" in skus
+        assert "MED-PARA-500" in skus
+
+
+def test_callback_per_medication_taken_false_marks_adherence_no(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "voximplant_callback_token", "voice-test-token")
+    with TestClient(app) as client:
+        boot = client.post("/api/v1/demo/bootstrap", json={"fast_forward": False})
+        episode_id = boot.json()["episode_id"]
+        completed = client.post(
+            "/api/v1/voice/voximplant/callback",
+            headers=_headers(),
+            json={
+                "episode_id": episode_id,
+                "correlation_id": str(uuid4()),
+                "state": "CALL_COMPLETED",
+                "pain_score": 2,
+                "reported_issue": False,
+                "medication_adherence": "yes",
+                "medications": [
+                    {"sku": "MED-ENOX-40", "taken": False},
+                    {"sku": "MED-PARA-500", "taken": True},
+                ],
+                "call_outcome": "completed",
+            },
+        )
+        assert completed.status_code == 200
+        events = client.get(f"/api/v1/recovery/{episode_id}/events").json()
+        responded = next(item for item in events if item["event_type"] == "PatientResponded")
+        assert responded["payload"]["medication_adherence"] == "no"
+        assert "AdherenceConcernDetected" in [item["event_type"] for item in events]
 
 
 def test_failed_call_does_not_publish_patient_responded(monkeypatch) -> None:

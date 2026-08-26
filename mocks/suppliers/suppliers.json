@@ -1,0 +1,43 @@
+{
+  "suppliers": [
+    {
+      "id": "supplier-synthetic-001",
+      "name": "MedSupply Andina",
+      "contact_name": "Rosa Delgado",
+      "phone_e164": "+15550100101",
+      "lead_time_days": 2,
+      "catalog": [
+        { "sku": "MED-ENOX-40", "unit_price": 8.4, "available_units": 500 },
+        { "sku": "MED-METF-850", "unit_price": 0.11, "available_units": 8000 },
+        { "sku": "MED-AMOX-500", "unit_price": 0.19, "available_units": 6000 },
+        { "sku": "MED-PARA-500", "unit_price": 0.04, "available_units": 20000 }
+      ]
+    },
+    {
+      "id": "supplier-synthetic-002",
+      "name": "Global Pharma Logistics",
+      "contact_name": "Tomas Iversen",
+      "phone_e164": "+15550100202",
+      "lead_time_days": 5,
+      "catalog": [
+        { "sku": "MED-ENOX-40", "unit_price": 7.95, "available_units": 200 },
+        { "sku": "MED-METF-850", "unit_price": 0.09, "available_units": 12000 },
+        { "sku": "MED-INSU-GLA", "unit_price": 31.5, "available_units": 400 },
+        { "sku": "MED-SALB-INH", "unit_price": 4.6, "available_units": 900 }
+      ]
+    },
+    {
+      "id": "supplier-synthetic-003",
+      "name": "Nordic Health Distributors",
+      "contact_name": "Ingrid Halvorsen",
+      "phone_e164": "+15550100303",
+      "lead_time_days": 3,
+      "catalog": [
+        { "sku": "MED-ENOX-40", "unit_price": 8.9, "available_units": 1000 },
+        { "sku": "MED-INSU-GLA", "unit_price": 29.8, "available_units": 250 },
+        { "sku": "MED-SALB-INH", "unit_price": 4.95, "available_units": 1500 },
+        { "sku": "MED-AMOX-500", "unit_price": 0.22, "available_units": 9000 }
+      ]
+    }
+  ]
+}

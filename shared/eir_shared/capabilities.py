@@ -28,11 +28,20 @@ class Capability(StrEnum):
     PATIENT_ACCESS_ORCHESTRATE = "patient_access.orchestrate"
     CARE_NAVIGATION_READ = "care_navigation.read"
     HUMAN_HANDOFF_REQUEST = "human_handoff.request"
+    INVENTORY_READ = "inventory.read"
+    SUPPLY_FORECAST = "supply.forecast"
+    SUPPLIER_CONTACT = "supplier.contact"
+    PURCHASE_ORDER_DRAFT = "purchase_order.draft"
+    PURCHASE_ORDER_APPROVE = "purchase_order.approve"
+    SUPPLY_ORCHESTRATE = "supply.orchestrate"
 
 
 PRE_APPROVAL_CAPABILITIES: frozenset[str] = frozenset(
     {
         Capability.OBSERVATION_WRITE,
+        # Committing a purchase order spends hospital money. The agent may draft
+        # and negotiate, but a human authorizes before the order is placed.
+        Capability.PURCHASE_ORDER_APPROVE,
     }
 )
 
@@ -54,5 +63,16 @@ ROUTINE_APPOINTMENT_CAPABILITIES: frozenset[str] = frozenset(
         Capability.APPOINTMENT_RESCHEDULE,
         Capability.APPOINTMENT_CANCEL,
         Capability.APPOINTMENT_WAITLIST,
+    }
+)
+
+
+SUPPLY_CAPABILITIES: frozenset[str] = frozenset(
+    {
+        Capability.INVENTORY_READ,
+        Capability.SUPPLY_FORECAST,
+        Capability.SUPPLIER_CONTACT,
+        Capability.PURCHASE_ORDER_DRAFT,
+        Capability.PURCHASE_ORDER_APPROVE,
     }
 )

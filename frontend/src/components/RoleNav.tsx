@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  Package,
   Users,
   X,
 } from "lucide-react";
@@ -42,6 +43,7 @@ const NAV_BY_ROLE: Record<DemoRole, Array<{ href: string; label: string; icon: L
     { href: "/admin", label: "Command Center", icon: Building2 },
     { href: "/admin/appointments", label: "Appointments", icon: CalendarDays },
     { href: "/admin/patients", label: "Patients", icon: Users },
+    { href: "/admin/inventory", label: "Inventory", icon: Package },
     { href: "/admin/fleet", label: "Fleet", icon: Bot },
     { href: "/admin/observability", label: "Observability", icon: Activity },
   ],

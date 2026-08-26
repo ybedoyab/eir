@@ -12,6 +12,7 @@ from app.integrations.enterprise.security_demo import DEMO_MALICIOUS_PROMPT
 from app.repositories.recovery_repository import RecoveryEpisodeRepository
 
 SYNTHETIC_PATIENT_PREFIX = "patient-synthetic-"
+SYNTHETIC_SKU_PREFIX = "MED-"
 CONCERNING_MESSAGE = "Pain is an 8 and I noticed swelling near the incision."
 
 _lock = threading.Lock()
@@ -35,6 +36,16 @@ def require_synthetic_episode(
             detail="Demo controls only operate on synthetic episodes",
         )
     return episode
+
+
+def require_demo_sku(sku: str) -> str:
+    """Demo controls only touch the synthetic pharmacy catalog."""
+    if not sku.startswith(SYNTHETIC_SKU_PREFIX):
+        raise HTTPException(
+            status_code=403,
+            detail="Demo controls only operate on synthetic inventory",
+        )
+    return sku
 
 
 def claim_demo_action(episode_id: str, action: str) -> bool:

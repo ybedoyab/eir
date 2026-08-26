@@ -28,6 +28,8 @@ import {
   voiceCheckin,
   voiceFailed,
   isConcerningResponse,
+  isScriptedVoice,
+  isVoximplantEvent,
 } from "@/lib/demoStory";
 import { eventLabel } from "@/lib/eventLabels";
 import { cn } from "@/lib/cn";
@@ -35,7 +37,6 @@ import { episodeBadgeClass, riskBadgeClass } from "@/lib/status";
 import {
   advanceDemoFollowUp,
   bootstrapDemo,
-  getPatient,
   getRecovery,
   getRuntimeHistory,
   getRuntimeStatus,
@@ -50,7 +51,6 @@ import type {
   AdkWorkerTelemetry,
   DomainEvent,
   HumanReview,
-  Patient,
   RecoveryEpisode,
   RuntimeStatus,
 } from "@/types";
@@ -60,6 +60,22 @@ type BusyKind = "start" | "advance" | "attack" | "concerning" | "review" | "retr
 
 function isConflict(error: unknown): boolean {
   return error instanceof Error && error.message.includes("(409)");
+}
+
+function readDemoPointer(): { episodeId: string; patientName?: string } | null {
+  const raw = sessionStorage.getItem(DEMO_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as { episodeId?: string; patientName?: string };
+    if (typeof parsed.episodeId === "string" && parsed.episodeId) {
+      return { episodeId: parsed.episodeId, patientName: parsed.patientName };
+    }
+  } catch {
+    // Legacy demos stored a bare episode id.
+  }
+  return { episodeId: raw };
 }
 
 function ActivityBanner({ title, detail }: { title: string; detail?: string }) {
@@ -79,7 +95,7 @@ function ActivityBanner({ title, detail }: { title: string; detail?: string }) {
 export default function DemoPage() {
   const [episodeId, setEpisodeId] = useState<string | null>(null);
   const [episode, setEpisode] = useState<RecoveryEpisode | null>(null);
-  const [patient, setPatient] = useState<Patient | null>(null);
+  const [patientName, setPatientName] = useState<string | null>(null);
   const [events, setEvents] = useState<DomainEvent[]>([]);
   const [history, setHistory] = useState<AdkWorkerTelemetry[]>([]);
   const [reviews, setReviews] = useState<HumanReview[]>([]);
@@ -133,15 +149,10 @@ export default function DemoPage() {
     setHistory(nextHistory.items);
     setReviews(nextReviews.filter((review) => review.episode_id === id));
     setRuntime(nextRuntime);
-    try {
-      setPatient(await getPatient(nextEpisode.patient_id));
-    } catch {
-      setPatient(null);
-    }
   }, []);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem(DEMO_STORAGE_KEY);
+    const stored = readDemoPointer();
     setHydrated(true);
     if (!stored) {
       void getRuntimeStatus()
@@ -149,10 +160,14 @@ export default function DemoPage() {
         .catch(() => undefined);
       return;
     }
-    setEpisodeId(stored);
-    void refresh(stored).catch(() => {
+    setEpisodeId(stored.episodeId);
+    if (stored.patientName) {
+      setPatientName(stored.patientName);
+    }
+    void refresh(stored.episodeId).catch(() => {
       sessionStorage.removeItem(DEMO_STORAGE_KEY);
       setEpisodeId(null);
+      setPatientName(null);
     });
   }, [refresh]);
 
@@ -217,7 +232,7 @@ export default function DemoPage() {
     setHistory([]);
     setReviews([]);
     setEpisode(null);
-    setPatient(null);
+    setPatientName(null);
   }
 
   async function startDemo() {
@@ -225,8 +240,12 @@ export default function DemoPage() {
     resetLocalDemo();
     try {
       const boot = await bootstrapDemo(false);
-      sessionStorage.setItem(DEMO_STORAGE_KEY, boot.episode_id);
+      sessionStorage.setItem(
+        DEMO_STORAGE_KEY,
+        JSON.stringify({ episodeId: boot.episode_id, patientName: boot.patient_name ?? "" }),
+      );
       setEpisodeId(boot.episode_id);
+      setPatientName(boot.patient_name ?? null);
       await refresh(boot.episode_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start demo");
@@ -331,8 +350,12 @@ export default function DemoPage() {
 
   const actionLocked = busy !== null || reviewLocked;
   const showFastForward = Boolean(episodeId) && !completed[2] && awaiting !== "follow-up";
+  const voiceStarted = latestEvent(events, "VoiceCallStarted");
   const inCall =
-    hasEvent(events, "VoiceCallStarted") && !hasEvent(events, "VoiceCallCompleted") && !callFailed;
+    isVoximplantEvent(voiceStarted) &&
+    !hasEvent(events, "VoiceCallCompleted") &&
+    !callFailed;
+  const pstnCheckin = Boolean(checkin) && isVoximplantEvent(checkin) && !isScriptedVoice(checkin);
   const showAttack = completed[3] && !completed[6] && awaiting !== "attack";
   const showConcerning =
     (callFailed || (completed[3] && !concerningFromVoice)) &&
@@ -401,7 +424,7 @@ export default function DemoPage() {
                   Monitoring started
                 </p>
                 <h2 className="mt-1 text-xl font-semibold text-slate-900">
-                  {patient?.name ?? "Synthetic patient"}
+                  {patientName || "Synthetic patient"}
                 </h2>
                 <p className="mt-1 font-mono text-xs text-slate-500">
                   {shortEpisodeId(episodeId)} · {episode?.patient_id}
@@ -487,7 +510,7 @@ export default function DemoPage() {
           {checkin ? (
             <Card className="border-emerald-200 bg-emerald-50/50 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
-                REAL PHONE FOLLOW-UP COMPLETED
+                {pstnCheckin ? "REAL PHONE FOLLOW-UP COMPLETED" : "SYNTHETIC CHECK-IN COMPLETED"}
               </p>
               <h2 className="mt-1 text-xl font-semibold text-emerald-950">
                 Recovery check-in received

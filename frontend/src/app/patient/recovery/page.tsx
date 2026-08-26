@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, HeartPulse } from "lucide-react";
+import { CheckCircle2, HeartPulse, Pill } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -16,8 +16,8 @@ import { loadSession } from "@/lib/auth";
 import { formatWhen } from "@/lib/format";
 import { episodeStatus, riskStatus } from "@/lib/statusLabels";
 import { eventLabel } from "@/lib/eventLabels";
-import { listRecovery, listRecoveryEvents } from "@/services/api";
-import type { DomainEvent, RecoveryEpisode } from "@/types";
+import { listPatientMedications, listRecovery, listRecoveryEvents } from "@/services/api";
+import type { DomainEvent, PatientMedication, RecoveryEpisode } from "@/types";
 
 const PATIENT_SAFE_EVENTS = new Set([
   "RecoveryEpisodeStarted",
@@ -31,6 +31,7 @@ export default function PatientRecoveryPage() {
   const session = loadSession();
   const [episodes, setEpisodes] = useState<RecoveryEpisode[]>([]);
   const [eventsById, setEventsById] = useState<Record<string, DomainEvent[]>>({});
+  const [medications, setMedications] = useState<PatientMedication[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,10 +43,12 @@ export default function PatientRecoveryPage() {
         (item) => item.patient_id === session?.patient_id,
       );
       setEpisodes(items);
-      const entries = await Promise.all(
-        items.map(async (item) => [item.id, await listRecoveryEvents(item.id)] as const),
-      );
+      const [entries, medicationItems] = await Promise.all([
+        Promise.all(items.map(async (item) => [item.id, await listRecoveryEvents(item.id)] as const)),
+        session?.patient_id ? listPatientMedications(session.patient_id) : Promise.resolve([]),
+      ]);
       setEventsById(Object.fromEntries(entries));
+      setMedications(medicationItems);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load recovery");
     } finally {
@@ -71,7 +74,13 @@ export default function PatientRecoveryPage() {
       {loading ? (
         <CardSkeleton rows={6} />
       ) : active ? (
-        <RecoveryCard episode={active} events={eventsById[active.id] ?? []} />
+        <>
+          <RecoveryCard episode={active} events={eventsById[active.id] ?? []} />
+          <MedicationsCard
+            medications={medications}
+            events={eventsById[active.id] ?? []}
+          />
+        </>
       ) : (
         <EmptyState
           title="No active recovery"
@@ -175,6 +184,50 @@ function RecoveryCard({
       <Link href={`/recovery/${episode.id}`} className="mt-6 inline-block">
         <Button variant="secondary">View recovery details</Button>
       </Link>
+    </Card>
+  );
+}
+
+function MedicationsCard({
+  medications,
+  events,
+}: {
+  medications: PatientMedication[];
+  events: DomainEvent[];
+}) {
+  const checkin = [...events].reverse().find((item) => item.event_type === "PatientResponded");
+  const adherence = String(checkin?.payload.medication_adherence ?? "Not yet recorded");
+
+  return (
+    <Card>
+      <h2 className="text-base font-semibold text-slate-900">Your medications</h2>
+      <p className="mt-2 text-sm text-slate-600">
+        Your care team asked whether you have been taking your prescribed medications. Individual
+        drug names are matched after the check-in, not spoken during the call.
+      </p>
+      <p className="mt-4 text-sm text-slate-800">
+        Latest adherence: <span className="font-medium">{adherence}</span>
+      </p>
+      {medications.length ? (
+        <ul className="mt-4 space-y-3">
+          {medications.map((medication) => (
+            <li
+              key={`${medication.sku || medication.rxnorm_code || medication.name}`}
+              className="flex items-start gap-3 rounded-xl border border-slate-200 p-4"
+            >
+              <Pill aria-hidden className="mt-0.5 h-4 w-4 text-teal-700" />
+              <div>
+                <p className="font-medium text-slate-900">{medication.name}</p>
+                {medication.dose ? (
+                  <p className="mt-1 text-sm text-slate-600">{medication.dose}</p>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 text-sm text-slate-500">No prescribed medications on file.</p>
+      )}
     </Card>
   );
 }

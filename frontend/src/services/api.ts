@@ -8,6 +8,14 @@ import type {
   SlotOption,
 } from "@/lib/auth";
 
+import type {
+  DomainEvent,
+  HumanReview,
+  InventoryItem,
+  ReplenishmentCase,
+  Supplier,
+} from "@/types";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 function authHeaders(): Record<string, string> {
@@ -64,6 +72,39 @@ export async function loginDemo(username: string, password: string): Promise<Aut
   };
 }
 
+export interface CurrentUser {
+  sub: string;
+  name: string;
+  role: string;
+  patient_id?: string | null;
+  permissions: string[];
+  exp: number;
+}
+
+/**
+ * Verify the stored token against the server.
+ *
+ * Returns null when it is absent, expired, or rejected. Demo tokens last 24h
+ * and carry their own `exp`, so a stale localStorage session still looks
+ * perfectly valid to the client — only the server can settle it.
+ */
+export async function getCurrentUser(): Promise<CurrentUser | null> {
+  if (typeof window === "undefined" || !loadSession()?.token) {
+    return null;
+  }
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+    cache: "no-store",
+    headers: authHeaders(),
+  });
+  if (response.status === 401 || response.status === 403) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(`/api/v1/auth/me failed (${response.status})`);
+  }
+  return response.json();
+}
+
 export async function listDemoUsers() {
   return getJson<
     Array<{
@@ -76,11 +117,18 @@ export async function listDemoUsers() {
 }
 
 export async function listPatients() {
-  return getJson<import("@/types").Patient[]>("/api/v1/patients");
+  return getJson<import("@/types").Patient[]>("/api/v1/patients", true);
 }
 
 export async function getPatient(id: string) {
-  return getJson<import("@/types").Patient>(`/api/v1/patients/${id}`);
+  return getJson<import("@/types").Patient>(`/api/v1/patients/${id}`, true);
+}
+
+export async function listPatientMedications(patientId: string) {
+  return getJson<import("@/types").PatientMedication[]>(
+    `/api/v1/patients/${encodeURIComponent(patientId)}/medications`,
+    true,
+  );
 }
 
 export async function listAppointments() {
@@ -225,4 +273,86 @@ export async function simulatePromptInjection(episodeId: string) {
     `/api/v1/security/demo/prompt-injection/${episodeId}`,
     {},
   );
+}
+
+export interface VoiceWebConfig {
+  enabled: boolean;
+  login: string;
+  number: string;
+  transport: string;
+  gemini_live_model: string;
+  gemini_live_voice: string;
+}
+
+export interface VoiceWebSession {
+  login: string;
+  hash: string;
+  number: string;
+  correlation_id: string;
+  custom_data: string;
+}
+
+export async function getVoiceWebConfig() {
+  return getJson<VoiceWebConfig>("/api/v1/voice/web-session");
+}
+
+/**
+ * Authorize a browser check-in on one episode. Pass a Voximplant one-time key to
+ * also get a server-signed login hash; omit it once the client is registered.
+ */
+export async function startVoiceWebSession(episodeId: string, oneTimeKey = "") {
+  return postJson<VoiceWebSession>(
+    "/api/v1/voice/web-session",
+    { episode_id: episodeId, one_time_key: oneTimeKey },
+    true,
+  );
+}
+
+export async function listInventory() {
+  return getJson<InventoryItem[]>("/api/v1/inventory", true);
+}
+
+export async function listLowStock() {
+  return getJson<InventoryItem[]>("/api/v1/inventory/low-stock", true);
+}
+
+export async function listSuppliers(sku?: string) {
+  const query = sku ? `?sku=${encodeURIComponent(sku)}` : "";
+  return getJson<Supplier[]>(`/api/v1/inventory/suppliers${query}`, true);
+}
+
+export async function adjustStock(sku: string, delta: number, reason = "") {
+  return postJson<InventoryItem>(
+    `/api/v1/inventory/${encodeURIComponent(sku)}/adjust`,
+    { delta, reason },
+    true,
+  );
+}
+
+export async function listReplenishmentCases(openOnly = false) {
+  return getJson<ReplenishmentCase[]>(`/api/v1/supply/cases?open_only=${openOnly}`, true);
+}
+
+export async function getReplenishmentCase(caseId: string) {
+  return getJson<ReplenishmentCase>(`/api/v1/supply/cases/${caseId}`, true);
+}
+
+export async function listReplenishmentEvents(caseId: string) {
+  return getJson<DomainEvent[]>(`/api/v1/supply/cases/${caseId}/events`, true);
+}
+
+export async function listPurchaseApprovals(pending = true) {
+  return getJson<HumanReview[]>(`/api/v1/supply/approvals?pending=${pending}`, true);
+}
+
+export async function approvePurchaseOrder(caseId: string, note = "") {
+  return postJson<ReplenishmentCase>(`/api/v1/supply/cases/${caseId}/approve`, { note }, true);
+}
+
+export async function receiveDelivery(caseId: string) {
+  return postJson<ReplenishmentCase>(`/api/v1/supply/cases/${caseId}/receive`, {}, true);
+}
+
+export async function cancelReplenishmentCase(caseId: string, reason = "") {
+  return postJson<ReplenishmentCase>(`/api/v1/supply/cases/${caseId}/cancel`, { reason }, true);
 }

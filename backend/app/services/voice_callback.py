@@ -12,7 +12,7 @@ from eir_shared.events import (
     VoiceCallStarted,
 )
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.services.demo_controls import is_synthetic_patient
@@ -22,6 +22,11 @@ VOICE_STATES = frozenset(
 )
 COMPLETED_STATES = frozenset({"CALL_COMPLETED"})
 SYNTHETIC_PREFIX = "patient-synthetic-"
+
+
+class MedicationTaken(BaseModel):
+    sku: str = ""
+    taken: bool = True
 
 
 class VoiceCallbackRequest(BaseModel):
@@ -35,6 +40,7 @@ class VoiceCallbackRequest(BaseModel):
     issue_summary: str = ""
     symptoms_worsening: bool | None = None
     medication_adherence: str = "unknown"
+    medications: list[MedicationTaken] = Field(default_factory=list)
     patient_requests_clinician: bool | None = None
     call_outcome: str = ""
     failure_reason: str = ""
@@ -45,19 +51,32 @@ def _sanitize_summary(value: str) -> str:
     return text[:240]
 
 
+def _normalize_medications(items: list[MedicationTaken]) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for item in items:
+        sku = str(item.sku or "").strip()[:24]
+        if not sku:
+            continue
+        result.append({"sku": sku, "taken": bool(item.taken)})
+    return result
+
+
 def _structured_payload(body: VoiceCallbackRequest) -> dict[str, Any]:
     pain = body.pain_score
     if pain is not None:
         pain = max(0, min(10, int(pain)))
+    medications = _normalize_medications(body.medications)
     adherence = (
         body.medication_adherence
         if body.medication_adherence in {"yes", "no", "unknown"}
         else "unknown"
     )
+    if any(not item["taken"] for item in medications):
+        adherence = "no"
     return {
         "channel": "voice",
         "provider": "voximplant",
-        "synthetic": True,
+        "synthetic": False,
         "correlation_id": body.correlation_id,
         "call_id": body.call_id,
         "pain_score": pain,
@@ -65,6 +84,7 @@ def _structured_payload(body: VoiceCallbackRequest) -> dict[str, Any]:
         "issue_summary": _sanitize_summary(body.issue_summary),
         "symptoms_worsening": bool(body.symptoms_worsening),
         "medication_adherence": adherence,
+        "medications": medications,
         "patient_requests_clinician": bool(body.patient_requests_clinician),
         "call_outcome": body.call_outcome or "completed",
         "gemini_live_model": settings.gemini_live_model,
@@ -145,6 +165,7 @@ class VoiceCallbackService:
             completed["reported_issue"] = body.reported_issue
             completed["issue_summary"] = _sanitize_summary(body.issue_summary)
             completed["medication_adherence"] = body.medication_adherence
+            completed["medications"] = _normalize_medications(body.medications)
             return VoiceCallCompleted(episode_id=body.episode_id, payload=completed)
         failed = dict(payload)
         failed["failure_reason"] = _sanitize_summary(body.failure_reason or state.lower())

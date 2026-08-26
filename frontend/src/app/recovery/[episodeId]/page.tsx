@@ -160,8 +160,28 @@ export default function RecoveryEpisodePage({
             <Card className="p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">Latest adherence signal</p>
               <p className="mt-2 text-sm text-slate-800">
-                {latestAdherence ? formatWhen(latestAdherence.occurred_at) : "No concern recorded"}
+                {latestAdherence
+                  ? String(latestAdherence.payload.medication_adherence ?? "no")
+                  : String(latestContact?.payload.medication_adherence ?? "No concern recorded")}
               </p>
+              {latestAdherence ? (
+                <p className="mt-2 text-xs text-slate-500">
+                  {latestRisk?.payload.reason === "critical_medication_adherence"
+                    ? `Critical: ${
+                        Array.isArray(latestRisk.payload.medications)
+                          ? latestRisk.payload.medications
+                              .map((item) =>
+                                typeof item === "object" && item && "name" in item
+                                  ? String(item.name)
+                                  : "",
+                              )
+                              .filter(Boolean)
+                              .join(", ") || "prescribed medication"
+                          : "prescribed medication"
+                      }`
+                    : "Recorded; no critical medication"}
+                </p>
+              ) : null}
             </Card>
             <Card className="p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">Latest risk assessment</p>

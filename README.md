@@ -5,24 +5,33 @@ EIR (Enterprise Intelligence Runtime) is a secure multi-agent hospital operation
 ## Architecture overview
 
 ```text
-Patient channels (Web / Voice)
-        ↓
-Patient Access Agent
-        ↓
-Capability Router / Registry
- ┌──────────────┬───────────┬──────────┬─────────────┐
- Scheduling   Recovery     Records    Care Navigation
-     ↓            ↓           ↓
- FHIR Slots   Outreach      FHIR
- Appointment  Risk
-              Adherence
-        ↓
- Safety / Identity / Human Handoff
-        ↓
- Clinician + Operations Workspaces
+Patient channels (Web / Voice)          Cloud Scheduler
+        |                                      |
+        v                                      v
+Patient Access Agent                     Stock Monitor
+        |                                      |
+        v                                      v
+Capability Router / Registry  <---------  Supply Orchestrator
+ |         |         |         |            |            |
+ v         v         v         v            v            v
+Sched.  Recovery  Records  Care Nav.    Inventory   Procurement
+ |         |         |                      |            |
+ v         v         v                      v            v
+FHIR    Outreach    FHIR                 Forecast   Supplier voice
+Slots   Risk                                             |
+        Adherence                                        v
+                                                  Purchase order
+        |                                                |
+        +------------------+-----------------------------+
+                           v
+             Safety / Identity / Human Handoff
+                           v
+             Clinician + Operations Workspaces
 ```
 
 Recovery is a longitudinal workflow module. Patient Access is the hospital front door. The scheduling agent owns appointment lifecycle. FHIR remains the system-of-record abstraction. Voice and web call the same domain services.
+
+Supply & Replenishment is a second longitudinal workflow on the same platform: it reuses the capability registry, the safety gate, and the human-review queue, but owns its own aggregate and runtime. Stock is operational data and never touches FHIR. The procurement agent may draft a purchase order; only an operations admin can authorize one. See [ADR 0005](docs/decisions/0005-supply-workflow-as-a-sibling-runtime.md).
 
 See [docs/architecture/overview.md](docs/architecture/overview.md) and [docs/research/hospital-fleet-evidence.md](docs/research/hospital-fleet-evidence.md).
 
@@ -34,7 +43,7 @@ eir/
 ├── backend/      FastAPI API, domain services, adapters
 ├── agents/       ADK agents and capability registry
 ├── shared/       Events, capabilities, contracts
-├── mocks/        Synthetic FHIR, hospital scheduling fixtures
+├── mocks/        Synthetic FHIR, hospital scheduling, pharmacy inventory fixtures
 ├── docs/         Architecture, research, ADRs
 └── infra/        GCP and Voximplant provisioning
 ```
@@ -60,7 +69,7 @@ uv run --package eir-backend uvicorn app.main:app --reload --app-dir backend --p
 Frontend:
 
 ```bash
-cd frontend && pnpm dev
+cd frontend && pnpm run dev
 ```
 
 Demo sign-in users (`password` = `demo-<username>`):

@@ -14,8 +14,8 @@ export default function DevVoicePreviewPage() {
     <section className="space-y-6">
       <PageHeader
         eyebrow="Developer"
-        title="Voice preview"
-        description="Ephemeral browser transcript only. No paid PSTN/WebRTC verification this sprint."
+        title="Voice check-in"
+        description="Browser-dialled WebRTC check-in against the live Voximplant scenario. Transcript is ephemeral and stays in this tab; the structured result reaches the episode through the callback."
       />
       <VoicePreviewClient />
     </section>

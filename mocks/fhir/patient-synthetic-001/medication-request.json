@@ -1,6 +1,7 @@
 {
-  "resourceType": "MedicationRequest",
-  "id": "medicationrequest-synthetic-001",
+  "resourceType": "Bundle",
+  "id": "medicationrequest-bundle-synthetic-001",
+  "type": "collection",
   "meta": {
     "tag": [
       {
@@ -10,33 +11,174 @@
       }
     ]
   },
-  "text": {
-    "status": "generated",
-    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">SYNTHETIC acetaminophen request for Patient/patient-synthetic-001. Not a real prescription.</div>"
-  },
-  "status": "active",
-  "intent": "order",
-  "medicationCodeableConcept": {
-    "coding": [
-      {
-        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-        "code": "161",
-        "display": "Acetaminophen"
-      }
-    ],
-    "text": "Acetaminophen 500 mg (synthetic example)"
-  },
-  "subject": {
-    "reference": "Patient/patient-synthetic-001",
-    "display": "Alex Rivera (synthetic)"
-  },
-  "encounter": {
-    "reference": "Encounter/encounter-synthetic-001"
-  },
-  "authoredOn": "2026-08-10",
-  "dosageInstruction": [
+  "entry": [
     {
-      "text": "SYNTHETIC: one tablet by mouth every 8 hours as needed for pain"
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medicationrequest-synthetic-001-enox",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://eir.local/tags",
+              "code": "synthetic",
+              "display": "SYNTHETIC — not real patient data"
+            }
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">SYNTHETIC enoxaparin request for Patient/patient-synthetic-001. Not a real prescription.</div>"
+        },
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [
+            {
+              "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+              "code": "67108",
+              "display": "Enoxaparin"
+            },
+            {
+              "system": "https://eir.local/pharmacy-sku",
+              "code": "MED-ENOX-40",
+              "display": "Enoxaparin sodium 40 mg syringe"
+            }
+          ],
+          "text": "Enoxaparin sodium 40 mg / 0.4 mL (synthetic example)"
+        },
+        "subject": {
+          "reference": "Patient/patient-synthetic-001",
+          "display": "Alex Rivera (synthetic)"
+        },
+        "encounter": {
+          "reference": "Encounter/encounter-synthetic-001"
+        },
+        "authoredOn": "2026-08-10",
+        "dosageInstruction": [
+          {
+            "text": "SYNTHETIC: one 40 mg syringe subcutaneously once daily",
+            "timing": {
+              "repeat": {
+                "frequency": 1,
+                "period": 1,
+                "periodUnit": "d"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medicationrequest-synthetic-001-para",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://eir.local/tags",
+              "code": "synthetic",
+              "display": "SYNTHETIC — not real patient data"
+            }
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">SYNTHETIC acetaminophen request for Patient/patient-synthetic-001. Not a real prescription.</div>"
+        },
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [
+            {
+              "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+              "code": "161",
+              "display": "Acetaminophen"
+            },
+            {
+              "system": "https://eir.local/pharmacy-sku",
+              "code": "MED-PARA-500",
+              "display": "Paracetamol 500 mg tablet"
+            }
+          ],
+          "text": "Acetaminophen 500 mg (synthetic example)"
+        },
+        "subject": {
+          "reference": "Patient/patient-synthetic-001",
+          "display": "Alex Rivera (synthetic)"
+        },
+        "encounter": {
+          "reference": "Encounter/encounter-synthetic-001"
+        },
+        "authoredOn": "2026-08-10",
+        "dosageInstruction": [
+          {
+            "text": "SYNTHETIC: one tablet by mouth every 8 hours as needed for pain",
+            "timing": {
+              "repeat": {
+                "frequency": 1,
+                "period": 8,
+                "periodUnit": "h"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "medicationrequest-synthetic-001-amox",
+        "meta": {
+          "tag": [
+            {
+              "system": "https://eir.local/tags",
+              "code": "synthetic",
+              "display": "SYNTHETIC — not real patient data"
+            }
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">SYNTHETIC amoxicillin request for Patient/patient-synthetic-001. Not a real prescription.</div>"
+        },
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [
+            {
+              "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+              "code": "723",
+              "display": "Amoxicillin"
+            },
+            {
+              "system": "https://eir.local/pharmacy-sku",
+              "code": "MED-AMOX-500",
+              "display": "Amoxicillin 500 mg capsule"
+            }
+          ],
+          "text": "Amoxicillin 500 mg (synthetic example)"
+        },
+        "subject": {
+          "reference": "Patient/patient-synthetic-001",
+          "display": "Alex Rivera (synthetic)"
+        },
+        "encounter": {
+          "reference": "Encounter/encounter-synthetic-001"
+        },
+        "authoredOn": "2026-08-10",
+        "dosageInstruction": [
+          {
+            "text": "SYNTHETIC: one 500 mg capsule by mouth every 8 hours",
+            "timing": {
+              "repeat": {
+                "frequency": 1,
+                "period": 8,
+                "periodUnit": "h"
+              }
+            }
+          }
+        ]
+      }
     }
   ]
 }

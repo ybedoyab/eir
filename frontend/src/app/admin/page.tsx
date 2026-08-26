@@ -5,6 +5,8 @@ import {
   ClipboardCheck,
   HeartPulse,
   LayoutGrid,
+  Package,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -140,6 +142,22 @@ export default function AdminHomePage() {
             />
             <StatCard label="Active recoveries" value={activeRecoveries} icon={HeartPulse} />
             <StatCard label="Reviews waiting" value={pendingReviews} icon={ClipboardCheck} />
+            <StatCard
+              label="Medications below reorder point"
+              value={snapshot?.low_stock_skus ?? 0}
+              icon={Package}
+              hint={
+                snapshot?.open_replenishments
+                  ? `${snapshot.open_replenishments} replenishment case(s) in flight`
+                  : "Supply fleet idle"
+              }
+            />
+            <StatCard
+              label="Purchase orders to authorize"
+              value={snapshot?.pending_purchase_approvals ?? 0}
+              icon={ShieldCheck}
+              hint="Agents draft, a human authorizes"
+            />
           </div>
           <Card>
             <div className="mb-4 flex items-center justify-between">

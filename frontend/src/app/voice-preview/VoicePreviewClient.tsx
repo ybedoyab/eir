@@ -1,25 +1,34 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
 import type * as VoxSdk from "voximplant-websdk";
 
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { clearSession, loadSession } from "@/lib/auth";
+import { VOX_PREVIEW_NODE } from "@/lib/voximplantPreview";
+import { appendTranscript, type TranscriptLine, type TranscriptRole } from "@/lib/voiceTranscript";
 import {
-  previewSipLogin,
-  VOX_PREVIEW_ACCOUNT,
-  VOX_PREVIEW_APP,
-  VOX_PREVIEW_NODE,
-  VOX_PREVIEW_USER,
-} from "@/lib/voximplantPreview";
-import { createLocalRinger } from "@/lib/voiceRingtone";
-import { applyTranscript, type TranscriptLine } from "@/lib/voiceTranscript";
+  getCurrentUser,
+  getVoiceWebConfig,
+  listRecovery,
+  startVoiceWebSession,
+  type CurrentUser,
+  type VoiceWebConfig,
+} from "@/services/api";
 
-type Status = "idle" | "connecting" | "ready" | "incoming" | "in_call" | "ended";
+type Status = "idle" | "connecting" | "dialing" | "in_call" | "ended";
 type AudioState = "idle" | "waiting" | "playing" | "blocked";
+/** What the conversation is doing right now, from the patient's point of view. */
+type Phase = "idle" | "listening" | "hearing" | "thinking" | "speaking";
+
+// Local mic thresholds. Speech has to clear VOICE_ON to register, then stay
+// under it for VOICE_OFF_MS before the turn counts as over -- without that
+// hysteresis the indicator strobes on every syllable gap.
+const VOICE_ON = 0.025;
+const VOICE_OFF_MS = 260;
 
 type PreviewRenderer = {
   kind?: string;
@@ -35,17 +44,32 @@ type PreviewEndpoint = {
 };
 
 type PreviewCall = {
-  answer: (
-    customData?: string,
-    extraHeaders?: Record<string, string>,
-    useVideo?: { sendVideo?: boolean; receiveVideo?: boolean },
-  ) => void;
   hangup: () => void;
   unmutePlayback: () => void;
   getEndpoints: () => PreviewEndpoint[];
   on: (event: unknown, handler: (payload: unknown) => void) => void;
   peerConnection?: { peerConnection?: RTCPeerConnection };
 };
+
+const voiceDebug = {
+  info: (...args: unknown[]) =>
+    process.env.NODE_ENV === "development" ? console.info("[eir-voice]", ...args) : undefined,
+  warn: (...args: unknown[]) =>
+    process.env.NODE_ENV === "development" ? console.warn("[eir-voice]", ...args) : undefined,
+  error: (...args: unknown[]) =>
+    process.env.NODE_ENV === "development" ? console.error("[eir-voice]", ...args) : undefined,
+};
+
+const VOX_AUTH_CODES: Record<number, string> = {
+  401: "Voximplant rejected the login signature (invalid password or one-time key hash)",
+  403: "The Voximplant account is frozen",
+  404: "The Voximplant user does not exist",
+  500: "Voximplant had an internal error",
+};
+
+function describeVoxAuthCode(code: unknown): string | null {
+  return typeof code === "number" ? (VOX_AUTH_CODES[code] ?? null) : null;
+}
 
 function describeError(err: unknown): string {
   if (err instanceof Error && err.message) {
@@ -56,6 +80,10 @@ function describeError(err: unknown): string {
   }
   if (err && typeof err === "object") {
     const rec = err as { message?: unknown; code?: unknown };
+    const known = describeVoxAuthCode(rec.code);
+    if (known) {
+      return `${known} (code ${String(rec.code)})`;
+    }
     return [rec.message, rec.code].filter(Boolean).map(String).join(" ") || "Could not connect";
   }
   return "Could not connect to Voximplant";
@@ -83,22 +111,35 @@ function formatTimer(seconds: number): string {
 }
 
 function statusLabel(status: Status): string {
-  if (status === "incoming") {
-    return "Incoming call";
-  }
   if (status === "in_call") {
     return "Connected";
   }
-  if (status === "ready") {
-    return "Waiting for call";
+  if (status === "dialing") {
+    return "Calling EIR…";
   }
   if (status === "connecting") {
     return "Connecting…";
   }
   if (status === "ended") {
-    return "Call ended";
+    return "Check-in ended";
   }
-  return "Preview line";
+  return "Ready to start";
+}
+
+function phaseLabel(phase: Phase): string {
+  if (phase === "hearing") {
+    return "Listening to you…";
+  }
+  if (phase === "thinking") {
+    return "EIR is thinking…";
+  }
+  if (phase === "speaking") {
+    return "EIR is speaking";
+  }
+  if (phase === "listening") {
+    return "Go ahead — EIR is listening";
+  }
+  return "Not connected";
 }
 
 function audioLabel(state: AudioState): string {
@@ -117,7 +158,6 @@ function audioLabel(state: AudioState): string {
 export default function VoicePreviewClient() {
   const sdkRef = useRef<ReturnType<typeof VoxSdk.getInstance> | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
-  const ringerRef = useRef<ReturnType<typeof createLocalRinger> | null>(null);
   const eventsRef = useRef<typeof VoxSdk | null>(null);
   const callRef = useRef<PreviewCall | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -125,16 +165,26 @@ export default function VoicePreviewClient() {
   const micBytesRef = useRef(0);
   const routedStreams = useRef(new WeakSet<MediaStream>());
   const wiredEndpoints = useRef(new WeakSet<object>());
-  const incomingHandlerSet = useRef(false);
+  const micHandlerSet = useRef(false);
+  const meterRef = useRef<HTMLDivElement | null>(null);
+  const meterFrameRef = useRef<number | null>(null);
+  const meterSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const voiceSinceRef = useRef(0);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [micReady, setMicReady] = useState(false);
   const [micSending, setMicSending] = useState(false);
+  const [micSpeaking, setMicSpeaking] = useState(false);
+  const [awaitingReply, setAwaitingReply] = useState(false);
   const [audioState, setAudioState] = useState<AudioState>("idle");
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [episodeId, setEpisodeId] = useState<string | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
+  const [config, setConfig] = useState<VoiceWebConfig | null>(null);
+  const [session, setSession] = useState<CurrentUser | null>(null);
+  const [loadingEpisode, setLoadingEpisode] = useState(true);
+  const signedInAsPatient = Boolean(session?.role === "PATIENT" && session?.patient_id);
 
   useEffect(() => {
     if (status !== "in_call") {
@@ -149,9 +199,55 @@ export default function VoicePreviewClient() {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
   }, [lines]);
 
+  useEffect(() => stopMicMeter, []);
+
+  // Resolve where to dial and which episode this patient is checking in on.
   useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const stored = loadSession();
+      try {
+        const [webConfig, me, episodes] = await Promise.all([
+          getVoiceWebConfig(),
+          getCurrentUser(),
+          listRecovery(),
+        ]);
+        if (cancelled) {
+          return;
+        }
+        setConfig(webConfig);
+        if (!me) {
+          // Absent, expired, or rejected. Drop the stale session so the page
+          // stops offering a check-in that can only 401 on click.
+          if (stored) {
+            clearSession();
+          }
+          setSession(null);
+          setEpisodeId(null);
+          return;
+        }
+        setSession(me);
+        // Never fall back to someone else's episode: the server rejects it with
+        // a 403, and offering it at all is the wrong affordance.
+        const patientId = me.role === "PATIENT" ? me.patient_id : null;
+        const mine = patientId
+          ? episodes.filter((episode) => episode.patient_id === patientId)
+          : [];
+        const active = mine.find((episode) => episode.status === "ACTIVE") ?? mine[0];
+        setEpisodeId(active?.id ?? null);
+      } catch (err) {
+        if (!cancelled) {
+          setError(describeError(err));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingEpisode(false);
+        }
+      }
+    }
+    void load();
     return () => {
-      ringerRef.current?.stop();
+      cancelled = true;
     };
   }, []);
 
@@ -175,6 +271,84 @@ export default function VoicePreviewClient() {
     return ctx;
   }
 
+  function stopMicMeter() {
+    if (meterFrameRef.current !== null) {
+      cancelAnimationFrame(meterFrameRef.current);
+      meterFrameRef.current = null;
+    }
+    meterSourceRef.current?.disconnect();
+    meterSourceRef.current = null;
+    voiceSinceRef.current = 0;
+    setMicSpeaking(false);
+    if (meterRef.current) {
+      meterRef.current.style.transform = "scaleX(0)";
+    }
+  }
+
+  /**
+   * Level meter on the audio actually being sent, taken from the outbound RTC
+   * track rather than a second getUserMedia so there is no competing capture.
+   * This is the only "we can hear you" signal that costs no round trip: the
+   * transcript can only confirm it after Gemini has transcribed the audio.
+   */
+  function startMicMeter(call: PreviewCall) {
+    const ctx = ctxRef.current;
+    const pc = getRawPeerConnection(call);
+    if (!ctx || !pc || meterSourceRef.current) {
+      return;
+    }
+    const track = pc.getSenders().find((sender) => sender.track?.kind === "audio")?.track;
+    if (!track) {
+      voiceDebug.warn("no outbound audio track to meter");
+      return;
+    }
+    let source: MediaStreamAudioSourceNode;
+    let analyser: AnalyserNode;
+    try {
+      source = ctx.createMediaStreamSource(new MediaStream([track]));
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.6;
+      // Deliberately not connected to ctx.destination: this only measures the
+      // mic, and routing it to the speakers would play the patient back to
+      // themselves.
+      source.connect(analyser);
+    } catch (err) {
+      voiceDebug.warn("mic meter unavailable", err);
+      return;
+    }
+    meterSourceRef.current = source;
+    const samples = new Float32Array(analyser.fftSize);
+
+    const tick = () => {
+      meterFrameRef.current = requestAnimationFrame(tick);
+      analyser.getFloatTimeDomainData(samples);
+      let sum = 0;
+      for (const sample of samples) {
+        sum += sample * sample;
+      }
+      const rms = Math.sqrt(sum / samples.length);
+      // The bar is written straight to the DOM: at 60fps this would re-render
+      // the whole card, and only the speaking/quiet flip is React's business.
+      if (meterRef.current) {
+        const scale = Math.min(1, rms / 0.25);
+        meterRef.current.style.transform = `scaleX(${scale.toFixed(3)})`;
+      }
+      const now = performance.now();
+      if (rms >= VOICE_ON) {
+        voiceSinceRef.current = now;
+        setMicSpeaking(true);
+      } else if (voiceSinceRef.current && now - voiceSinceRef.current > VOICE_OFF_MS) {
+        voiceSinceRef.current = 0;
+        setMicSpeaking(false);
+        // The patient just finished a turn, so a reply is now owed. Cleared by
+        // EIR's first transcription delta.
+        setAwaitingReply(true);
+      }
+    };
+    meterFrameRef.current = requestAnimationFrame(tick);
+  }
+
   function routeStreamToSpeakers(stream: MediaStream | null | undefined) {
     if (!stream || routedStreams.current.has(stream)) {
       return;
@@ -188,26 +362,17 @@ export default function VoicePreviewClient() {
       try {
         const source = ctx.createMediaStreamSource(stream);
         source.connect(ctx.destination);
-        console.info("[eir-voice] remote stream routed via Web Audio");
+        voiceDebug.info("remote stream routed via Web Audio");
       } catch (err) {
-        console.warn("[eir-voice] Web Audio route failed", err);
+        voiceDebug.warn("Web Audio route failed", err);
       }
     });
   }
 
-  function stopRingtone() {
-    ringerRef.current?.stop();
-    ringerRef.current = null;
-  }
-
-  async function startRingtone() {
-    const ctx = await resumeAudioContext();
-    stopRingtone();
-    ringerRef.current = createLocalRinger(ctx);
-    ringerRef.current.start();
-  }
-
   function mountRemoteElement(element: HTMLMediaElement) {
+    if (element instanceof HTMLVideoElement) {
+      return;
+    }
     const container = document.getElementById("eir-remote-media");
     if (container && element.parentElement !== container) {
       container.replaceChildren(element);
@@ -215,7 +380,7 @@ export default function VoicePreviewClient() {
     element.muted = false;
     element.volume = 1;
     element.autoplay = true;
-    element.controls = true;
+    element.controls = false;
     element.setAttribute("playsinline", "true");
     if (element.srcObject instanceof MediaStream) {
       routeStreamToSpeakers(element.srcObject);
@@ -231,7 +396,7 @@ export default function VoicePreviewClient() {
     );
     void element.play().then(
       () => {
-        console.info("[eir-voice] remote element playing");
+        voiceDebug.info("remote element playing");
         setAudioState("playing");
       },
       () => setAudioState("blocked"),
@@ -239,6 +404,10 @@ export default function VoicePreviewClient() {
   }
 
   function hookRenderer(renderer: PreviewRenderer) {
+    if (renderer.kind === "video") {
+      voiceDebug.info("ignoring video renderer");
+      return;
+    }
     renderer.enable();
     const container = document.getElementById("eir-remote-media");
     renderer.render(container ?? undefined);
@@ -247,7 +416,7 @@ export default function VoicePreviewClient() {
     } else if (renderer.stream) {
       routeStreamToSpeakers(renderer.stream);
     }
-    console.info("[eir-voice] remote renderer attached", renderer.kind ?? "unknown");
+    voiceDebug.info("remote renderer attached", renderer.kind ?? "unknown");
   }
 
   function wireEndpoint(endpoint: PreviewEndpoint) {
@@ -283,10 +452,10 @@ export default function VoicePreviewClient() {
   function logPeerState(call: PreviewCall, label: string) {
     const pc = getRawPeerConnection(call);
     if (!pc) {
-      console.info(`[eir-voice] ${label}: no peerConnection yet`);
+      voiceDebug.info(`${label}: no peerConnection yet`);
       return;
     }
-    console.info(`[eir-voice] ${label}: ice=${pc.iceConnectionState} conn=${pc.connectionState}`);
+    voiceDebug.info(`${label}: ice=${pc.iceConnectionState} conn=${pc.connectionState}`);
   }
 
   function readStats(payload: unknown) {
@@ -313,16 +482,22 @@ export default function VoicePreviewClient() {
     call.on(events.CallEvents.MessageReceived, (payload) => {
       const raw = String((payload as { text?: string }).text || "");
       try {
-        const parsed = JSON.parse(raw) as { r?: string; t?: string; eid?: string; f?: number };
+        const parsed = JSON.parse(raw) as { r?: string; d?: string; i?: number; eid?: string; f?: number };
         if (parsed.eid) {
           setEpisodeId(parsed.eid);
         }
-        const finished = parsed.f === 1;
-        if (parsed.r === "p" && parsed.t) {
-          setLines((current) => applyTranscript(current, "you", parsed.t!, finished));
-        }
-        if (parsed.r === "a" && parsed.t) {
-          setLines((current) => applyTranscript(current, "eir", parsed.t!, finished));
+        // The scenario sends one delta per Gemini transcription chunk, tagged
+        // with the turn it belongs to. Chunks are appended, never reconciled.
+        const role: TranscriptRole | null =
+          parsed.r === "p" ? "you" : parsed.r === "a" ? "eir" : null;
+        if (role && typeof parsed.i === "number") {
+          const turn = parsed.i;
+          const delta = typeof parsed.d === "string" ? parsed.d : "";
+          const finished = parsed.f === 1;
+          if (role === "eir" && delta) {
+            setAwaitingReply(false);
+          }
+          setLines((current) => appendTranscript(current, turn, role, delta, finished));
         }
       } catch {
         // ignore non-JSON signaling
@@ -331,28 +506,30 @@ export default function VoicePreviewClient() {
     call.on(events.CallEvents.EndpointAdded, (payload) => {
       const endpoint = (payload as { endpoint?: PreviewEndpoint }).endpoint;
       if (endpoint) {
-        console.info("[eir-voice] endpoint added");
+        voiceDebug.info("endpoint added");
         wireEndpoint(endpoint);
       }
     });
     call.on(events.CallEvents.Connected, () => {
-      console.info("[eir-voice] call connected");
+      voiceDebug.info("call connected");
       call.unmutePlayback();
       attachRemote(call);
       logPeerState(call, "connected");
+      startMicMeter(call);
       setAudioState("waiting");
+      setStatus("in_call");
     });
     call.on(events.CallEvents.ICECompleted, () => {
-      console.info("[eir-voice] ICE completed");
+      voiceDebug.info("ICE completed");
       logPeerState(callRef.current ?? call, "ice-completed");
     });
     call.on(events.CallEvents.ICETimeout, () => {
-      console.warn("[eir-voice] ICE timeout");
+      voiceDebug.warn("ICE timeout");
     });
     call.on(events.CallEvents.MediaElementCreated, (payload) => {
       const element = (payload as { element?: HTMLMediaElement }).element;
       if (element) {
-        console.info("[eir-voice] media element created");
+        voiceDebug.info("media element created");
         mountRemoteElement(element);
       }
     });
@@ -360,29 +537,63 @@ export default function VoicePreviewClient() {
       readStats(payload);
     });
     call.on(events.CallEvents.Disconnected, () => {
-      console.info("[eir-voice] call disconnected");
-      stopRingtone();
+      voiceDebug.info("call disconnected");
       callRef.current = null;
+      stopMicMeter();
       setStatus("ended");
       setAudioState("idle");
       setMicSending(false);
+      setAwaitingReply(false);
     });
     call.on(events.CallEvents.Failed, (payload) => {
       const failed = payload as { code?: number; reason?: string };
-      console.error("[eir-voice] call failed", failed.code, failed.reason);
-      stopRingtone();
+      voiceDebug.error("call failed", failed.code, failed.reason);
       callRef.current = null;
+      stopMicMeter();
       setStatus("ended");
       setAudioState("idle");
       setMicSending(false);
+      setAwaitingReply(false);
     });
   }
 
-  async function connect(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const password = String(new FormData(event.currentTarget).get("password") || "");
-    if (!password) {
-      setError("Password is required. Use .voximplant-preview.env.");
+  /** Log in with a server-signed one-time key. The password never reaches this browser. */
+  async function authenticate(
+    sdk: ReturnType<typeof VoxSdk.getInstance>,
+    targetEpisode: string,
+  ) {
+    const login = config?.login;
+    if (!login) {
+      throw new Error("Browser voice is not configured on this deployment");
+    }
+    const requested = (await sdk.requestOneTimeLoginKey(login)) as {
+      key?: string;
+      code?: number;
+    };
+    if (!requested?.key) {
+      throw new Error(
+        `Voximplant did not issue a one-time key${requested?.code ? ` (${requested.code})` : ""}`,
+      );
+    }
+    const session = await startVoiceWebSession(targetEpisode, requested.key);
+    const auth = (await sdk.loginWithOneTimeKey(session.login, session.hash)) as {
+      result?: boolean;
+      code?: number;
+    };
+    if (auth && auth.result === false) {
+      throw new Error(`Voximplant login failed${auth.code ? ` (${auth.code})` : ""}`);
+    }
+    return session;
+  }
+
+  async function startCheckin() {
+    const targetEpisode = episodeId;
+    if (!signedInAsPatient) {
+      setError("Sign in as a patient before starting a check-in.");
+      return;
+    }
+    if (!targetEpisode) {
+      setError("No active recovery episode to check in on.");
       return;
     }
     setBusy(true);
@@ -390,28 +601,20 @@ export default function VoicePreviewClient() {
     setLines([]);
     setStatus("connecting");
     try {
+      // Unlock audio inside the click, before any await, or Safari keeps it suspended.
+      await resumeAudioContext();
+
       const VoxImplant = await loadVoxSdk();
       eventsRef.current = VoxImplant;
       const sdk = VoxImplant.getInstance();
       sdkRef.current = sdk;
 
-      if (!incomingHandlerSet.current) {
-        incomingHandlerSet.current = true;
-        sdk.on(VoxImplant.Events.IncomingCall, (incoming) => {
-          const call = incoming.call as unknown as PreviewCall;
-          callRef.current = call;
-          remoteBytesRef.current = 0;
-          micBytesRef.current = 0;
-          wiredEndpoints.current = new WeakSet();
-          setMicSending(false);
-          wireCall(call);
-          void startRingtone();
-          setStatus("incoming");
-        });
+      if (!micHandlerSet.current) {
+        micHandlerSet.current = true;
         sdk.on(VoxImplant.Events.MicAccessResult, (payload) => {
           const granted = (payload as { result?: boolean }).result !== false;
           setMicReady(granted);
-          console.info("[eir-voice] mic access", granted ? "granted" : "denied");
+          voiceDebug.info("mic access", granted ? "granted" : "denied");
         });
       }
 
@@ -429,39 +632,47 @@ export default function VoicePreviewClient() {
           throw initError;
         }
       }
-      await sdk.connect();
-      const auth = (await sdk.login(previewSipLogin(), password)) as { result?: boolean; code?: number };
-      if (auth && auth.result === false) {
-        throw new Error(`Voximplant login failed${auth.code ? ` (${auth.code})` : ""}`);
+
+      // The SDK is a singleton, and a successful login leaves it in LOGGED_IN
+      // rather than CONNECTED. Treating only CONNECTED as "up" would reconnect
+      // and re-run the one-time key handshake on every later check-in, so the
+      // client state decides: LOGGED_IN just needs fresh custom data.
+      let state = sdk.getClientState();
+      if (
+        state !== VoxImplant.ClientState.CONNECTED &&
+        state !== VoxImplant.ClientState.LOGGED_IN
+      ) {
+        await sdk.connect();
+        state = sdk.getClientState();
       }
-      setStatus("ready");
+      const session =
+        state === VoxImplant.ClientState.LOGGED_IN
+          ? await startVoiceWebSession(targetEpisode)
+          : await authenticate(sdk, targetEpisode);
+
+      setStatus("dialing");
+      remoteBytesRef.current = 0;
+      micBytesRef.current = 0;
+      wiredEndpoints.current = new WeakSet();
+      stopMicMeter();
+      setMicSending(false);
+      setAwaitingReply(false);
+
+      const call = sdk.call({
+        number: session.number,
+        video: { sendVideo: false, receiveVideo: false },
+        customData: session.custom_data,
+      }) as unknown as PreviewCall;
+      callRef.current = call;
+      wireCall(call);
+      // Status advances to in_call from the Connected handler, so the timer
+      // measures the conversation rather than the dial.
     } catch (err) {
       setStatus("idle");
       setError(describeError(err));
     } finally {
       setBusy(false);
     }
-  }
-
-  async function answer() {
-    const call = callRef.current;
-    if (!call) {
-      return;
-    }
-    stopRingtone();
-    try {
-      await resumeAudioContext();
-    } catch (err) {
-      setError(describeError(err));
-      return;
-    }
-    console.info("[eir-voice] answering call");
-    call.answer("", {}, { sendVideo: false, receiveVideo: false });
-    call.unmutePlayback();
-    window.setTimeout(() => logPeerState(call, "post-answer"), 1500);
-    window.setTimeout(() => logPeerState(call, "post-answer+4s"), 4000);
-    setAudioState("waiting");
-    setStatus("in_call");
   }
 
   async function tapToPlay() {
@@ -482,37 +693,49 @@ export default function VoicePreviewClient() {
   }
 
   function hangup() {
-    stopRingtone();
     try {
       callRef.current?.hangup();
     } catch {
       // ignore
     }
     callRef.current = null;
-    setStatus("ready");
+    stopMicMeter();
+    setStatus("ended");
     setAudioState("idle");
+    setAwaitingReply(false);
   }
 
-  const waiting = status === "ready";
-  const ringing = status === "incoming";
+  const dialing = status === "dialing";
   const live = status === "in_call";
+  const lastLine = lines[lines.length - 1];
+  const phase: Phase = !live
+    ? "idle"
+    : micSpeaking
+      ? "hearing"
+      : lastLine?.role === "eir" && lastLine.pending
+        ? "speaking"
+        : awaitingReply || lastLine?.role === "you"
+          ? "thinking"
+          : "listening";
+  const idle = status === "idle" || status === "ended";
+  const disabled = busy || !episodeId || !signedInAsPatient || config?.enabled === false;
 
   return (
     <div>
       <PageHeader
-        eyebrow="Voice preview"
-        title="Live recovery call"
-        description="Close phone.voximplant.com first. Connect here, wait for the line to open, then answer when EIR rings. Hard-refresh (Ctrl+Shift+R) if a previous call failed."
+        eyebrow="Voice check-in"
+        title="Talk to EIR"
+        description="Start a spoken recovery check-in in this tab. Audio runs over WebRTC — no phone call is placed and no number is dialled. Allow the microphone when your browser asks."
       />
       {error ? <ErrorAlert message={error} /> : null}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
         <Card className="overflow-hidden p-0">
           <div
             className={`relative px-6 py-10 text-center text-white ${
-              ringing ? "bg-emerald-700" : live ? "bg-teal-800" : "bg-slate-800"
+              dialing ? "bg-emerald-700" : live ? "bg-teal-800" : "bg-slate-800"
             }`}
           >
-            {ringing ? (
+            {dialing ? (
               <span className="absolute inset-x-0 top-4 mx-auto h-16 w-16 animate-ping rounded-full bg-white/20" />
             ) : null}
             <p className="relative text-xs uppercase tracking-[0.24em] text-white/70">EIR Recovery</p>
@@ -526,69 +749,124 @@ export default function VoicePreviewClient() {
             </div>
           </div>
           <div className="space-y-4 p-6">
-            {status === "idle" || status === "connecting" || status === "ended" ? (
-              <form className="space-y-4" onSubmit={connect}>
-                <label className="block text-sm text-slate-700">
-                  Username
-                  <input
-                    readOnly
-                    autoComplete="username"
-                    value={VOX_PREVIEW_USER}
-                    className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="block text-sm text-slate-700">
-                  Password
-                  <input
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  />
-                </label>
-                <p className="text-xs text-slate-500">
-                  {VOX_PREVIEW_APP} · {VOX_PREVIEW_ACCOUNT} · {VOX_PREVIEW_NODE}
+            {idle || status === "connecting" ? (
+              <div className="space-y-4">
+                <p className="text-sm text-slate-700">
+                  EIR will ask about your pain level, symptoms, and medication, then flag
+                  anything that needs a clinician. It does not diagnose.
                 </p>
-                <Button type="submit" disabled={busy} className="w-full">
-                  {busy ? "Connecting…" : "Connect line and wait"}
+                {loadingEpisode ? (
+                  <p className="text-xs text-slate-500">Finding your recovery episode…</p>
+                ) : !signedInAsPatient ? (
+                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                    Sign in as a patient to start a check-in. Your session is missing or has
+                    expired — demo sessions last 24 hours, and this developer page has no
+                    sign-in step of its own.{" "}
+                    <a className="font-medium underline" href="/login">
+                      Go to sign-in
+                    </a>{" "}
+                    (demo patient <span className="font-mono">alex</span> /{" "}
+                    <span className="font-mono">demo-alex</span>), then come back here.
+                  </p>
+                ) : episodeId ? (
+                  <p className="text-xs text-slate-500">
+                    Episode <span className="font-mono">{episodeId.slice(0, 8)}</span> ·{" "}
+                    {config?.gemini_live_voice ?? "Gemini Live"} · {VOX_PREVIEW_NODE}
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-700">
+                    No active recovery episode found for your account.
+                  </p>
+                )}
+                {config?.enabled === false ? (
+                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                    Browser voice is not configured on this deployment, so the check-in cannot
+                    start. The rest of the recovery workspace is unaffected.
+                  </p>
+                ) : null}
+                <Button onClick={() => void startCheckin()} disabled={disabled} className="w-full">
+                  {busy
+                    ? "Connecting…"
+                    : status === "ended"
+                      ? "Start another check-in"
+                      : "Start voice check-in"}
                 </Button>
-              </form>
+              </div>
             ) : null}
 
-            {ringing ? (
+            {dialing ? (
               <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                EIR is calling. Answer here to hear the recovery agent.
-              </p>
-            ) : null}
-
-            {waiting ? (
-              <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                Line is open. Ask the agent to place the preview call.
+                Connecting you to the recovery assistant…
               </p>
             ) : null}
 
             <div className="flex flex-wrap gap-2">
-              {ringing ? (
-                <Button onClick={() => void answer()} className="flex-1 bg-emerald-600 hover:bg-emerald-700">
-                  Answer call
-                </Button>
-              ) : null}
               {live ? (
                 <Button variant="danger" onClick={hangup} className="flex-1">
-                  End call
+                  End check-in
                 </Button>
               ) : null}
-              {(live || ringing) && audioState === "blocked" ? (
+              {(live || dialing) && audioState === "blocked" ? (
                 <Button variant="secondary" onClick={() => void tapToPlay()} className="flex-1">
                   Unlock sound
                 </Button>
               ) : null}
             </div>
 
-            <div id="eir-remote-media" className="min-h-12 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
-              {live ? null : "Remote audio player appears here after you answer."}
-            </div>
+            {live ? (
+              <div
+                className={`space-y-3 rounded-xl border px-4 py-3 ${
+                  phase === "hearing"
+                    ? "border-teal-300 bg-teal-50"
+                    : phase === "thinking"
+                      ? "border-amber-200 bg-amber-50"
+                      : "border-slate-200 bg-slate-50"
+                }`}
+                aria-live="polite"
+              >
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <span
+                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                      phase === "hearing"
+                        ? "bg-teal-600"
+                        : phase === "thinking"
+                          ? "animate-pulse bg-amber-500"
+                          : phase === "speaking"
+                            ? "bg-slate-700"
+                            : "bg-slate-400"
+                    }`}
+                  />
+                  <span
+                    className={
+                      phase === "hearing"
+                        ? "text-teal-900"
+                        : phase === "thinking"
+                          ? "text-amber-900"
+                          : "text-slate-700"
+                    }
+                  >
+                    {phaseLabel(phase)}
+                  </span>
+                </div>
+                {/* Driven by requestAnimationFrame through meterRef, not React state. */}
+                <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    ref={meterRef}
+                    className="h-full origin-left rounded-full bg-teal-600 transition-transform duration-75"
+                    style={{ transform: "scaleX(0)" }}
+                  />
+                </div>
+                <p className="text-xs text-slate-500">{audioLabel(audioState)}</p>
+              </div>
+            ) : (
+              <div className="min-h-12 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
+                Audio starts playing here once the check-in begins.
+              </div>
+            )}
+            {/* The SDK appends its <audio> element here, not into the box above:
+                React owns that node's children and would fight the SDK over it.
+                Hidden because the card already reports transport state. */}
+            <div id="eir-remote-media" className="hidden" aria-hidden="true" />
           </div>
         </Card>
 
@@ -610,16 +888,12 @@ export default function VoicePreviewClient() {
           >
             {lines.length === 0 ? (
               <p className="text-sm text-slate-500">
-                {waiting
-                  ? "Transcript appears here once the call starts."
-                  : ringing
-                    ? "Answer the call to start the transcript."
-                    : "Waiting for the first spoken turn…"}
+                {idle ? "Transcript appears here once the check-in starts." : phaseLabel(phase)}
               </p>
             ) : (
-              lines.map((line, index) => (
+              lines.map((line) => (
                 <div
-                  key={`${line.role}-${index}-${line.text.slice(0, 24)}`}
+                  key={line.id}
                   className={
                     line.role === "eir"
                       ? "max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm"

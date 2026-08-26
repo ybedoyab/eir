@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     pubsub_topic: str = "eir-recovery-events"
     pubsub_subscription: str = "eir-recovery-events-worker"
     voice_provider: str = "mock"
+    # Supplier calls are business calls, not patient calls. They get their own
+    # provider so the patient voice path and its synthetic-patient guard are
+    # never widened to reach a vendor.
+    supplier_voice_provider: str = "synthetic"
     voximplant_runtime_credentials: str = ""
     voximplant_application_id: str = ""
     voximplant_rule_id: str = ""
@@ -45,6 +49,11 @@ class Settings(BaseSettings):
     gemini_live_voice: str = "Sulafat"
     voice_allow_non_synthetic: bool = False
     voximplant_voice_transport: str = "pstn"
+    voximplant_account_name: str = ""
+    voximplant_application_name: str = "eir-recovery"
+    voximplant_web_user: str = "eir-preview-user"
+    voximplant_web_password: str = ""
+    voximplant_web_number: str = "eir-checkin"
     event_bus: str = "memory"
     episode_store: str = "memory"
     fhir_mode: str = "local"

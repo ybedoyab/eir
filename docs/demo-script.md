@@ -52,6 +52,10 @@ Until PSTN Caller ID exists, validate Gemini Live on `/voice-preview` (not phone
 
 If PSTN is unavailable, the **Backup demo control** still publishes a concerning `PatientResponded` through the same EventBus. Do not present it as the primary path.
 
+Without PSTN, synthetic fast-forward for Alex reports low pain **and** that prescribed medications were not taken. That is matched server-side to enoxaparin (critical) and opens clinician review. The card says **SYNTHETIC CHECK-IN COMPLETED**, not a real phone call. Gemini does not need to say the drug name on that path; the live scenario can name drugs once the voice context endpoint is serving.
+
+On `/admin/inventory`, the **Patients** column is the same SKU catalog the replenishment fleet uses — recovery assignment and supply are one system.
+
 ## 1:40–2:20 — Clinician review
 
 Wait for **Preparing clinician review…** if needed. Click **Approve / Mark reviewed**.
@@ -95,3 +99,72 @@ On the completed card:
 > EIR doesn't replace clinicians. It makes recovery continuous, autonomous, and governed.
 
 If there is time, **Start new demo** creates a fresh synthetic episode. It does not wipe Firestore.
+
+---
+
+# Optional Act 2 — Supply & Replenishment (~40 s)
+
+Only run this if the recovery story finished with time to spare. The main script
+above is unchanged; nothing here is required for it.
+
+The point of this act is **not** "we also do inventory". It is that the same
+registry, the same safety gate, and the same human-in-the-loop run a completely
+different business domain. That is the difference between a workflow and a
+platform.
+
+## Setup (before the demo, not on camera)
+
+```bash
+curl -X POST $API/api/v1/demo/supply/bootstrap -H 'content-type: application/json' -d '{}'
+```
+
+That dispenses synthetic enoxaparin below its reorder point through the same rule
+Cloud Scheduler uses, so the low-stock event is earned rather than written by
+hand. By the time it returns, the fleet has already called all three suppliers
+and drafted a purchase order.
+
+To rehearse again, cancel the open case first:
+`POST /api/v1/supply/cases/{case_id}/cancel`.
+
+## On camera
+
+Go to **Inventory** in the admin nav.
+
+> Same fleet, different department. This is the clinic pharmacy. Enoxaparin is
+> below its reorder point — two days of cover against a five-day supplier lead
+> time.
+
+Point at **Purchase orders waiting on you**, then open the case.
+
+> The stock monitor opened a replenishment case, the inventory agent sized the
+> order, and the procurement agent called every supplier that carries the drug.
+
+Point at the **Supplier quotes** table.
+
+> Three calls, three quotes — and look at the outcome column. The cheapest vendor
+> lost. They quoted 7.95 but can only ship 200 of the 360 units we need. The agent
+> picked availability over price, because a cheaper partial shipment does not
+> solve a stock-out.
+
+Point at the draft purchase order.
+
+> And here is the part that matters. The order is a **draft**. The agent sourced
+> three thousand dollars of spend and then stopped, because
+> `purchase_order.approve` is a pre-approval capability — the same safety gate
+> that holds clinical writes. Nothing reaches a supplier without a person.
+
+Click **Authorize purchase order**.
+
+> Now it places, and the order records who authorized it.
+
+## Close
+
+> Recovery and purchasing have nothing in common as workflows. They share the
+> capability registry, the safety gate, and the audit trail. That is the platform.
+
+## Do not claim
+
+- Do not say a real supplier was called. The provider is a scripted stub and the
+  numbers are fictional.
+- Do not say the agent negotiated a price. It recorded quotes; it does not haggle.
+- Do not present this as verified PSTN. Supplier voice never touches Voximplant.

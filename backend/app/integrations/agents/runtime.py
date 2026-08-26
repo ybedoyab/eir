@@ -17,7 +17,12 @@ from eir_agents.records.fhir_client import FhirClient, LocalFhirClient
 from eir_agents.runtime.adk_runner import AdkAgentRunner, InvocationContext
 from eir_shared.capabilities import BLOCKING_CAPABILITIES
 from eir_shared.event_bus import EventBus
-from eir_shared.events import EVENT_TYPE_MAP, ContentSecurityBlocked, DomainEvent, parse_event
+from eir_shared.events import (
+    RECOVERY_EVENT_TYPES,
+    ContentSecurityBlocked,
+    DomainEvent,
+    parse_event,
+)
 from eir_shared.memory import AgentMemory, EpisodeStore
 from eir_shared.observability import StructuredLogger, WorkflowTrace
 
@@ -42,6 +47,7 @@ class WorkflowRuntime:
         adk_runner: AdkAgentRunner | None = None,
         voice: VoiceProvider | None = None,
         gateway: Any | None = None,
+        supply: Any | None = None,
     ) -> None:
         self.event_bus = event_bus
         self.episodes = episodes
@@ -55,13 +61,20 @@ class WorkflowRuntime:
         self.voice = voice or MockVoiceProvider()
         self.adk_runner = adk_runner or AdkAgentRunner(mode="direct")
         self.gateway = gateway
+        self.supply = supply
         self._bound = False
         self._depth = 0
 
     def bind(self) -> None:
+        """Subscribe to recovery events only.
+
+        ``_handle`` returns silently when no RecoveryEpisode matches ``episode_id``,
+        so subscribing to another workflow's events would swallow them without a
+        trace. Supply events belong to SupplyWorkflowRuntime.
+        """
         if self._bound:
             return
-        for event_type in EVENT_TYPE_MAP:
+        for event_type in sorted(RECOVERY_EVENT_TYPES):
             self.event_bus.subscribe(event_type, self.handle)
         self._bound = True
 
@@ -202,6 +215,7 @@ class WorkflowRuntime:
             voice=self.voice,
             memory=self.agent_memory,
             summarizer=self.summarizer,
+            supply=self.supply,
         )
         return await self.adk_runner.invoke(ctx)
 

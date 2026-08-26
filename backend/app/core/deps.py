@@ -11,10 +11,15 @@ from typing import Any
 from eir_agents.access.orchestrator import AccessOrchestrator
 from eir_agents.orchestrator.handler import RecoveryOrchestrator
 from eir_agents.outreach.llm import GeminiFollowUpSummarizer, TemplateFollowUpSummarizer
+from eir_agents.procurement.voice import (
+    SyntheticSupplierVoiceProvider,
+    UnavailableSupplierVoiceProvider,
+)
 from eir_agents.records.fhir_client import LocalFhirClient
 from eir_agents.registry.bootstrap import default_registry
 from eir_agents.runtime.adk_runner import AdkAgentRunner
 from eir_agents.safety.handler import SafetyGate
+from eir_agents.supply.orchestrator import SupplyOrchestrator
 from eir_shared.env import repo_root
 from eir_shared.event_bus import InMemoryEventBus
 from eir_shared.gemini_config import configure_genai_environment
@@ -24,6 +29,7 @@ from eir_shared.observability import StructuredLogger
 from app.core.config import settings
 from app.integrations.agents.runtime import WorkflowRuntime
 from app.integrations.agents.runtime_verification import verify_runtime
+from app.integrations.agents.supply_runtime import SupplyWorkflowRuntime
 from app.integrations.enterprise.demo_identity import DemoIdentityProvider
 from app.integrations.enterprise.gateway import AgentGateway
 from app.integrations.enterprise.registry import EnterpriseAgentRegistry
@@ -37,6 +43,7 @@ from app.repositories.file_store import (
     FileRecoveryEpisodeRepository,
     FileReviewRepository,
     FileStructuredLogger,
+    FileSupplyRepository,
     JsonEpisodeStore,
 )
 from app.repositories.firestore_access_repository import FirestorePatientAccessSessionRepository
@@ -55,8 +62,14 @@ from app.repositories.runtime_telemetry import (
     runtime_service_name,
 )
 from app.repositories.scheduler_idempotency import build_scheduler_idempotency_store
+from app.repositories.supply_repository import (
+    InMemorySupplyRepository,
+    SupplyRepository,
+)
 from app.services.access_service import PatientAccessService
 from app.services.appointment_service import AppointmentService
+from app.services.supply_service import SupplyService
+from app.services.voice_web_session import web_voice_enabled, web_voice_login
 
 MOCKS_DIR = Path(__file__).resolve().parents[3] / "mocks"
 logger = logging.getLogger("eir.deps")
@@ -177,6 +190,15 @@ class Container:
             self.episode_store = InMemoryEpisodeStore()
             self.logger = StructuredLogger("eir")
 
+        if firestore_client is not None:
+            from app.repositories.firestore_store import FirestoreSupplyRepository
+
+            self.supply: SupplyRepository = FirestoreSupplyRepository(firestore_client)
+        elif use_files:
+            self.supply = FileSupplyRepository(data_dir / "supply.json")
+        else:
+            self.supply = InMemorySupplyRepository()
+
         self.store_mode = store_mode if not testing else "memory"
         self.scheduler_idempotency = build_scheduler_idempotency_store(
             firestore_client=firestore_client,
@@ -207,6 +229,11 @@ class Container:
         local_registry = default_registry()
         self.registry = EnterpriseAgentRegistry(local_registry)
         self.orchestrator = RecoveryOrchestrator(
+            registry=self.registry,
+            safety=SafetyGate(armor=armor),
+            logger=self.logger,
+        )
+        self.supply_orchestrator = SupplyOrchestrator(
             registry=self.registry,
             safety=SafetyGate(armor=armor),
             logger=self.logger,
@@ -262,6 +289,19 @@ class Container:
             adk_runner=self.adk_runner,
             gateway=AgentGateway(armor=armor),
             voice=_build_voice(testing=testing),
+            supply=self.supply,
+        )
+        self.supplier_voice = _build_supplier_voice(testing=testing)
+        self.supply_runtime = SupplyWorkflowRuntime(
+            event_bus=self.event_bus,
+            supply=self.supply,
+            orchestrator=self.supply_orchestrator,
+            reviews=self.reviews,
+            logger=self.logger,
+            adk_runner=self.adk_runner,
+            supplier_voice=self.supplier_voice,
+            episode_store=self.episode_store,
+            gateway=AgentGateway(armor=armor),
         )
         self.voice_status = _voice_status(testing=testing, voice=self.runtime.voice)
         self.adk_runner_mode = "direct" if testing else settings.adk_runner_mode
@@ -281,6 +321,7 @@ class Container:
         self.pubsub_handle = is_worker
         if bind_runtime:
             self.runtime.bind()
+            self.supply_runtime.bind()
 
     def adapter_status(self) -> dict[str, Any]:
         report = self.adk_runner.last_report
@@ -342,6 +383,21 @@ class Container:
                 "error": report.error,
             },
             "voice": getattr(self, "voice_status", {}),
+            "supply": {
+                "supplier_voice_provider": getattr(
+                    self.supplier_voice, "provider_name", "unknown"
+                ),
+                "supplier_voice_mode": getattr(self.supplier_voice, "mode", "sync"),
+                "synthetic_suppliers_only": True,
+                "inventory_items": len(self.supply.list_items()),
+                "open_replenishment_cases": len(
+                    [
+                        case
+                        for case in self.supply.list_cases()
+                        if case.status.value not in {"COMPLETED", "CANCELLED"}
+                    ]
+                ),
+            },
             "platform_verification": self._platform_verification_status(),
         }
 
@@ -356,6 +412,11 @@ class Container:
         patients_path = MOCKS_DIR / "patients" / "patients.json"
         if patients_path.exists():
             self.patients.seed_from_file(patients_path)
+        SupplyService(self.supply).seed(
+            MOCKS_DIR / "inventory" / "inventory.json",
+            MOCKS_DIR / "suppliers" / "suppliers.json",
+        )
+
         from app.demo_ops import apply_demo_operations
 
         apply_demo_operations(
@@ -387,6 +448,19 @@ def _build_voice(*, testing: bool) -> Any:
         return voice_provider("synthetic")
 
 
+def _build_supplier_voice(*, testing: bool) -> Any:
+    """Pick the vendor call adapter.
+
+    Defaults to the scripted stub. There is no real-PSTN option here yet: the
+    catalog phone numbers are fictional, so a live dial would fail rather than
+    reach a supplier.
+    """
+    name = settings.supplier_voice_provider.strip().lower() or "synthetic"
+    if name == "unreachable" and not testing:
+        return UnavailableSupplierVoiceProvider()
+    return SyntheticSupplierVoiceProvider()
+
+
 def _voice_status(*, testing: bool, voice: Any) -> dict[str, Any]:
     provider = getattr(voice, "provider_name", "unknown")
     configured = settings.voice_provider.strip().lower() or "mock"
@@ -416,6 +490,10 @@ def _voice_status(*, testing: bool, voice: Any) -> dict[str, Any]:
         "destination_configured": bool(settings.eir_demo_phone_e164) if not testing else False,
         "caller_id_configured": bool(settings.voximplant_caller_id_e164) if not testing else False,
         "voice_transport": "pstn" if testing else (settings.voximplant_voice_transport or "pstn"),
+        # The in-page WebRTC check-in is independent of the PSTN path above: the
+        # browser dials the scenario directly, so it works with no Caller ID.
+        "browser_voice_enabled": web_voice_enabled() if not testing else False,
+        "browser_voice_login_configured": bool(web_voice_login()) if not testing else False,
     }
 
 

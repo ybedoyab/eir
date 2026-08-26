@@ -58,6 +58,9 @@ export interface AdminSnapshot {
   active_recoveries: number;
   pending_reviews: number;
   waitlist_requests?: number;
+  low_stock_skus?: number;
+  open_replenishments?: number;
+  pending_purchase_approvals?: number;
 }
 
 const STORAGE_KEY = "eir.demo.session";
