@@ -41,8 +41,12 @@ export default function PatientAppointmentsPage() {
   return (
     <Suspense
       fallback={
-        <section className="space-y-6">
-          <PageHeader title="Your appointments" description="Loading appointment workspace…" />
+        <section className="flex flex-col">
+          <PageHeader
+            title="Your appointments"
+            description="Loading appointment workspace…"
+            density="patient"
+          />
           <CardSkeleton rows={4} />
         </section>
       }
@@ -172,11 +176,12 @@ function PatientAppointmentsContent() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Appointment center"
         title="Your appointments"
         description="View upcoming visits, find availability, and confirm changes before they are saved."
+        density="patient"
       />
       {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
 
@@ -213,7 +218,7 @@ function PatientAppointmentsContent() {
                     >
                       Reschedule
                     </Button>
-                    <Button variant="danger" onClick={() => setCancelTarget(appointment)}>
+                    <Button variant="destructive" onClick={() => setCancelTarget(appointment)}>
                       Cancel
                     </Button>
                   </>
@@ -275,17 +280,23 @@ function PatientAppointmentsContent() {
             <div className="space-y-6">
               {groupSlots(visibleSlots).map((group) => (
                 <div key={group.label}>
-                  <h3 className="mb-2 text-sm font-semibold text-slate-800">{group.label}</h3>
+                  <h3 className="mb-2.5 border-b border-rule pb-2 font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+                    {group.label}
+                  </h3>
                   <div className="flex flex-wrap gap-2">
                     {group.slots.map((slot) => (
                       <button
                         key={slot.id}
                         type="button"
                         onClick={() => setPendingSlot(slot)}
-                        className="inline-flex min-h-11 flex-col rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm hover:border-teal-300 hover:bg-teal-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                        className="focus-ink inline-flex min-h-11 flex-col justify-center border border-rule-strong bg-paper px-4 py-2 text-left hover:bg-hover"
                       >
-                        <span className="font-medium text-slate-900">{formatTime(slot.start)}</span>
-                        <span className="text-xs text-slate-500">{slot.location_name}</span>
+                        <span className="font-mono text-[14px] text-ink">
+                          {formatTime(slot.start)}
+                        </span>
+                        <span className="font-mono text-[11px] text-muted">
+                          {slot.location_name}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -308,27 +319,33 @@ function PatientAppointmentsContent() {
           <div className="space-y-4">
             {selectedAppointment ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl bg-slate-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                <div className="flex flex-col gap-1.5 border-l-[3px] border-rule-strong bg-raised px-4 py-3.5">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
                     Current
                   </p>
-                  <p className="mt-2 font-medium text-slate-900">
+                  <p className="text-[15px] text-inactive line-through">
                     {formatWhen(selectedAppointment.start)}
                   </p>
-                  <p className="text-sm text-slate-600">{selectedAppointment.location_name}</p>
+                  <p className="font-mono text-[11.5px] text-muted">
+                    {selectedAppointment.location_name}
+                  </p>
                 </div>
-                <div className="rounded-xl bg-teal-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-teal-700">New</p>
-                  <p className="mt-2 font-medium text-slate-900">{formatWhen(pendingSlot.start)}</p>
-                  <p className="text-sm text-slate-600">{pendingSlot.location_name}</p>
+                <div className="flex flex-col gap-1.5 border-l-[3px] border-accent bg-raised px-4 py-3.5">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">New</p>
+                  <p className="text-[15px] font-medium text-ink">
+                    {formatWhen(pendingSlot.start)}
+                  </p>
+                  <p className="font-mono text-[11.5px] text-muted">{pendingSlot.location_name}</p>
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl bg-teal-50 p-4">
-                <p className="font-medium text-slate-900">{pendingSlot.service_name}</p>
-                <p className="mt-1 text-sm text-slate-700">{formatWhen(pendingSlot.start)}</p>
-                <p className="text-sm text-slate-600">{pendingSlot.location_name}</p>
-                <p className="text-sm text-slate-600">{pendingSlot.practitioner_name}</p>
+              <div className="flex flex-col gap-1.5 border-l-[3px] border-accent bg-raised px-4 py-3.5">
+                <p className="text-[15px] font-medium text-ink">{pendingSlot.service_name}</p>
+                <p className="text-[14px] text-body">{formatWhen(pendingSlot.start)}</p>
+                <p className="font-mono text-[11.5px] text-muted">{pendingSlot.location_name}</p>
+                <p className="font-mono text-[11.5px] text-muted">
+                  {pendingSlot.practitioner_name}
+                </p>
               </div>
             )}
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -354,13 +371,15 @@ function PatientAppointmentsContent() {
       >
         {cancelTarget ? (
           <div className="space-y-4">
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="font-medium text-slate-900">{cancelTarget.specialty}</p>
-              <p className="text-sm text-slate-600">{cancelTarget.practitioner_name}</p>
-              <p className="mt-2 text-sm text-slate-700">{formatWhen(cancelTarget.start)}</p>
-              <p className="text-sm text-slate-500">{cancelTarget.location_name}</p>
+            <div className="flex flex-col gap-1.5 border-l-[3px] border-high bg-raised px-4 py-3.5">
+              <p className="text-[15px] font-medium text-ink">{cancelTarget.specialty}</p>
+              <p className="font-mono text-[11.5px] text-muted">
+                {cancelTarget.practitioner_name}
+              </p>
+              <p className="text-[14px] text-body">{formatWhen(cancelTarget.start)}</p>
+              <p className="font-mono text-[11.5px] text-muted">{cancelTarget.location_name}</p>
             </div>
-            <label className="block text-sm font-medium text-slate-700" htmlFor="cancel-reason">
+            <label className="block text-[13.5px] font-medium text-body" htmlFor="cancel-reason">
               Cancellation reason (optional)
             </label>
             <textarea
@@ -368,13 +387,13 @@ function PatientAppointmentsContent() {
               value={cancelReason}
               onChange={(event) => setCancelReason(event.target.value)}
               rows={3}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-100"
+              className="focus-ink w-full border border-rule-strong bg-paper px-3.5 py-2.5 text-[14px] text-ink focus:border-accent"
             />
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button variant="secondary" onClick={() => setCancelTarget(null)}>
                 Keep appointment
               </Button>
-              <Button variant="danger" disabled={busy} onClick={() => void confirmCancel()}>
+              <Button variant="destructive" disabled={busy} onClick={() => void confirmCancel()}>
                 {busy ? "Cancelling…" : "Cancel appointment"}
               </Button>
             </div>

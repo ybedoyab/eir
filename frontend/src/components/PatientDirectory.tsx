@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { Avatar } from "@/components/ui/Avatar";
-import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { CardSkeleton } from "@/components/ui/Skeleton";
@@ -84,45 +84,77 @@ export function PatientDirectory({
   }, [patients, appointments, episodes, reviews, query]);
 
   return (
-    <section className="space-y-6">
-      <PageHeader eyebrow={eyebrow} title={title} description="Synthetic hospital directory." />
+    <section className="flex flex-col">
+      <PageHeader
+        eyebrow={eyebrow}
+        title={title}
+        description="Synthetic hospital directory — no real patient data."
+        density="staff"
+      />
+
       {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
+
       <SearchInput
         placeholder="Search by patient name"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
+        className="mb-6 max-w-md"
       />
+
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <CardSkeleton />
-          <CardSkeleton />
-        </div>
+        <CardSkeleton rows={6} />
       ) : rows.length ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col">
+          <div className="grid grid-cols-[minmax(0,1fr)_180px] items-baseline gap-4 border-b border-rule-strong pb-2.5 sm:grid-cols-[minmax(0,1fr)_220px_200px]">
+            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              Patient
+            </span>
+            <span className="hidden font-mono text-[10px] uppercase tracking-[0.1em] text-muted sm:block">
+              Next visit
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              Recovery
+            </span>
+          </div>
+
           {rows.map(({ patient, next, recovery, needsReview }) => (
-            <Link key={patient.id} href={hrefFor(patient.id)}>
-              <Card className="h-full transition hover:border-teal-200 hover:shadow-md">
-                <div className="flex items-start gap-3">
-                  <Avatar name={patient.name} />
-                  <div>
-                    <p className="font-semibold text-slate-900">{patient.name}</p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {next ? `Next visit ${formatWhen(next.start)}` : "No upcoming visit"}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {recovery ? <StatusBadge status={episodeStatus(recovery.status)} /> : null}
-                      {needsReview ? (
-                        <StatusBadge status={{ label: "Waiting review", tone: "warning" }} />
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              </Card>
+            <Link
+              key={patient.id}
+              href={hrefFor(patient.id)}
+              className="focus-ink grid min-h-[60px] grid-cols-[minmax(0,1fr)_180px] items-center gap-4 border-b border-rule hover:bg-hover sm:grid-cols-[minmax(0,1fr)_220px_200px]"
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <Avatar name={patient.name} size="sm" />
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate text-[15px] text-ink">{patient.name}</span>
+                  <span className="truncate font-mono text-[11px] text-muted">
+                    {patient.preferred_language} · {patient.preferred_contact_channel}
+                  </span>
+                </span>
+              </span>
+
+              <span className="hidden truncate font-mono text-[12px] text-secondary sm:block">
+                {next ? formatWhen(next.start) : "none scheduled"}
+              </span>
+
+              <span className="flex flex-wrap items-center justify-end gap-2 pr-1 sm:justify-start sm:pr-0">
+                {recovery ? <StatusBadge status={episodeStatus(recovery.status)} /> : null}
+                {needsReview ? (
+                  <StatusBadge status={{ label: "Waiting review", tone: "warning" }} />
+                ) : null}
+                {!recovery && !needsReview ? (
+                  <span className="font-mono text-[11.5px] text-inactive">no episode</span>
+                ) : null}
+                <Icon name="chevronRight" size={14} className="ml-auto text-muted sm:hidden" />
+              </span>
             </Link>
           ))}
         </div>
       ) : (
-        <EmptyState title="No matching patients" />
+        <EmptyState
+          title="No matching patients"
+          description="Nothing in the synthetic directory matches that name."
+        />
       )}
     </section>
   );

@@ -5,9 +5,10 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Card, CardHeader } from "@/components/ui/Card";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { episodeBadgeClass } from "@/lib/status";
 import { createRecovery, getPatient } from "@/services/api";
 import type { Patient, RecoveryEpisode } from "@/types";
@@ -52,15 +53,17 @@ export default function PatientDetailPage({
   }
 
   return (
-    <section>
+    <section className="flex flex-col">
       <PageHeader
         eyebrow="Patient profile"
         title={patient?.name ?? "Patient"}
         description="Synthetic record used for recovery workflow demos."
+        density="staff"
         actions={
           patient ? (
             <Button onClick={() => void startRecovery()} disabled={creating}>
               {creating ? "Starting…" : "Start recovery episode"}
+              <Icon name="arrowRight" size={16} />
             </Button>
           ) : null
         }
@@ -69,60 +72,51 @@ export default function PatientDetailPage({
       {error ? <ErrorAlert message={error} /> : null}
 
       {patient ? (
-        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <Card>
-            <CardHeader title="Demographics" description="Non-clinical demo metadata." />
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <dt className="text-sm text-slate-500">Patient ID</dt>
-                <dd className="mt-1 font-mono text-sm text-slate-800">{patient.id}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-slate-500">Date of birth</dt>
-                <dd className="mt-1 text-sm font-medium text-slate-800">{patient.date_of_birth}</dd>
-              </div>
-              <div>
-                <dt className="text-sm text-slate-500">Language</dt>
-                <dd className="mt-1 text-sm font-medium text-slate-800">
-                  {patient.preferred_language}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm text-slate-500">Contact channel</dt>
-                <dd className="mt-1 text-sm font-medium capitalize text-slate-800">
-                  {patient.preferred_contact_channel}
-                </dd>
-              </div>
+        <div className="grid gap-7 lg:grid-cols-[1.2fr_0.8fr]">
+          <section className="flex flex-col">
+            <SectionHeader title="Demographics" meta="non-clinical demo metadata" />
+            <dl className="grid grid-cols-[152px_minmax(0,1fr)] gap-x-5 gap-y-2.5 font-mono text-[13px]">
+              <dt className="text-muted">patient_id</dt>
+              <dd className="truncate text-ink">{patient.id}</dd>
+              <dt className="text-muted">date_of_birth</dt>
+              <dd className="text-ink">{patient.date_of_birth}</dd>
+              <dt className="text-muted">preferred_language</dt>
+              <dd className="text-ink">{patient.preferred_language}</dd>
+              <dt className="text-muted">contact_channel</dt>
+              <dd className="text-ink">{patient.preferred_contact_channel}</dd>
             </dl>
-            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              SYNTHETIC — not real patient data.
-            </div>
-          </Card>
+            <p className="mt-5 inline-flex w-fit items-center bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] text-paper">
+              Synthetic — not real patient data
+            </p>
+          </section>
 
-          <Card>
-            <CardHeader
+          <section className="flex flex-col">
+            <SectionHeader
               title="Recovery"
               description="Launch a new episode or open the active workflow."
             />
             {episode ? (
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-slate-500">Latest episode</p>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                    Latest episode
+                  </span>
                   <Link
                     href={`/recovery/${episode.id}`}
-                    className="mt-2 block font-mono text-sm text-teal-700 hover:text-teal-800"
+                    className="focus-ink -my-2 inline-flex min-h-11 w-fit items-center gap-2 font-mono text-[13px] text-accent hover:text-ink"
                   >
                     {episode.id}
+                    <Icon name="open" size={14} />
                   </Link>
                 </div>
                 <Badge className={episodeBadgeClass(episode.status)}>{episode.status}</Badge>
               </div>
             ) : (
-              <p className="text-sm text-slate-500">
+              <p className="text-[14px] leading-[1.6] text-secondary">
                 No episode yet. Start one to trigger outreach and risk assessment.
               </p>
             )}
-          </Card>
+          </section>
         </div>
       ) : null}
     </section>

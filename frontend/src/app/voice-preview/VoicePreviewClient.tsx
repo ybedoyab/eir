@@ -4,9 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type * as VoxSdk from "voximplant-websdk";
 
 import { Button } from "@/components/ui/Button";
-import { Card, CardHeader } from "@/components/ui/Card";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { clearSession, loadSession } from "@/lib/auth";
 import { VOX_PREVIEW_NODE } from "@/lib/voximplantPreview";
 import { appendTranscript, type TranscriptLine, type TranscriptRole } from "@/lib/voiceTranscript";
@@ -721,47 +720,58 @@ export default function VoicePreviewClient() {
   const disabled = busy || !episodeId || !signedInAsPatient || config?.enabled === false;
 
   return (
-    <div>
-      <PageHeader
-        eyebrow="Voice check-in"
-        title="Talk to EIR"
-        description="Start a spoken recovery check-in in this tab. Audio runs over WebRTC — no phone call is placed and no number is dialled. Allow the microphone when your browser asks."
-      />
+    <div className="flex flex-col gap-6">
+      <p className="max-w-[74ch] text-[14px] leading-[1.6] text-secondary">
+        Audio runs over WebRTC — no phone call is placed and no number is dialled. Allow the
+        microphone when your browser asks.
+      </p>
+
       {error ? <ErrorAlert message={error} /> : null}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-        <Card className="overflow-hidden p-0">
+
+      <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+        <section className="flex flex-col">
+          {/* the call itself — accent is agent activity, ink is at rest */}
           <div
-            className={`relative px-6 py-10 text-center text-white ${
-              dialing ? "bg-emerald-700" : live ? "bg-teal-800" : "bg-slate-800"
+            className={`on-ink flex flex-col items-center px-6 py-9 text-center ${
+              dialing || live ? "bg-accent" : "bg-ink"
             }`}
           >
-            {dialing ? (
-              <span className="absolute inset-x-0 top-4 mx-auto h-16 w-16 animate-ping rounded-full bg-white/20" />
-            ) : null}
-            <p className="relative text-xs uppercase tracking-[0.24em] text-white/70">EIR Recovery</p>
-            <p className="relative mt-4 text-2xl font-semibold">{statusLabel(status)}</p>
-            <p className="relative mt-3 font-mono text-4xl tabular-nums">{live ? formatTimer(elapsed) : "00:00"}</p>
-            <div className="relative mt-5 flex flex-wrap justify-center gap-2 text-xs">
-              <span className="rounded-full bg-white/15 px-3 py-1">
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-on-ink-muted">
+              EIR Recovery
+            </span>
+            <p className="mt-4 text-[22px] font-medium text-paper">{statusLabel(status)}</p>
+            <p className="mt-3 font-mono text-[38px] leading-none tabular-nums text-paper">
+              {live ? formatTimer(elapsed) : "00:00"}
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <span className="inline-flex items-center gap-2 border border-on-ink-rule px-2.5 py-1 font-mono text-[11px] text-on-ink">
+                {dialing ? (
+                  <span className="eir-pulse h-1.5 w-1.5 bg-paper" aria-hidden />
+                ) : null}
                 {micReady ? (micSending ? "Mic sending" : "Mic ready") : "Mic pending"}
               </span>
-              <span className="rounded-full bg-white/15 px-3 py-1">{audioLabel(audioState)}</span>
+              <span className="inline-flex items-center border border-on-ink-rule px-2.5 py-1 font-mono text-[11px] text-on-ink">
+                {audioLabel(audioState)}
+              </span>
             </div>
           </div>
-          <div className="space-y-4 p-6">
+
+          <div className="flex flex-col gap-4 border-b border-rule pt-5">
             {idle || status === "connecting" ? (
-              <div className="space-y-4">
-                <p className="text-sm text-slate-700">
-                  EIR will ask about your pain level, symptoms, and medication, then flag
-                  anything that needs a clinician. It does not diagnose.
+              <div className="flex flex-col gap-4">
+                <p className="text-[14px] leading-[1.6] text-secondary">
+                  EIR will ask about your pain level, symptoms, and medication, then flag anything
+                  that needs a clinician. It does not diagnose.
                 </p>
                 {loadingEpisode ? (
-                  <p className="text-xs text-slate-500">Finding your recovery episode…</p>
+                  <p className="font-mono text-[11.5px] text-muted">
+                    Finding your recovery episode…
+                  </p>
                 ) : !signedInAsPatient ? (
-                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                  <p className="border-l-[3px] border-warn bg-warn-tint px-4 py-3 text-[12.5px] leading-[1.6] text-warn">
                     Sign in as a patient to start a check-in. Your session is missing or has
-                    expired — demo sessions last 24 hours, and this developer page has no
-                    sign-in step of its own.{" "}
+                    expired — demo sessions last 24 hours, and this developer page has no sign-in
+                    step of its own.{" "}
                     <a className="font-medium underline" href="/login">
                       Go to sign-in
                     </a>{" "}
@@ -769,17 +779,17 @@ export default function VoicePreviewClient() {
                     <span className="font-mono">demo-alex</span>), then come back here.
                   </p>
                 ) : episodeId ? (
-                  <p className="text-xs text-slate-500">
-                    Episode <span className="font-mono">{episodeId.slice(0, 8)}</span> ·{" "}
+                  <p className="font-mono text-[11.5px] text-muted">
+                    episode {episodeId.slice(0, 8)} ·{" "}
                     {config?.gemini_live_voice ?? "Gemini Live"} · {VOX_PREVIEW_NODE}
                   </p>
                 ) : (
-                  <p className="text-xs text-amber-700">
+                  <p className="border-l-[3px] border-warn bg-warn-tint px-4 py-3 text-[12.5px] leading-[1.6] text-warn">
                     No active recovery episode found for your account.
                   </p>
                 )}
                 {config?.enabled === false ? (
-                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                  <p className="border-l-[3px] border-warn bg-warn-tint px-4 py-3 text-[12.5px] leading-[1.6] text-warn">
                     Browser voice is not configured on this deployment, so the check-in cannot
                     start. The rest of the recovery workspace is unaffected.
                   </p>
@@ -795,14 +805,14 @@ export default function VoicePreviewClient() {
             ) : null}
 
             {dialing ? (
-              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+              <p className="border-l-[3px] border-accent bg-raised px-4 py-3 text-[13.5px] text-secondary">
                 Connecting you to the recovery assistant…
               </p>
             ) : null}
 
             <div className="flex flex-wrap gap-2">
               {live ? (
-                <Button variant="danger" onClick={hangup} className="flex-1">
+                <Button variant="destructive" onClick={hangup} className="flex-1">
                   End check-in
                 </Button>
               ) : null}
@@ -815,79 +825,71 @@ export default function VoicePreviewClient() {
 
             {live ? (
               <div
-                className={`space-y-3 rounded-xl border px-4 py-3 ${
+                className={`flex flex-col gap-3 border-l-[3px] px-4 py-3.5 ${
                   phase === "hearing"
-                    ? "border-teal-300 bg-teal-50"
+                    ? "border-accent bg-raised"
                     : phase === "thinking"
-                      ? "border-amber-200 bg-amber-50"
-                      : "border-slate-200 bg-slate-50"
+                      ? "border-warn bg-warn-tint"
+                      : "border-rule-strong bg-raised"
                 }`}
                 aria-live="polite"
               >
-                <div className="flex items-center gap-2 text-sm font-medium">
+                <div className="flex items-center gap-2.5">
                   <span
-                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                    aria-hidden
+                    className={`h-1.5 w-1.5 shrink-0 ${
                       phase === "hearing"
-                        ? "bg-teal-600"
+                        ? "bg-accent"
                         : phase === "thinking"
-                          ? "animate-pulse bg-amber-500"
+                          ? "eir-pulse bg-warn"
                           : phase === "speaking"
-                            ? "bg-slate-700"
-                            : "bg-slate-400"
+                            ? "bg-ink"
+                            : "bg-inactive"
                     }`}
                   />
                   <span
-                    className={
-                      phase === "hearing"
-                        ? "text-teal-900"
-                        : phase === "thinking"
-                          ? "text-amber-900"
-                          : "text-slate-700"
-                    }
+                    className={`font-mono text-[12px] ${
+                      phase === "thinking" ? "text-warn" : "text-ink"
+                    }`}
                   >
                     {phaseLabel(phase)}
                   </span>
                 </div>
                 {/* Driven by requestAnimationFrame through meterRef, not React state. */}
-                <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-1.5 overflow-hidden bg-hover">
                   <div
                     ref={meterRef}
-                    className="h-full origin-left rounded-full bg-teal-600 transition-transform duration-75"
+                    className="h-full origin-left bg-accent transition-transform duration-75"
                     style={{ transform: "scaleX(0)" }}
                   />
                 </div>
-                <p className="text-xs text-slate-500">{audioLabel(audioState)}</p>
+                <p className="font-mono text-[11px] text-muted">{audioLabel(audioState)}</p>
               </div>
             ) : (
-              <div className="min-h-12 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs text-slate-500">
+              <p className="border border-dashed border-rule-strong px-3 py-4 text-center font-mono text-[11.5px] text-muted">
                 Audio starts playing here once the check-in begins.
-              </div>
+              </p>
             )}
             {/* The SDK appends its <audio> element here, not into the box above:
                 React owns that node's children and would fight the SDK over it.
-                Hidden because the card already reports transport state. */}
+                Hidden because the panel already reports transport state. */}
             <div id="eir-remote-media" className="hidden" aria-hidden="true" />
           </div>
-        </Card>
+        </section>
 
-        <Card>
-          <CardHeader
+        <section className="flex min-w-0 flex-col">
+          <SectionHeader
             title="Live transcript"
-            description="Turns build up as Gemini hears and speaks. Transcript stays in this browser session only and is not saved to the episode."
-            action={
-              episodeId ? (
-                <a className="text-sm font-medium text-teal-700 hover:text-teal-800" href={`/recovery/${episodeId}`}>
-                  Open episode
-                </a>
-              ) : null
-            }
+            description="Turns build up as Gemini hears and speaks. The transcript stays in this browser session only and is never saved to the episode."
+            actionHref={episodeId ? `/recovery/${episodeId}` : undefined}
+            actionLabel={episodeId ? "Open episode" : undefined}
           />
           <div
             ref={transcriptRef}
-            className="flex max-h-[34rem] min-h-[28rem] flex-col gap-3 overflow-y-auto rounded-xl bg-slate-50 p-4"
+            className="flex max-h-[34rem] min-h-[28rem] flex-col gap-4 overflow-y-auto"
           >
             {lines.length === 0 ? (
-              <p className="text-sm text-slate-500">
+              <p className="font-mono text-[12px] text-muted">
                 {idle ? "Transcript appears here once the check-in starts." : phaseLabel(phase)}
               </p>
             ) : (
@@ -896,20 +898,20 @@ export default function VoicePreviewClient() {
                   key={line.id}
                   className={
                     line.role === "eir"
-                      ? "max-w-[92%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm"
-                      : "ml-auto max-w-[92%] rounded-2xl bg-teal-700 px-4 py-3 text-sm text-white"
+                      ? "max-w-[92%] border-l-[3px] border-accent px-4 py-3"
+                      : "ml-auto max-w-[92%] bg-raised px-4 py-3"
                   }
                 >
-                  <div className="mb-1 flex items-center gap-2 text-[11px] uppercase tracking-wide opacity-70">
+                  <div className="mb-1.5 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
                     <span>{line.role === "eir" ? "EIR" : "You"}</span>
                     {line.pending ? <span className="normal-case">typing…</span> : null}
                   </div>
-                  {line.text}
+                  <p className="text-[14px] leading-[1.6] text-body">{line.text}</p>
                 </div>
               ))
             )}
           </div>
-        </Card>
+        </section>
       </div>
     </div>
   );

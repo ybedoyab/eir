@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { CardSkeleton } from "@/components/ui/Skeleton";
 import { listAgents } from "@/services/api";
 import type { AgentDescriptor } from "@/types";
 
@@ -23,44 +22,57 @@ export default function AgentsPage() {
   }, []);
 
   return (
-    <section>
+    <section className="flex flex-col">
       <PageHeader
         eyebrow="Fleet registry"
         title="Agents"
         description="Capability registry and risk posture for each recovery agent."
+        density="dense"
       />
 
       {error ? <ErrorAlert message={`API unavailable: ${error}`} /> : null}
 
       {loading ? (
-        <Card>
-          <p className="text-sm text-slate-500">Loading agents…</p>
-        </Card>
+        <CardSkeleton rows={5} />
       ) : agents.length === 0 ? (
-        <EmptyState title="No agents registered" description="Bootstrap the agent registry via the API." />
+        <EmptyState
+          title="No agents registered"
+          description="Bootstrap the agent registry via the API."
+        />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col">
+          <div className="grid grid-cols-[minmax(0,1fr)_88px] items-baseline gap-4 border-b border-rule-strong pb-2.5 md:grid-cols-[220px_minmax(0,1fr)_96px_88px]">
+            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              Agent
+            </span>
+            <span className="hidden font-mono text-[10px] uppercase tracking-[0.1em] text-muted md:block">
+              Capabilities
+            </span>
+            <span className="hidden text-right font-mono text-[10px] uppercase tracking-[0.1em] text-muted md:block">
+              Risk
+            </span>
+            <span className="text-right font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              Version
+            </span>
+          </div>
+
           {agents.map((agent) => (
-            <Card key={agent.name}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">{agent.name}</h2>
-                  <p className="mt-1 text-sm text-slate-500">v{agent.version}</p>
-                </div>
-                <Badge className="bg-slate-100 text-slate-700 ring-slate-200">{agent.risk_level}</Badge>
-              </div>
-              <p className="mt-4 text-sm leading-6 text-slate-600">{agent.description}</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {agent.capabilities.map((capability) => (
-                  <Badge
-                    key={capability}
-                    className="bg-teal-50 text-teal-700 ring-teal-100"
-                  >
-                    {capability}
-                  </Badge>
-                ))}
-              </div>
-            </Card>
+            <div
+              key={agent.name}
+              className="grid min-h-11 grid-cols-[minmax(0,1fr)_88px] items-center gap-4 border-b border-rule py-2 md:grid-cols-[220px_minmax(0,1fr)_96px_88px]"
+            >
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate font-mono text-[12.5px] text-ink">{agent.name}</span>
+                <span className="truncate text-[12.5px] text-secondary">{agent.description}</span>
+              </span>
+              <span className="hidden truncate font-mono text-[11.5px] text-muted md:block">
+                {agent.capabilities.join(", ") || "none declared"}
+              </span>
+              <span className="hidden text-right font-mono text-[11.5px] uppercase tracking-[0.06em] text-secondary md:block">
+                {agent.risk_level}
+              </span>
+              <span className="text-right font-mono text-[11.5px] text-muted">v{agent.version}</span>
+            </div>
           ))}
         </div>
       )}

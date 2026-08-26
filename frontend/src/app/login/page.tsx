@@ -6,8 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { roleHome, saveSession } from "@/lib/auth";
@@ -57,82 +57,95 @@ export default function LoginPage() {
 
   return (
     <section className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <div className="mb-8 flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-700 text-sm font-semibold text-white">
-          E
+      <div className="mb-8 flex items-center gap-4 border-b border-rule pb-5">
+        <span className="font-serif text-[20px] font-semibold tracking-[-0.01em] text-ink">
+          EIR
         </span>
-        <div>
-          <p className="text-sm font-semibold text-slate-900">EIR</p>
-          <p className="text-xs text-slate-500">Synthetic demo identities</p>
-        </div>
+        <span className="h-[15px] w-px bg-rule-strong" aria-hidden />
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+          Synthetic demo identities
+        </span>
       </div>
+
       <PageHeader
         eyebrow="Demo access"
         title="Sign in to EIR"
         description="Synthetic demo identities. Choose a role to explore the hospital."
+        density="staff"
       />
+
       {error ? <ErrorAlert message={error} /> : null}
+
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-        </div>
+        <CardSkeleton rows={4} />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-0 sm:grid-cols-3 sm:gap-7">
           {primary.map((user) => (
-            <Card key={user.username} className="flex h-full flex-col justify-between">
-              <div>
-                <Avatar name={user.display_name} size="lg" />
-                <p className="mt-4 text-xs font-medium uppercase tracking-wide text-teal-700">
-                  {roleLabel(user.role)}
-                </p>
-                <h2 className="mt-1 text-lg font-semibold text-slate-900">{user.display_name}</h2>
-                <p className="mt-2 text-sm text-slate-600">
-                  {user.copy?.description ?? "Explore this role."}
-                </p>
-              </div>
+            <section
+              key={user.username}
+              className="flex flex-col border-t border-rule-strong pt-4"
+            >
+              <Avatar name={user.display_name} size="lg" />
+              <span className="mt-4 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                {roleLabel(user.role)}
+              </span>
+              <h2 className="mt-1.5 text-[17px] font-medium text-ink">{user.display_name}</h2>
+              <p className="mt-2 text-[13.5px] leading-[1.6] text-secondary">
+                {user.copy?.description ?? "Explore this role."}
+              </p>
               <Button
-                className="mt-6 w-full"
+                className="mt-5 w-full"
                 disabled={busy === user.username}
                 onClick={() => void signIn(user.username, user.password_hint)}
               >
                 {busy === user.username ? "Signing in…" : `Continue as ${user.display_name}`}
+                <Icon name="arrowRight" size={16} />
               </Button>
-            </Card>
+            </section>
           ))}
         </div>
       )}
+
       {secondary.length ? (
-        <div className="mt-8">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">
-            Alternate patient
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {secondary.map((user) => (
-              <Card key={user.username} className="flex items-center justify-between gap-4 py-4">
-                <div className="flex items-center gap-3">
-                  <Avatar name={user.display_name} size="sm" />
-                  <div>
-                    <p className="font-medium text-slate-900">{user.display_name}</p>
-                    <p className="text-sm text-slate-500">{user.copy?.description}</p>
-                  </div>
-                </div>
-                <Button
-                  variant="secondary"
-                  disabled={busy === user.username}
-                  onClick={() => void signIn(user.username, user.password_hint)}
-                >
-                  Continue
-                </Button>
-              </Card>
-            ))}
+        <div className="mt-10 flex flex-col">
+          <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-2.5">
+            <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+              Alternate patient
+            </h2>
           </div>
+          {secondary.map((user) => (
+            <div
+              key={user.username}
+              className="grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-rule py-3"
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <Avatar name={user.display_name} size="sm" />
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate text-[15px] text-ink">{user.display_name}</span>
+                  <span className="truncate text-[13px] text-secondary">
+                    {user.copy?.description}
+                  </span>
+                </span>
+              </span>
+              <Button
+                variant="secondary"
+                disabled={busy === user.username}
+                onClick={() => void signIn(user.username, user.password_hint)}
+              >
+                {busy === user.username ? "Signing in…" : "Continue"}
+                <Icon name="arrowRight" size={16} />
+              </Button>
+            </div>
+          ))}
         </div>
       ) : null}
-      <p className="mt-8 text-center text-sm text-slate-500">
+
+      <p className="mt-10 border-t border-rule pt-5 text-[13.5px] text-secondary">
         Prefer the guided story?{" "}
-        <Link href="/demo" className="font-medium text-teal-700 hover:text-teal-800">
+        <Link
+          href="/demo"
+          className="focus-ink font-medium text-accent hover:text-ink"
+        >
           Open the live recovery demo
         </Link>
       </p>

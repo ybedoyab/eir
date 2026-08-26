@@ -113,3 +113,6 @@ infra/terraform/terraform.tfvars
 
 CLAUDE.md
 package-lock.json
+
+# Design canvas scratch (not part of the shipped app)
+docs/design/

@@ -36,7 +36,7 @@ import {
   isScriptedVoice,
   isVoximplantEvent,
 } from "@/lib/demoStory";
-import { eventLabel } from "@/lib/eventLabels";
+import { eventLabel, eventOutcome } from "@/lib/eventLabels";
 import { cn } from "@/lib/cn";
 import { episodeBadgeClass, riskBadgeClass } from "@/lib/status";
 import {
@@ -111,6 +111,46 @@ function ActivityBanner({ title, detail }: { title: string; detail?: string }) {
       </div>
     </div>
   );
+}
+
+/**
+ * The run laid out against the events' own timestamps rather than the poll
+ * boundary, so the 4s/400ms fetch cadence never shows in the waterfall.
+ */
+function toCascade(events: DomainEvent[], halted: boolean): CascadeStep[] {
+  return [...events]
+    .sort((a, b) => new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime())
+    .map((event) => {
+      const parked = halted && event.event_type === "HumanReviewRequested";
+      return {
+        id: event.event_id,
+        label: event.event_type,
+        detail: parked ? "blocking capability · parked for review" : eventOutcome(event),
+        at: event.occurred_at,
+        kind: EVENT_KIND[event.event_type] ?? "runtime",
+        halted: parked,
+        ...(parked ? { outcome: "HELD", outcomeTone: "high" as const } : {}),
+      };
+    });
+}
+
+function elapsedMs(events: DomainEvent[]): number {
+  const times = events
+    .map((event) => new Date(event.occurred_at).getTime())
+    .filter((value) => !Number.isNaN(value));
+  return times.length > 1 ? Math.max(...times) - Math.min(...times) : 0;
+}
+
+function formatElapsed(ms: number): string {
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`;
+  }
+  if (ms < 60_000) {
+    return `${(ms / 1000).toFixed(2)}s`;
+  }
+  const minutes = Math.floor(ms / 60_000);
+  const seconds = Math.round((ms % 60_000) / 1000);
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
 export default function DemoPage() {
@@ -383,3 +423,598 @@ export default function DemoPage() {
     !completed[4] &&
     awaiting !== "concerning";
 
+  const cascade = toCascade(events, Boolean(pendingReview) && !clinicianResolved);
+  const halted = Boolean(pendingReview) && !clinicianResolved;
+  const runElapsed = elapsedMs(events);
+  const suppressed = cascade.filter((step) => step.kind === "suppressed").length;
+
+  return (
+    <div className="flex min-h-screen flex-col bg-paper">
+      {/* top bar — Cascade.dc.html */}
+      <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-b border-rule px-7 py-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <span className="font-serif text-[20px] font-semibold tracking-[-0.01em] text-ink">
+            EIR
+          </span>
+          <span className="hidden h-[15px] w-px bg-rule-strong sm:block" aria-hidden />
+          <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+            Live run
+          </span>
+          <span className="font-mono text-[12px] text-secondary">
+            {episodeId
+              ? `episode ${shortEpisodeId(episodeId)}${patientName ? ` · ${patientName}` : ""}`
+              : "no episode open"}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-5">
+          <span className="font-mono text-[12px] text-secondary">
+            steps <span className="text-ink">{cascade.length}</span>
+          </span>
+          <span className="font-mono text-[12px] text-secondary">
+            depth guard <span className="text-ink">12</span>
+          </span>
+          <span className="font-mono text-[12px] text-secondary">
+            elapsed <span className="text-ink">{formatElapsed(runElapsed)}</span>
+          </span>
+          {halted ? (
+            <span className="eir-halt inline-flex h-[26px] items-center gap-[7px] bg-ink px-2.5 font-mono text-[11px] tracking-[0.08em] text-paper">
+              <Icon name="halt" size={14} />
+              HALTED
+            </span>
+          ) : null}
+          <Link
+            href="/login"
+            className="focus-ink -my-3 inline-flex min-h-11 items-center gap-1.5 font-mono text-[11.5px] text-accent hover:text-ink"
+          >
+            Role portal
+            <Icon name="chevronRight" size={14} />
+          </Link>
+        </div>
+      </header>
+
+      <div className="grid flex-grow items-start gap-7 px-7 pb-10 pt-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-0 xl:px-0 xl:pt-0">
+        <main className="flex min-w-0 flex-col gap-6 xl:px-7 xl:pb-6 xl:pt-6">
+          <div>
+            <h1 className="font-serif text-[26px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+              Autonomous recovery run
+            </h1>
+            <p className="mt-1.5 max-w-[70ch] text-[13.5px] leading-[1.5] text-secondary">
+              One follow-up, timed by the events themselves. Every step is a real handler result —
+              the model never produced one. ~4 minute judge flow, synthetic identities only.
+            </p>
+          </div>
+
+          {error ? <ErrorAlert message={error} /> : null}
+
+          {!hydrated ? null : !episodeId ? (
+            <section className="flex flex-col border-t border-rule-strong pt-5">
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+                Consultation just ended
+              </span>
+              <h2 className="mt-2 font-serif text-[27px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+                Start a synthetic recovery episode
+              </h2>
+              <p className="mt-2 max-w-[62ch] text-[14.5px] leading-[1.55] text-secondary">
+                EIR will open a Recovery Episode, schedule proactive follow-up, and wait for the
+                autonomous fleet. No real patient data.
+              </p>
+              <div className="mt-5 flex">
+                <Button onClick={() => void startDemo()} disabled={actionLocked}>
+                  {busy === "start" ? "Starting…" : "Start demo"}
+                  <Icon name="arrowRight" size={16} />
+                </Button>
+              </div>
+            </section>
+          ) : (
+            <>
+              {/* the run, as a ledger */}
+              <section className="flex flex-col">
+                <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-2.5">
+                  <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+                    Demo sequence
+                  </h2>
+                  <span className="font-mono text-[10.5px] text-muted">
+                    {completed.filter(Boolean).length} of {DEMO_STEPS.length} recorded
+                  </span>
+                </div>
+                <ol>
+                  {DEMO_STEPS.map((step, index) => {
+                    const done = completed[index];
+                    const current = index === stepIndex && !completed.every(Boolean);
+                    return (
+                      <li
+                        key={step.id}
+                        className={cn(
+                          "grid min-h-11 grid-cols-[34px_minmax(0,1fr)_92px] items-center gap-4 border-b border-rule",
+                          current &&
+                            "on-raised bg-raised pl-2.5 shadow-[inset_3px_0_0_0_var(--color-accent)]",
+                        )}
+                      >
+                        <span className="font-mono text-[10.5px] text-muted">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span
+                          className={cn(
+                            "truncate font-mono text-[12.5px]",
+                            done ? "text-ink" : current ? "font-medium text-ink" : "text-inactive",
+                          )}
+                        >
+                          {step.title}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-right font-mono text-[11.5px]",
+                            done ? "text-ok" : current ? "text-accent" : "text-inactive",
+                          )}
+                        >
+                          {done ? "done" : current ? "running" : "queued"}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </section>
+
+              {/* the cascade itself, laid against event timestamps */}
+              {cascade.length ? (
+                <section className="flex min-w-0 flex-col gap-5">
+                  <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-2.5">
+                    <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+                      Event cascade
+                    </h2>
+                    <span className="font-mono text-[10.5px] text-muted">
+                      drawn against event timestamps, not the poll
+                    </span>
+                  </div>
+                  <CascadeWaterfall steps={cascade} />
+                  {halted ? (
+                    <HaltBanner
+                      title={`CASCADE HALTED AT ${formatElapsed(runElapsed)}`}
+                      detail={
+                        suppressed
+                          ? `${suppressed} downstream event${suppressed === 1 ? " was" : "s were"} suppressed. The workflow resumes only when a clinician answers.`
+                          : "The workflow is parked on a blocking capability. It resumes only when a clinician answers."
+                      }
+                    />
+                  ) : null}
+                </section>
+              ) : null}
+
+              {activity ? <ActivityBanner title={activity.title} detail={activity.detail} /> : null}
+
+              {stalled ? (
+                <p className="border-l-[3px] border-warn bg-warn-tint px-4 py-3 text-[13.5px] text-warn">
+                  Still processing — check Observability.
+                </p>
+              ) : null}
+
+              {showFastForward ? (
+                <section className="flex flex-col border-t border-rule-strong pt-4">
+                  <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+                    Time control
+                  </h2>
+                  <p className="mt-2 max-w-[62ch] text-[14px] leading-[1.55] text-secondary">
+                    Demo time control only — production waits on Cloud Scheduler.
+                  </p>
+                  <div className="mt-4 flex">
+                    <Button onClick={() => void fastForward()} disabled={actionLocked}>
+                      {busy === "advance" ? "Advancing…" : "Fast-forward to follow-up"}
+                      <Icon name="arrowRight" size={16} />
+                    </Button>
+                  </div>
+                </section>
+              ) : null}
+
+              {inCall ? (
+                <section className="on-raised flex flex-col border-l-[3px] border-accent bg-raised px-5 py-4">
+                  <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+                    Real voice outreach
+                  </span>
+                  <h2 className="mt-1.5 text-[16px] font-medium text-ink">
+                    {hasEvent(events, "VoiceCallConnected")
+                      ? "Gemini Live conversation active"
+                      : "Calling patient…"}
+                  </h2>
+                  <dl className="mt-3 grid grid-cols-[128px_minmax(0,1fr)] gap-x-3.5 gap-y-2 font-mono text-[12px]">
+                    <dt className="text-muted">transport</dt>
+                    <dd className="text-body">voximplant · pstn</dd>
+                    <dt className="text-muted">model</dt>
+                    <dd className="truncate text-body">
+                      {runtime?.fleet.voice?.gemini_live_model ||
+                        "gemini-live-2.5-flash-native-audio"}
+                    </dd>
+                    <dt className="text-muted">identity</dt>
+                    <dd className="text-body">synthetic patient · real phone call</dd>
+                  </dl>
+                </section>
+              ) : null}
+
+              {checkin ? (
+                <section className="flex flex-col">
+                  <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-2.5">
+                    <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+                      Recovery check-in received
+                    </h2>
+                    <span className="font-mono text-[10.5px] text-muted">
+                      {pstnCheckin ? "real phone follow-up" : "scripted voice"}
+                    </span>
+                  </div>
+                  <dl className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 py-4 font-mono text-[13px]">
+                    <dt className="text-muted">pain_score</dt>
+                    <dd className="text-ink">{String(checkin.payload.pain_score ?? "—")}/10</dd>
+                    <dt className="text-muted">reported_issue</dt>
+                    <dd className="text-ink">
+                      {checkin.payload.reported_issue
+                        ? String(checkin.payload.issue_summary || "yes")
+                        : "none"}
+                    </dd>
+                    <dt className="text-muted">medication_adherence</dt>
+                    <dd className="text-ink">
+                      {String(checkin.payload.medication_adherence ?? "unknown")}
+                    </dd>
+                    <dt className="text-muted">provider</dt>
+                    <dd className="text-ink">{String(checkin.payload.provider ?? "voice")}</dd>
+                  </dl>
+                </section>
+              ) : null}
+
+              {callFailed ? (
+                <section className="flex flex-col border-l-[3px] border-warn bg-warn-tint px-5 py-4">
+                  <h2 className="text-[16px] font-medium text-ink">
+                    Voice outreach did not complete
+                  </h2>
+                  <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-[1.6] text-secondary">
+                    No recovery data was invented. One manual retry is available.
+                  </p>
+                  <div className="mt-4 flex">
+                    <Button
+                      variant="secondary"
+                      onClick={() => void retryVoice()}
+                      disabled={actionLocked}
+                    >
+                      {busy === "retry" ? "Retrying…" : "Retry voice outreach once"}
+                    </Button>
+                  </div>
+                </section>
+              ) : null}
+
+              {showAttack ? (
+                <section className="flex flex-col border-t border-rule-strong pt-4">
+                  <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+                    Adversarial input
+                  </h2>
+                  <p className="mt-3 border-l-[3px] border-rule-strong bg-raised px-4 py-3 font-mono text-[13px] text-body">
+                    {DEMO_ATTACK_PROMPT}
+                  </p>
+                  <div className="mt-4 flex">
+                    <Button
+                      variant="destructive"
+                      onClick={() => void runAttack()}
+                      disabled={actionLocked}
+                    >
+                      {busy === "attack" ? "Sending…" : "Simulate prompt-injection attack"}
+                    </Button>
+                  </div>
+                </section>
+              ) : null}
+
+              {securityEvent ? (
+                <section className="eir-halt on-ink flex flex-col border-l-[3px] border-high bg-ink px-5 py-4">
+                  <span className="inline-flex items-center gap-2 font-mono text-[11px] font-medium tracking-[0.12em] text-paper">
+                    <Icon name="halt" size={14} />
+                    BLOCKED BY MODEL ARMOR
+                  </span>
+                  <p className="mt-2 font-mono text-[12.5px] text-on-ink">{armor.title}</p>
+                  <dl className="mt-3 grid grid-cols-[148px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[12px]">
+                    <dt className="text-on-ink-muted">classification</dt>
+                    <dd className="text-paper">prompt injection / jailbreak</dd>
+                    <dt className="text-on-ink-muted">tools executed</dt>
+                    <dd className="text-paper">none</dd>
+                    <dt className="text-on-ink-muted">records returned</dt>
+                    <dd className="text-paper">none</dd>
+                    <dt className="text-on-ink-muted">adapter</dt>
+                    <dd className={armor.managed ? "text-paper" : "text-warn"}>
+                      {armor.managed ? "managed" : "fallback"}
+                    </dd>
+                  </dl>
+                </section>
+              ) : null}
+
+              {showConcerning ? (
+                <section className="flex flex-col border-t border-rule-strong pt-4">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+                      Backup demo control
+                    </h2>
+                    <span className="font-mono text-[10.5px] text-muted">
+                      only if the live call is unavailable
+                    </span>
+                  </div>
+                  <p className="mt-2 max-w-[62ch] text-[14px] leading-[1.55] text-secondary">
+                    Simulates a concerning spoken response so the risk agent has something to assess
+                    during a recording.
+                  </p>
+                  <dl className="mt-3 grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[13px]">
+                    <dt className="text-muted">pain_score</dt>
+                    <dd className="text-ink">8/10</dd>
+                    <dt className="text-muted">reported_issue</dt>
+                    <dd className="text-ink">swelling</dd>
+                  </dl>
+                  <div className="mt-4 flex">
+                    <Button onClick={() => void runConcerning()} disabled={actionLocked}>
+                      {busy === "concerning" ? "Sending…" : "Simulate concerning response"}
+                    </Button>
+                  </div>
+                </section>
+              ) : null}
+
+              {(preparingReview || pendingReview || awaiting === "review") && completed[5] ? (
+                <p className="border-l-[3px] border-accent bg-raised px-5 py-4 text-[14px] leading-[1.6] text-secondary">
+                  <span className="font-medium text-ink">EIR escalated instead of guessing.</span>{" "}
+                  The agent detected a concerning recovery signal and routed the case to a clinician
+                  rather than acting on it.
+                </p>
+              ) : null}
+
+              {pendingReview && !clinicianResolved ? (
+                <section className="flex flex-col">
+                  <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-2.5">
+                    <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+                      Parked event
+                    </h2>
+                    <span className="font-mono text-[10.5px] text-muted">
+                      replayed verbatim on resume
+                    </span>
+                  </div>
+                  <dl className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 py-4 font-mono text-[13px]">
+                    <dt className="text-muted">reason</dt>
+                    <dd className="text-ink">{pendingReview.reason}</dd>
+                    <dt className="text-muted">requested_by</dt>
+                    <dd className="text-ink">{pendingReview.agent_name}</dd>
+                    <dt className="text-muted">pending_capability</dt>
+                    <dd className="text-ink">
+                      {pendingReview.pending_capability || pendingReview.capability || "—"}
+                    </dd>
+                    <dt className="text-muted">review_status</dt>
+                    <dd className="text-ink">{pendingReview.status.toUpperCase()}</dd>
+                    <dt className="text-muted">episode_risk</dt>
+                    <dd className="text-ink">{episode?.risk_level ?? "—"}</dd>
+                    <dt className="text-muted">requested_at</dt>
+                    <dd className="text-ink">{formatWhen(pendingReview.created_at)}</dd>
+                  </dl>
+                  <div className="flex">
+                    <Button onClick={() => void approveReview()} disabled={actionLocked}>
+                      {reviewLocked ? "Waiting for worker…" : "Resolve and resume"}
+                      <Icon name="approve" size={16} />
+                    </Button>
+                  </div>
+                </section>
+              ) : null}
+
+              {chain.length > 0 ? (
+                <section className="flex flex-col">
+                  <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-2.5">
+                    <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+                      Agent chain
+                    </h2>
+                    <span className="font-mono text-[10.5px] text-muted">this episode only</span>
+                  </div>
+                  <ol>
+                    {chain.map((item, index) => (
+                      <li
+                        key={`${item.timestamp}-${item.agent_name}-${index}`}
+                        className="grid min-h-11 grid-cols-[34px_minmax(0,1fr)_minmax(0,1fr)] items-center gap-4 border-b border-rule"
+                      >
+                        <span className="font-mono text-[10.5px] text-muted">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span className="truncate font-mono text-[12.5px] text-ink">
+                          {item.agent_name}
+                        </span>
+                        <span className="truncate font-mono text-[11.5px] text-muted">
+                          {chainToolLabel(item)}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ) : null}
+
+              {loopComplete ? (
+                <section className="flex flex-col border-t border-rule-strong pt-5">
+                  <h2 className="font-serif text-[27px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+                    Recovery loop completed
+                  </h2>
+                  <ol className="mt-4">
+                    {[
+                      "live phone follow-up completed",
+                      "Gemini + ADK tools executed",
+                      "Model Armor blocked unsafe input",
+                      "spoken recovery signal escalated",
+                      "clinician reviewed the case",
+                    ].map((line, index) => (
+                      <li
+                        key={line}
+                        className="grid min-h-10 grid-cols-[34px_minmax(0,1fr)] items-center gap-4 border-b border-rule"
+                      >
+                        <span className="font-mono text-[10.5px] text-muted">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span className="text-[14px] text-secondary">{line}</span>
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <Button onClick={() => void startDemo()} disabled={busy === "start"}>
+                      {busy === "start" ? "Starting…" : "Start new demo"}
+                      <Icon name="arrowRight" size={16} />
+                    </Button>
+                    <Link
+                      href={`/recovery/${episodeId}`}
+                      className="focus-ink inline-flex min-h-11 items-center gap-2.5 border border-rule-strong px-5 text-sm font-medium text-body hover:bg-hover"
+                    >
+                      Open full episode
+                      <Icon name="open" size={16} />
+                    </Link>
+                    <Link
+                      href="/observability"
+                      className="focus-ink inline-flex min-h-11 items-center gap-2.5 border border-rule-strong px-5 text-sm font-medium text-body hover:bg-hover"
+                    >
+                      Open observability
+                      <Icon name="open" size={16} />
+                    </Link>
+                  </div>
+                </section>
+              ) : null}
+
+              {events.length > 0 ? (
+                <section className="flex flex-col">
+                  <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-2.5">
+                    <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+                      Audit timeline
+                    </h2>
+                    <span className="font-mono text-[10.5px] text-muted">
+                      {events.length} event{events.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <ol>
+                    {events.map((event) => (
+                      <li
+                        key={event.event_id}
+                        className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-rule"
+                      >
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <span className="truncate text-[14px] text-ink">
+                            {eventLabel(event.event_type).title}
+                          </span>
+                          <span className="truncate font-mono text-[11px] text-muted">
+                            {event.event_type}
+                          </span>
+                        </div>
+                        <span className="font-mono text-[11.5px] text-muted">
+                          {formatWhen(event.occurred_at)}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ) : null}
+            </>
+          )}
+        </main>
+
+        {/* run detail — the artboard's right rail */}
+        <aside className="on-raised flex flex-col border-t border-rule bg-raised xl:min-h-full xl:border-l xl:border-t-0">
+          {episodeId ? (
+            <div className="flex flex-col gap-2 border-b border-rule px-6 pb-4 pt-5">
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+                Episode
+              </span>
+              <h2 className="font-mono text-[17px] font-medium text-ink">
+                {patientName || "Synthetic patient"}
+              </h2>
+              <span className="font-mono text-[11.5px] text-muted">
+                {shortEpisodeId(episodeId)}
+                {episode?.patient_id ? ` · ${episode.patient_id}` : ""}
+              </span>
+              {episode ? (
+                <div className="mt-1 flex flex-wrap gap-2">
+                  <Badge className={episodeBadgeClass(episode.status)}>{episode.status}</Badge>
+                  <Badge className={riskBadgeClass(episode.risk_level)}>{episode.risk_level}</Badge>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {episode ? (
+            <div className="flex flex-col gap-2.5 border-b border-rule px-6 py-4">
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+                Schedule
+              </span>
+              <dl className="grid grid-cols-[104px_minmax(0,1fr)] gap-x-3.5 gap-y-2 font-mono text-[12px]">
+                <dt className="text-muted">started</dt>
+                <dd className="text-body">{formatWhen(episode.started_at)}</dd>
+                <dt className="text-muted">next follow-up</dt>
+                <dd className="text-body">{formatWhen(episode.next_follow_up_at)}</dd>
+                <dt className="text-muted">assigned</dt>
+                <dd className="text-body">{episode.assigned_agents.join(", ") || "none"}</dd>
+              </dl>
+            </div>
+          ) : null}
+
+          {proof.length ? (
+            <div className="flex flex-col gap-2.5 border-b border-rule px-6 py-4">
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+                Runtime proof
+              </span>
+              <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3.5 gap-y-2 font-mono text-[12px]">
+                {proof.map((row) => (
+                  <div key={row.label} className="contents">
+                    <dt className="truncate text-muted">{row.label}</dt>
+                    <dd
+                      className={cn(
+                        "text-right tracking-[0.06em]",
+                        row.live ? "text-ok" : "text-warn",
+                      )}
+                    >
+                      {row.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-2.5 border-b border-rule px-6 py-4">
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+              Why it holds
+            </span>
+            <ol>
+              {[
+                {
+                  title: "Proactive",
+                  body: "EIR follows the patient after the visit instead of waiting for another call.",
+                },
+                {
+                  title: "Agentic",
+                  body: "Gemini + ADK agents inspect context and execute tools through a governed fleet.",
+                },
+                {
+                  title: "Safe",
+                  body: "Model Armor and deterministic policy gates block unsafe actions and escalate uncertainty.",
+                },
+                {
+                  title: "Longitudinal",
+                  body: "Recovery state persists across follow-ups rather than ending with one chat session.",
+                },
+              ].map((item, index) => (
+                <li
+                  key={item.title}
+                  className="grid grid-cols-[26px_minmax(0,1fr)] gap-3 border-b border-rule py-3 last:border-b-0"
+                >
+                  <span className="font-mono text-[10.5px] text-muted">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className="flex flex-col gap-1">
+                    <span className="font-mono text-[12px] text-ink">{item.title}</span>
+                    <span className="text-[12.5px] leading-[1.55] text-secondary">{item.body}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <div className="mt-auto flex flex-col gap-2 border-t border-rule-strong px-6 pb-5 pt-4">
+            <span className="font-mono text-[10.5px] leading-[1.55] text-muted">
+              Handler results come from Python, never from the model.
+            </span>
+            <span className="font-mono text-[10.5px] leading-[1.55] text-muted">
+              Synthetic demo environment · no real patient data
+            </span>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}

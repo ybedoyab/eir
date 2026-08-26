@@ -162,14 +162,9 @@ export default function AdminFleetPage() {
                 hint="first match by registration order"
               />
               <StatCard
-                label="Cascade depth"
-                value={
-                  <>
-                    {recent.length ? recent.length : 0}
-                    <span className="text-[15px] text-muted"> / 12</span>
-                  </>
-                }
-                hint="drops at 12 · no loop"
+                label="Traces recorded"
+                value={traces.length}
+                hint="cascade depth guard drops at 12"
               />
               <StatCard
                 label="Adapters degraded"

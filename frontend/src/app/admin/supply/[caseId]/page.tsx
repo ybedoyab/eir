@@ -1,15 +1,16 @@
 "use client";
 
-import { ArrowLeft, PackageCheck, PhoneCall, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { Card, CardHeader } from "@/components/ui/Card";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { cn } from "@/lib/cn";
 import { eventLabel, eventOutcome } from "@/lib/eventLabels";
 import {
   purchaseOrderStatus,
@@ -32,11 +33,11 @@ function formatWhen(value: string | null | undefined): string {
 /** Why a cheaper quote lost. Availability beats price when stock is the problem. */
 function quoteNote(quote: SupplierQuote, order: ReplenishmentCase): string {
   const selected = order.purchase_order?.supplier_id === quote.supplier_id;
-  if (selected) return "Selected";
+  if (selected) return "selected";
   if (quote.available_units < order.requested_quantity) {
-    return `Can only ship ${quote.available_units} of ${order.requested_quantity}`;
+    return `can only ship ${quote.available_units} of ${order.requested_quantity}`;
   }
-  return "Higher unit price";
+  return "higher unit price";
 }
 
 export default function ReplenishmentCasePage({
@@ -113,12 +114,12 @@ export default function ReplenishmentCasePage({
   }
 
   return (
-    <section>
+    <section className="flex flex-col">
       <Link
         href="/admin/inventory"
-        className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"
+        className="focus-ink -mt-2 mb-2 inline-flex min-h-11 w-fit items-center gap-2 font-mono text-[11.5px] text-muted hover:text-ink"
       >
-        <ArrowLeft aria-hidden className="h-4 w-4" />
+        <Icon name="arrowLeft" size={14} />
         Back to inventory
       </Link>
 
@@ -130,6 +131,7 @@ export default function ReplenishmentCasePage({
             ? `${supplyCase.sku} · opened ${formatWhen(supplyCase.opened_at)}`
             : "Loading case…"
         }
+        density="dense"
         actions={
           supplyCase ? (
             <div className="flex flex-wrap items-center gap-2">
@@ -143,81 +145,70 @@ export default function ReplenishmentCasePage({
       {error ? <ErrorAlert message={error} /> : null}
 
       {loading ? (
-        <CardSkeleton />
+        <CardSkeleton rows={6} />
       ) : supplyCase ? (
-        <div className="space-y-6">
-          <Card className="border-teal-200 bg-gradient-to-br from-teal-50/80 to-white">
-            <p className="text-xs uppercase tracking-wide text-teal-700">Why this case opened</p>
-            <p className="mt-2 text-sm text-slate-700">{supplyCase.rationale}</p>
-            <dl className="mt-4 grid gap-4 sm:grid-cols-3">
-              <div>
-                <dt className="text-xs text-slate-500">Requested</dt>
-                <dd className="text-lg font-semibold text-slate-900">
-                  {supplyCase.requested_quantity}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-slate-500">Suppliers called</dt>
-                <dd className="text-lg font-semibold text-slate-900">
-                  {supplyCase.contacted_supplier_ids.length}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-slate-500">Agents involved</dt>
-                <dd className="text-sm font-medium text-slate-900">
-                  {supplyCase.assigned_agents.join(" → ") || "—"}
-                </dd>
-              </div>
+        <div className="flex flex-col gap-7">
+          <section className="flex flex-col">
+            <SectionHeader title="Why this case opened" />
+            <p className="max-w-[74ch] text-[14px] leading-[1.6] text-secondary">
+              {supplyCase.rationale}
+            </p>
+            <dl className="mt-4 grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[13px]">
+              <dt className="text-muted">requested_quantity</dt>
+              <dd className="text-ink">{supplyCase.requested_quantity}</dd>
+              <dt className="text-muted">suppliers_called</dt>
+              <dd className="text-ink">{supplyCase.contacted_supplier_ids.length}</dd>
+              <dt className="text-muted">assigned_agents</dt>
+              <dd className="text-ink">{supplyCase.assigned_agents.join(" → ") || "—"}</dd>
             </dl>
-          </Card>
+          </section>
 
           {order ? (
-            <Card
-              className={
-                awaitingApproval ? "border-amber-200 bg-amber-50/60" : undefined
-              }
+            <section
+              className={cn(
+                "flex flex-col",
+                awaitingApproval && "border-l-[3px] border-warn bg-warn-tint px-5 py-4",
+              )}
             >
-              <CardHeader
-                title={`Purchase order ${order.id}`}
-                description={
-                  awaitingApproval
-                    ? "The agent drafted this order. Nothing is sent to the supplier until you authorize it."
-                    : `Placed with ${order.supplier_name}.`
-                }
-                action={<StatusBadge status={purchaseOrderStatus(order.status)} />}
-              />
-              <dl className="grid gap-4 sm:grid-cols-4">
-                <div>
-                  <dt className="text-xs text-slate-500">Supplier</dt>
-                  <dd className="text-sm font-medium text-slate-900">{order.supplier_name}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-500">Quantity</dt>
-                  <dd className="text-sm font-medium text-slate-900">{order.quantity}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-500">Unit price</dt>
-                  <dd className="text-sm font-medium text-slate-900">
-                    {order.unit_price.toFixed(2)} {order.currency}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-500">Total</dt>
-                  <dd className="text-base font-semibold text-slate-900">
-                    {order.total_cost.toFixed(2)} {order.currency}
-                  </dd>
-                </div>
+              <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-2.5">
+                <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+                  Purchase order {order.id}
+                </h2>
+                <StatusBadge status={purchaseOrderStatus(order.status)} />
+              </div>
+              <p className="mt-3 max-w-[74ch] text-[13.5px] leading-[1.6] text-secondary">
+                {awaitingApproval
+                  ? "The agent drafted this order. Nothing is sent to the supplier until you authorize it."
+                  : `Placed with ${order.supplier_name}.`}
+              </p>
+              <dl className="mt-4 grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[13px]">
+                <dt className="text-muted">supplier</dt>
+                <dd className="text-ink">{order.supplier_name}</dd>
+                <dt className="text-muted">quantity</dt>
+                <dd className="text-ink">{order.quantity}</dd>
+                <dt className="text-muted">unit_price</dt>
+                <dd className="text-ink">
+                  {order.unit_price.toFixed(2)} {order.currency}
+                </dd>
+                <dt className="text-muted">total_cost</dt>
+                <dd className="text-ink">
+                  {order.total_cost.toFixed(2)} {order.currency}
+                </dd>
+                {order.approved_by ? (
+                  <>
+                    <dt className="text-muted">authorized_by</dt>
+                    <dd className="text-ink">
+                      {order.approved_by} · {formatWhen(order.approved_at)}
+                    </dd>
+                    <dt className="text-muted">expected_delivery</dt>
+                    <dd className="text-ink">{formatWhen(order.expected_delivery)}</dd>
+                  </>
+                ) : null}
               </dl>
-              {order.approved_by ? (
-                <p className="mt-4 text-xs text-slate-500">
-                  Authorized by {order.approved_by} on {formatWhen(order.approved_at)} · expected{" "}
-                  {formatWhen(order.expected_delivery)}
-                </p>
-              ) : null}
               <div className="mt-5 flex flex-wrap gap-2">
                 {awaitingApproval ? (
                   <Button onClick={() => void authorize()} disabled={working}>
-                    <ShieldCheck aria-hidden className="h-4 w-4" />
+                    <Icon name="approve" size={16} />
                     {working ? "Authorizing…" : "Authorize purchase order"}
                   </Button>
                 ) : null}
@@ -227,77 +218,118 @@ export default function ReplenishmentCasePage({
                     onClick={() => void markDelivered()}
                     disabled={working}
                   >
-                    <PackageCheck aria-hidden className="h-4 w-4" />
                     {working ? "Recording…" : "Record delivery"}
                   </Button>
                 ) : null}
               </div>
-            </Card>
+            </section>
           ) : null}
 
           {quotes.length ? (
-            <Card className="overflow-x-auto">
-              <CardHeader
+            <section className="flex flex-col">
+              <SectionHeader
                 title="Supplier quotes"
                 description="Recorded from the calls. The agent never states a figure a supplier did not give."
               />
-              <table className="w-full min-w-[38rem] text-left text-sm">
-                <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th scope="col" className="py-2 pr-4 font-medium">Supplier</th>
-                    <th scope="col" className="py-2 pr-4 font-medium">Unit price</th>
-                    <th scope="col" className="py-2 pr-4 font-medium">Available</th>
-                    <th scope="col" className="py-2 pr-4 font-medium">Lead time</th>
-                    <th scope="col" className="py-2 font-medium">Outcome</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {quotes.map((quote) => {
-                    const selected = order?.supplier_id === quote.supplier_id;
-                    return (
-                      <tr key={quote.supplier_id} className={selected ? "bg-emerald-50/60" : undefined}>
-                        <th scope="row" className="py-3 pr-4 font-normal text-slate-900">
-                          {quote.supplier_name}
-                        </th>
-                        <td className="py-3 pr-4 text-slate-700">
-                          {quote.unit_price.toFixed(2)} {quote.currency}
-                        </td>
-                        <td className="py-3 pr-4 text-slate-700">{quote.available_units}</td>
-                        <td className="py-3 pr-4 text-slate-700">{quote.lead_time_days} days</td>
-                        <td className="py-3 text-slate-600">{quoteNote(quote, supplyCase)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </Card>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[38rem] border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-rule-strong">
+                      {["Supplier", "Unit price", "Available", "Lead time", "Outcome"].map(
+                        (head) => (
+                          <th
+                            key={head}
+                            scope="col"
+                            className="pb-2.5 pr-4 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-muted last:pr-0"
+                          >
+                            {head}
+                          </th>
+                        ),
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quotes.map((quote) => {
+                      const selected = order?.supplier_id === quote.supplier_id;
+                      return (
+                        <tr
+                          key={quote.supplier_id}
+                          className={cn(
+                            "border-b border-rule",
+                            selected && "bg-raised shadow-[inset_3px_0_0_0_var(--color-accent)]",
+                          )}
+                        >
+                          <th
+                            scope="row"
+                            className={cn(
+                              "min-h-11 py-3 pr-4 text-[14px] font-normal text-ink",
+                              selected && "pl-2.5 font-medium",
+                            )}
+                          >
+                            {quote.supplier_name}
+                          </th>
+                          <td className="py-3 pr-4 font-mono text-[13px] text-secondary">
+                            {quote.unit_price.toFixed(2)} {quote.currency}
+                          </td>
+                          <td className="py-3 pr-4 font-mono text-[13px] text-secondary">
+                            {quote.available_units}
+                          </td>
+                          <td className="py-3 pr-4 font-mono text-[13px] text-secondary">
+                            {quote.lead_time_days}d
+                          </td>
+                          <td
+                            className={cn(
+                              "py-3 font-mono text-[12px]",
+                              selected ? "text-ok" : "text-muted",
+                            )}
+                          >
+                            {quoteNote(quote, supplyCase)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           ) : null}
 
-          <Card>
-            <CardHeader
+          <section className="flex flex-col">
+            <SectionHeader
               title="Audit timeline"
               description="Every step the supply fleet took on this case."
+              meta={events.length ? `${events.length} events` : undefined}
             />
-            <ol className="space-y-4">
+            <ol className="flex flex-col">
               {events.map((event) => {
                 const label = eventLabel(event.event_type);
                 return (
-                  <li key={event.event_id} className="flex gap-3">
-                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-50 text-teal-800">
-                      <PhoneCall aria-hidden className="h-4 w-4" />
+                  <li
+                    key={event.event_id}
+                    className="grid gap-2 border-b border-rule py-[18px] sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-5"
+                  >
+                    <span className="flex flex-col gap-1">
+                      <span className="font-mono text-[12px] text-muted">
+                        {formatWhen(event.occurred_at)}
+                      </span>
+                      <span className="font-mono text-[11px] text-inactive">
+                        {event.event_type}
+                      </span>
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900">{label.title}</p>
-                      <p className="text-sm text-slate-600">{label.description}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {eventOutcome(event)} · {formatWhen(event.occurred_at)}
+                      <p className="text-[15px] leading-[1.5] text-ink">{label.title}</p>
+                      <p className="mt-1 text-[13.5px] leading-[1.55] text-secondary">
+                        {label.description}
+                      </p>
+                      <p className="mt-2 font-mono text-[11.5px] text-muted">
+                        outcome · {eventOutcome(event)}
                       </p>
                     </div>
                   </li>
                 );
               })}
             </ol>
-          </Card>
+          </section>
         </div>
       ) : null}
     </section>

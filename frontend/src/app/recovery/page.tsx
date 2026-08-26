@@ -5,10 +5,12 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Card, CardHeader } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { CardSkeleton } from "@/components/ui/Skeleton";
 import { episodeBadgeClass, riskBadgeClass } from "@/lib/status";
 import { listRecovery, listReviews, resolveReview } from "@/services/api";
 import type { HumanReview, RecoveryEpisode } from "@/types";
@@ -36,23 +38,25 @@ export default function RecoveryPage() {
   }, []);
 
   return (
-    <section>
+    <section className="flex flex-col">
       <PageHeader
         eyebrow="Operations"
         title="Recovery"
         description="Monitor episode state, risk posture, and pending human review tasks."
+        density="staff"
       />
 
       {error ? <ErrorAlert message={`API unavailable: ${error}`} /> : null}
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card>
-          <CardHeader
+      <div className="grid gap-7 lg:grid-cols-[1.2fr_0.8fr]">
+        <section className="flex flex-col">
+          <SectionHeader
             title="Episodes"
             description="Active and historical recovery workflows."
+            meta={`${episodes.length} on record`}
           />
           {loading ? (
-            <p className="text-sm text-slate-500">Loading episodes…</p>
+            <CardSkeleton rows={5} />
           ) : episodes.length === 0 ? (
             <EmptyState
               title="No episodes yet"
@@ -60,70 +64,75 @@ export default function RecoveryPage() {
               action={
                 <Link
                   href="/patients"
-                  className="text-sm font-medium text-teal-700 hover:text-teal-800"
+                  className="focus-ink -my-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-accent hover:text-ink"
                 >
                   Go to patients
+                  <Icon name="chevronRight" size={14} />
                 </Link>
               }
             />
           ) : (
-            <div className="space-y-3">
+            <div className="flex flex-col">
               {episodes.map((episode) => (
                 <Link
                   key={episode.id}
                   href={`/recovery/${episode.id}`}
-                  className="block rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 transition hover:border-teal-200 hover:bg-white"
+                  className="focus-ink grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-rule hover:bg-hover"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="font-mono text-xs text-slate-400">{episode.id}</p>
-                      <p className="mt-1 text-sm text-slate-600">Patient {episode.patient_id}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge className={episodeBadgeClass(episode.status)}>{episode.status}</Badge>
-                      <Badge className={riskBadgeClass(episode.risk_level)}>
-                        {episode.risk_level}
-                      </Badge>
-                    </div>
-                  </div>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="truncate font-mono text-[12.5px] text-ink">{episode.id}</span>
+                    <span className="truncate font-mono text-[11px] text-muted">
+                      patient {episode.patient_id}
+                    </span>
+                  </span>
+                  <span className="flex flex-wrap justify-end gap-2">
+                    <Badge className={episodeBadgeClass(episode.status)}>{episode.status}</Badge>
+                    <Badge className={riskBadgeClass(episode.risk_level)}>
+                      {episode.risk_level}
+                    </Badge>
+                  </span>
                 </Link>
               ))}
             </div>
           )}
-        </Card>
+        </section>
 
-        <Card>
-          <CardHeader
+        <section className="flex flex-col">
+          <SectionHeader
             title="Pending review"
             description="Human-in-the-loop checkpoints requiring approval."
+            meta={reviews.length ? `${reviews.length} parked` : "nothing parked"}
           />
           {reviews.length === 0 ? (
-            <EmptyState title="No pending reviews" description="Escalated episodes will appear here." />
+            <EmptyState
+              title="No pending reviews"
+              description="Escalated episodes will appear here."
+            />
           ) : (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-5">
               {reviews.map((review) => (
                 <div
                   key={review.id}
-                  className="rounded-xl border border-rose-100 bg-rose-50/60 px-4 py-3"
+                  className="flex flex-col gap-3 border-l-[3px] border-high bg-raised px-4 py-3.5"
                 >
-                  <p className="text-sm font-medium text-slate-900">{review.reason}</p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="text-[14px] leading-[1.55] text-ink">{review.reason}</p>
+                  <p className="font-mono text-[11.5px] text-muted">
                     {review.agent_name} · {review.capability}
                   </p>
                   <Button
-                    variant="danger"
-                    className="mt-3"
+                    className="w-fit"
                     onClick={() => {
                       void resolveReview(review.id, "resolved from UI").then(() => refresh());
                     }}
                   >
-                    Resolve review
+                    <Icon name="approve" size={16} />
+                    Resolve and resume
                   </Button>
                 </div>
               ))}
             </div>
           )}
-        </Card>
+        </section>
       </div>
     </section>
   );

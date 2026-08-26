@@ -7,21 +7,22 @@ export async function ApiStatus() {
   try {
     const health = await getHealth();
     return (
-      <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 pb-3 pt-1 text-xs text-slate-500 sm:px-6">
-        <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
+      <div className="mx-auto flex max-w-6xl items-center gap-2.5 px-4 pb-3 pt-1 font-mono text-[11px] text-muted sm:px-6">
+        <span className="inline-flex h-1.5 w-1.5 bg-ok" aria-hidden />
         <span>
-          API <span className="font-medium text-slate-700">{health.status}</span>
+          API <span className="text-ok">{health.status}</span>
         </span>
-        <span className="hidden text-slate-400 sm:inline">·</span>
-        <span className="truncate font-mono text-[11px] text-slate-400">{host}</span>
+        <span className="hidden text-rule-strong sm:inline">·</span>
+        <span className="truncate">{host}</span>
       </div>
     );
   } catch {
     return (
-      <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 pb-3 pt-1 text-xs text-rose-700 sm:px-6">
-        <span className="inline-flex h-2 w-2 rounded-full bg-rose-500" aria-hidden />
-        <span className="font-medium">API unreachable</span>
-        <span className="truncate font-mono text-[11px] text-rose-500">{host}</span>
+      <div className="mx-auto flex max-w-6xl items-center gap-2.5 px-4 pb-3 pt-1 font-mono text-[11px] text-muted sm:px-6">
+        <span className="inline-flex h-1.5 w-1.5 bg-high" aria-hidden />
+        <span className="font-medium text-high">API unreachable</span>
+        <span className="hidden text-rule-strong sm:inline">·</span>
+        <span className="truncate">{host}</span>
       </div>
     );
   }

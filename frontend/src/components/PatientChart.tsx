@@ -1,19 +1,12 @@
 "use client";
 
-import {
-  AlertTriangle,
-  CalendarDays,
-  ClipboardCheck,
-  HeartPulse,
-  Pill,
-} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Avatar } from "@/components/ui/Avatar";
-import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Timeline } from "@/components/ui/Timeline";
@@ -106,7 +99,6 @@ export function PatientChart({ patientId }: { patientId: string }) {
         detail: item.practitioner_name,
         at: formatWhen(item.start),
         ts: new Date(item.start).getTime(),
-        icon: CalendarDays,
       })),
       ...events
         .filter((item) =>
@@ -123,7 +115,6 @@ export function PatientChart({ patientId }: { patientId: string }) {
           title: eventLabel(item.event_type).title,
           at: formatWhen(item.occurred_at),
           ts: new Date(item.occurred_at).getTime(),
-          icon: item.event_type.includes("Review") ? ClipboardCheck : HeartPulse,
         })),
       ...reviews.map((item) => ({
         id: item.id,
@@ -131,7 +122,6 @@ export function PatientChart({ patientId }: { patientId: string }) {
         detail: item.reason,
         at: formatWhen(item.created_at),
         ts: new Date(item.created_at).getTime(),
-        icon: item.status === "pending" ? AlertTriangle : ClipboardCheck,
       })),
     ];
     return items.sort((a, b) => b.ts - a.ts).slice(0, 8);
@@ -148,7 +138,7 @@ export function PatientChart({ patientId }: { patientId: string }) {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="flex flex-col">
       <PageHeader
         eyebrow="Patient chart"
         title={patient.name}
@@ -157,113 +147,143 @@ export function PatientChart({ patientId }: { patientId: string }) {
             ? `Next visit ${formatWhen(nextAppointment.start)}`
             : "No upcoming appointment"
         }
+        density="staff"
         actions={<Avatar name={patient.name} size="xl" />}
       />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <h2 className="mb-4 text-base font-semibold text-slate-900">Appointments</h2>
+
+      <div className="grid gap-7 lg:grid-cols-2">
+        <section className="flex flex-col">
+          <SectionHeader
+            title="Appointments"
+            meta={`${appointments.length} on file`}
+          />
           {appointments.length ? (
-            <div className="space-y-3">
+            <div className="flex flex-col">
               {appointments.slice(0, 5).map((appointment) => (
-                <div key={appointment.id} className="rounded-xl border border-slate-200 p-4">
-                  <p className="font-medium text-slate-900">{appointment.specialty}</p>
-                  <p className="text-sm text-slate-600">{formatWhen(appointment.start)}</p>
-                  <div className="mt-2">
-                    <StatusBadge status={appointmentStatus(appointment.status)} />
-                  </div>
+                <div
+                  key={appointment.id}
+                  className="grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-rule"
+                >
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="truncate text-[15px] text-ink">{appointment.specialty}</span>
+                    <span className="truncate font-mono text-[11.5px] text-muted">
+                      {formatWhen(appointment.start)}
+                    </span>
+                  </span>
+                  <StatusBadge status={appointmentStatus(appointment.status)} />
                 </div>
               ))}
             </div>
           ) : (
             <EmptyState title="No appointments" />
           )}
-        </Card>
-        <Card>
-          <h2 className="mb-4 text-base font-semibold text-slate-900">Active recovery</h2>
+        </section>
+
+        <section className="flex flex-col">
+          <SectionHeader title="Active recovery" />
           {activeRecovery ? (
-            <div className="space-y-3">
-              <StatusBadge status={episodeStatus(activeRecovery.status)} />
-              <StatusBadge status={riskStatus(activeRecovery.risk_level)} />
-              <p className="text-sm text-slate-600">
-                Next check-in{" "}
-                {activeRecovery.next_follow_up_at
-                  ? formatWhen(activeRecovery.next_follow_up_at)
-                  : "unscheduled"}
-              </p>
+            <div className="flex flex-col gap-4 pb-2">
+              <div className="flex flex-wrap gap-2">
+                <StatusBadge status={episodeStatus(activeRecovery.status)} />
+                <StatusBadge status={riskStatus(activeRecovery.risk_level)} />
+              </div>
+              <dl className="grid grid-cols-[132px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[12.5px]">
+                <dt className="text-muted">next check-in</dt>
+                <dd className="text-body">
+                  {activeRecovery.next_follow_up_at
+                    ? formatWhen(activeRecovery.next_follow_up_at)
+                    : "unscheduled"}
+                </dd>
+                <dt className="text-muted">started</dt>
+                <dd className="text-body">{formatWhen(activeRecovery.started_at)}</dd>
+                <dt className="text-muted">assigned</dt>
+                <dd className="text-body">
+                  {activeRecovery.assigned_agents.join(", ") || "none"}
+                </dd>
+              </dl>
             </div>
           ) : (
-            <EmptyState title="No active recovery" icon={HeartPulse} />
+            <EmptyState
+              title="No active recovery"
+              description="Nothing is being monitored for this patient right now."
+            />
           )}
-        </Card>
+        </section>
       </div>
-      <Card>
-        <h2 className="mb-4 text-base font-semibold text-slate-900">Medications and adherence</h2>
-        <p className="mb-4 text-sm text-slate-600">
-          Latest check-in reports whether prescribed medications were taken. Drug names are
-          matched on the server after the call — the voice check-in asks about medications in
-          general.
-        </p>
-        <dl className="mb-4 grid gap-3 sm:grid-cols-2">
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-slate-500">Last reported adherence</dt>
-            <dd className="mt-1 text-sm text-slate-800">
-              {String(latestCheckin?.payload.medication_adherence ?? "Not yet recorded")}
+
+      <section className="mt-7 flex flex-col">
+        <SectionHeader
+          title="Medications and adherence"
+          description="The latest check-in reports whether prescribed medications were taken. Drug names are matched on the server after the call — the voice check-in asks about medications in general."
+        />
+        <dl className="mb-5 grid gap-x-5 gap-y-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              Last reported adherence
+            </dt>
+            <dd className="text-[14px] text-body">
+              {String(latestCheckin?.payload.medication_adherence ?? "not yet recorded")}
             </dd>
           </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-slate-500">Adherence concern</dt>
-            <dd className="mt-1 text-sm text-slate-800">
-              {latestAdherence
-                ? formatWhen(latestAdherence.occurred_at)
-                : "None recorded"}
+          <div className="flex flex-col gap-1">
+            <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              Adherence concern
+            </dt>
+            <dd className="text-[14px] text-body">
+              {latestAdherence ? formatWhen(latestAdherence.occurred_at) : "none recorded"}
             </dd>
           </div>
         </dl>
         {medications.length ? (
-          <ul className="space-y-3">
+          <ul className="flex flex-col">
             {medications.map((medication) => (
               <li
                 key={`${medication.sku || medication.rxnorm_code || medication.name}`}
-                className="rounded-xl border border-slate-200 p-4"
+                className="grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-rule"
               >
-                <div className="flex flex-wrap items-center gap-2">
-                  <Pill aria-hidden className="h-4 w-4 text-teal-700" />
-                  <p className="font-medium text-slate-900">{medication.name}</p>
-                  {medication.critical ? (
-                    <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-200">
-                      Critical
-                    </span>
-                  ) : null}
-                </div>
-                {medication.dose ? (
-                  <p className="mt-1 text-sm text-slate-600">{medication.dose}</p>
-                ) : null}
-                {medication.sku ? (
-                  <p className="mt-1 font-mono text-xs text-slate-400">{medication.sku}</p>
-                ) : null}
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate text-[15px] text-ink">{medication.name}</span>
+                  <span className="truncate font-mono text-[11.5px] text-muted">
+                    {[medication.dose, medication.sku].filter(Boolean).join(" · ") || "no dose recorded"}
+                  </span>
+                </span>
+                {medication.critical ? (
+                  <StatusBadge status={{ label: "Critical", tone: "danger" }} />
+                ) : (
+                  <span className="font-mono text-[11.5px] text-inactive">routine</span>
+                )}
               </li>
             ))}
           </ul>
         ) : (
-          <EmptyState title="No prescribed medications" icon={Pill} />
+          <EmptyState title="No prescribed medications" />
         )}
-      </Card>
-      <Card>
-        <h2 className="mb-4 text-base font-semibold text-slate-900">Timeline</h2>
+      </section>
+
+      <section className="mt-7 flex flex-col">
+        <SectionHeader title="Timeline" meta="most recent first" />
         {timeline.length ? <Timeline items={timeline} /> : <EmptyState title="No timeline yet" />}
-      </Card>
-      <button
-        type="button"
-        className="text-xs font-medium text-slate-400 hover:text-slate-600"
-        onClick={() => setShowSystem((value) => !value)}
-      >
-        {showSystem ? "Hide system details" : "System details"}
-      </button>
-      {showSystem ? (
-        <Card>
-          <p className="font-mono text-xs text-slate-500">{patient.id}</p>
-        </Card>
-      ) : null}
+      </section>
+
+      <div className="mt-6 flex flex-col gap-3">
+        <button
+          type="button"
+          className="focus-ink -mx-2 inline-flex min-h-11 w-fit items-center px-2 font-mono text-[11px] uppercase tracking-[0.1em] text-muted hover:text-ink"
+          onClick={() => setShowSystem((value) => !value)}
+        >
+          {showSystem ? "Hide system details" : "System details"}
+        </button>
+        {showSystem ? (
+          <dl className="grid grid-cols-[132px_minmax(0,1fr)] gap-x-5 gap-y-2 border-t border-rule pt-4 font-mono text-[12px]">
+            <dt className="text-muted">patient_id</dt>
+            <dd className="truncate text-body">{patient.id}</dd>
+            <dt className="text-muted">date_of_birth</dt>
+            <dd className="text-body">{patient.date_of_birth}</dd>
+            <dt className="text-muted">episodes</dt>
+            <dd className="text-body">{episodes.length}</dd>
+          </dl>
+        ) : null}
+      </div>
     </section>
   );
 }

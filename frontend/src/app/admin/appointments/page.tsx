@@ -70,17 +70,19 @@ export default function AdminAppointmentsPage() {
   }, [appointments, names, query, status, specialty, location]);
 
   return (
-    <section className="space-y-6">
+    <section className="flex flex-col gap-4">
       <PageHeader
         eyebrow="Operations"
         title="Appointment operations"
         description="Hospital-wide visits sorted by upcoming time."
+        density="dense"
       />
       {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
       <SearchInput
         placeholder="Search patient, specialty, or clinician"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
+        className="max-w-md"
       />
       <FilterChips
         label="Status"
@@ -111,37 +113,52 @@ export default function AdminAppointmentsPage() {
           ...LOCATIONS.map((item) => ({ id: item, label: item })),
         ]}
       />
-      {loading ? (
-        <CardSkeleton rows={6} />
-      ) : rows.length ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--eir-shadow)]">
-          <div className="hidden grid-cols-[9rem_1fr_8rem_9rem_8rem_7rem] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-medium uppercase tracking-wide text-slate-500 lg:grid">
-            <span>Time</span>
-            <span>Patient</span>
-            <span>Specialty</span>
-            <span>Clinician</span>
-            <span>Location</span>
-            <span>Status</span>
-          </div>
-          {rows.map((appointment) => (
-            <div
-              key={appointment.id}
-              className="grid gap-1 border-b border-slate-100 px-4 py-4 last:border-0 lg:grid-cols-[9rem_1fr_8rem_9rem_8rem_7rem] lg:items-center"
-            >
-              <p className="text-sm font-medium text-slate-900">{formatWhen(appointment.start)}</p>
-              <p className="font-medium text-slate-900">
-                {names[appointment.patient_id] ?? "Patient"}
-              </p>
-              <p className="text-sm text-slate-700">{appointment.specialty}</p>
-              <p className="text-sm text-slate-700">{appointment.practitioner_name}</p>
-              <p className="text-sm text-slate-500">{appointment.location_name}</p>
-              <StatusBadge status={appointmentStatus(appointment.status)} />
+      <div className="mt-2">
+        {loading ? (
+          <CardSkeleton rows={6} />
+        ) : rows.length ? (
+          <div className="flex flex-col">
+            <div className="hidden grid-cols-[150px_minmax(0,1fr)_120px_150px_130px_110px] items-baseline gap-4 border-b border-rule-strong pb-2.5 lg:grid">
+              {["Time", "Patient", "Specialty", "Clinician", "Location", "Status"].map((head) => (
+                <span
+                  key={head}
+                  className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted"
+                >
+                  {head}
+                </span>
+              ))}
             </div>
-          ))}
-        </div>
-      ) : (
-        <EmptyState title="No matching appointments" />
-      )}
+            {rows.map((appointment) => (
+              <div
+                key={appointment.id}
+                className="grid min-h-11 items-center gap-1 border-b border-rule py-2.5 lg:grid-cols-[150px_minmax(0,1fr)_120px_150px_130px_110px] lg:gap-4 lg:py-0"
+              >
+                <span className="truncate font-mono text-[12px] text-secondary">
+                  {formatWhen(appointment.start)}
+                </span>
+                <span className="truncate text-[14px] text-ink">
+                  {names[appointment.patient_id] ?? "Patient"}
+                </span>
+                <span className="truncate text-[13.5px] text-secondary">
+                  {appointment.specialty}
+                </span>
+                <span className="truncate text-[13.5px] text-secondary">
+                  {appointment.practitioner_name}
+                </span>
+                <span className="truncate font-mono text-[11.5px] text-muted">
+                  {appointment.location_name}
+                </span>
+                <StatusBadge status={appointmentStatus(appointment.status)} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            title="No matching appointments"
+            description="Nothing matches the filters you have applied."
+          />
+        )}
+      </div>
     </section>
   );
 }
