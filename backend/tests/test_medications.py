@@ -19,13 +19,42 @@ def _login(client: TestClient, username: str) -> dict[str, str]:
 
 def test_alex_medications_api_returns_coded_prescriptions() -> None:
     with TestClient(app) as client:
-        response = client.get("/api/v1/patients/patient-synthetic-001/medications")
+        alex = _login(client, "alex")
+        response = client.get(
+            "/api/v1/patients/patient-synthetic-001/medications",
+            headers=alex,
+        )
         assert response.status_code == 200
         body = response.json()
         skus = {item["sku"] for item in body}
         assert skus == {"MED-ENOX-40", "MED-PARA-500", "MED-AMOX-500"}
         enox = next(item for item in body if item["sku"] == "MED-ENOX-40")
         assert enox["critical"] is True
+
+
+def test_medications_require_auth_and_own_record() -> None:
+    with TestClient(app) as client:
+        denied = client.get("/api/v1/patients/patient-synthetic-001/medications")
+        assert denied.status_code == 401
+        directory = client.get("/api/v1/patients")
+        assert directory.status_code == 401
+        alex = _login(client, "alex")
+        other = client.get(
+            "/api/v1/patients/patient-synthetic-002/medications",
+            headers=alex,
+        )
+        assert other.status_code == 403
+        own = client.get(
+            "/api/v1/patients/patient-synthetic-001",
+            headers=alex,
+        )
+        assert own.status_code == 200
+        listing = client.get("/api/v1/patients", headers=alex)
+        assert listing.status_code == 403
+        admin = _login(client, "admin")
+        staff = client.get("/api/v1/patients", headers=admin)
+        assert staff.status_code == 200
+        assert any(item["id"] == "patient-synthetic-001" for item in staff.json())
 
 
 def test_inventory_lists_patient_counts() -> None:

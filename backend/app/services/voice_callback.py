@@ -76,7 +76,7 @@ def _structured_payload(body: VoiceCallbackRequest) -> dict[str, Any]:
     return {
         "channel": "voice",
         "provider": "voximplant",
-        "synthetic": True,
+        "synthetic": False,
         "correlation_id": body.correlation_id,
         "call_id": body.call_id,
         "pain_score": pain,

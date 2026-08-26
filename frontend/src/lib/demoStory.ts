@@ -47,6 +47,21 @@ export function isOutreachResponse(event: DomainEvent): boolean {
   return channel === "voice" || provider === "voximplant" || event.payload.synthetic === true;
 }
 
+export function isVoximplantEvent(event: DomainEvent | undefined): boolean {
+  if (!event) {
+    return false;
+  }
+  return String(event.payload.provider ?? "") === "voximplant";
+}
+
+export function isScriptedVoice(event: DomainEvent | undefined): boolean {
+  if (!event) {
+    return false;
+  }
+  const provider = String(event.payload.provider ?? "");
+  return event.payload.synthetic === true || provider === "synthetic" || provider === "mock";
+}
+
 export function isConcerningResponse(event: DomainEvent): boolean {
   if (event.event_type !== "PatientResponded") {
     return false;
@@ -139,7 +154,14 @@ export function demoActivity(input: {
   if (awaiting === "follow-up" && hasEvent(events, "FollowUpDue") && !completed[2]) {
     return { title: "Starting phone outreach…" };
   }
-  if (awaiting === "follow-up" && hasEvent(events, "VoiceCallStarted") && !hasEvent(events, "VoiceCallConnected") && !hasEvent(events, "VoiceCallCompleted") && !hasEvent(events, "VoiceCallFailed")) {
+  const voiceStarted = latestEvent(events, "VoiceCallStarted");
+  if (
+    awaiting === "follow-up" &&
+    isVoximplantEvent(voiceStarted) &&
+    !hasEvent(events, "VoiceCallConnected") &&
+    !hasEvent(events, "VoiceCallCompleted") &&
+    !hasEvent(events, "VoiceCallFailed")
+  ) {
     return { title: "Calling patient…", detail: "Voximplant is placing a real outbound PSTN call. The number is not shown." };
   }
   if (awaiting === "follow-up" && hasEvent(events, "VoiceCallConnected") && !completed[3]) {

@@ -45,6 +45,16 @@ def require_patient_access(
     return claims
 
 
+def assert_patient_record_access(claims: dict[str, Any], patient_id: str) -> None:
+    """Patients read only themselves; clinicians and ops may read any record."""
+    role = claims.get("role")
+    if role in {DemoRole.CLINICIAN.value, DemoRole.OPERATIONS_ADMIN.value}:
+        return
+    if role == DemoRole.PATIENT.value and claims.get("patient_id") == patient_id:
+        return
+    raise HTTPException(status_code=403, detail="Patient record access denied")
+
+
 def optional_claims(
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> dict[str, Any] | None:

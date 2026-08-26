@@ -117,16 +117,17 @@ export async function listDemoUsers() {
 }
 
 export async function listPatients() {
-  return getJson<import("@/types").Patient[]>("/api/v1/patients");
+  return getJson<import("@/types").Patient[]>("/api/v1/patients", true);
 }
 
 export async function getPatient(id: string) {
-  return getJson<import("@/types").Patient>(`/api/v1/patients/${id}`);
+  return getJson<import("@/types").Patient>(`/api/v1/patients/${id}`, true);
 }
 
 export async function listPatientMedications(patientId: string) {
   return getJson<import("@/types").PatientMedication[]>(
     `/api/v1/patients/${encodeURIComponent(patientId)}/medications`,
+    true,
   );
 }
 

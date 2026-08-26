@@ -236,6 +236,8 @@ def test_completed_callback_publishes_patient_responded(monkeypatch) -> None:
             item for item in events if item["event_type"] == "VoiceCallCompleted"
         )
         assert responded["payload"]["pain_score"] == 8
+        assert responded["payload"]["synthetic"] is False
+        assert responded["payload"]["provider"] == "voximplant"
         assert "transcript" not in responded["payload"]
         assert "transcript" not in completed_event["payload"]
         assert "issue_summary" in responded["payload"]

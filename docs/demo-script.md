@@ -52,7 +52,7 @@ Until PSTN Caller ID exists, validate Gemini Live on `/voice-preview` (not phone
 
 If PSTN is unavailable, the **Backup demo control** still publishes a concerning `PatientResponded` through the same EventBus. Do not present it as the primary path.
 
-Without PSTN, synthetic fast-forward for Alex reports low pain **and** that prescribed medications were not taken. That is matched server-side to enoxaparin (critical) and opens clinician review. Gemini does not need to say the drug name on the Phase-1 path; the live scenario can name drugs once the voice context endpoint is serving.
+Without PSTN, synthetic fast-forward for Alex reports low pain **and** that prescribed medications were not taken. That is matched server-side to enoxaparin (critical) and opens clinician review. The card says **SYNTHETIC CHECK-IN COMPLETED**, not a real phone call. Gemini does not need to say the drug name on that path; the live scenario can name drugs once the voice context endpoint is serving.
 
 On `/admin/inventory`, the **Patients** column is the same SKU catalog the replenishment fleet uses — recovery assignment and supply are one system.
 
