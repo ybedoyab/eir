@@ -153,24 +153,26 @@ def _secret_exists(name: str) -> bool:
 
     `gcloud secrets describe` also succeeds for an empty container, and binding
     `<name>:latest` for one of those makes the Cloud Run revision fail to start.
+
+    Probe with `versions access`, not `versions list`. The deploy SA has
+    secretAccessor (payload read) and does not have secretViewer, so listing
+    versions always looks empty and the voice secrets never get bound.
+    stdout is captured and discarded so the payload never reaches CI logs.
     """
     completed = subprocess.run(
         [
             _gcloud(),
             "secrets",
             "versions",
-            "list",
-            name,
+            "access",
+            "latest",
+            f"--secret={name}",
             f"--project={PROJECT}",
-            "--filter=state=ENABLED",
-            "--limit=1",
-            "--format=value(name)",
         ],
         capture_output=True,
-        text=True,
         check=False,
     )
-    return completed.returncode == 0 and bool(completed.stdout.strip())
+    return completed.returncode == 0
 
 
 def _shared_env(project_number: str) -> list[str]:
@@ -225,9 +227,15 @@ def _pstn_ready() -> bool:
 
 def _voice_secret_flags() -> str:
     extra: list[str] = []
+    skipped: list[str] = []
     for env_name, secret_name in VOICE_SECRET_BINDINGS:
         if _secret_exists(secret_name):
             extra.append(f"{env_name}={secret_name}:latest")
+        else:
+            skipped.append(secret_name)
+    print(f"voice secrets bound: {', '.join(extra) or 'none'}", flush=True)
+    if skipped:
+        print(f"voice secrets skipped (no readable version): {', '.join(skipped)}", flush=True)
     return ",".join(extra)
 
 
