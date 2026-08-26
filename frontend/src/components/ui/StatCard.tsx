@@ -1,38 +1,71 @@
-import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 
+export type CounterTone = "ink" | "accent" | "ok" | "warn" | "high" | "crit";
+
+const FIGURE_TONE: Record<CounterTone, string> = {
+  ink: "text-ink",
+  accent: "text-accent",
+  ok: "text-ok",
+  warn: "text-warn",
+  high: "text-high",
+  crit: "text-crit",
+};
+
+/**
+ * A counter in the operations strip. No icon, no tinted square, no card —
+ * a mono column label, the figure in its state colour, and a required
+ * "so what" line, because every number here answers "what do I do".
+ */
 export function StatCard({
   label,
   value,
-  icon: Icon,
   hint,
+  tone = "ink",
   className,
 }: {
   label: string;
   value: ReactNode;
-  icon?: LucideIcon;
-  hint?: string;
+  /** Required: what this number means for the reader. */
+  hint: string;
+  tone?: CounterTone;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col gap-[5px] px-5 py-4 first:pl-0 last:pr-0", className)}>
+      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "font-mono text-[27px] leading-none tabular-nums",
+          FIGURE_TONE[tone],
+        )}
+      >
+        {value}
+      </span>
+      <span className="text-[12.5px] leading-snug text-secondary">{hint}</span>
+    </div>
+  );
+}
+
+/** Wraps a row of counters in the rules the Admin artboard draws around them. */
+export function StatStrip({
+  children,
+  className,
+}: {
+  children: ReactNode;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[var(--eir-shadow)]",
+        "grid border-t border-rule-strong border-b border-b-rule [&>*+*]:border-l [&>*+*]:border-rule",
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-slate-500">{label}</p>
-        {Icon ? (
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-800">
-            <Icon aria-hidden className="h-5 w-5" />
-          </span>
-        ) : null}
-      </div>
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+      {children}
     </div>
   );
 }

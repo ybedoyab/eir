@@ -1,6 +1,5 @@
 "use client";
 
-import { CheckCircle2, XCircle } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -49,18 +48,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={item.id}
             role="status"
-            className={`pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg ${
-              item.tone === "error"
-                ? "border-rose-200 bg-rose-50 text-rose-900"
-                : "border-emerald-200 bg-emerald-50 text-emerald-950"
+            className={`eir-enter pointer-events-auto flex flex-col gap-1 border-l-[3px] bg-ink px-4 py-3 ${
+              item.tone === "error" ? "border-high" : "border-ok"
             }`}
           >
-            {item.tone === "error" ? (
-              <XCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-            ) : (
-              <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-            )}
-            <p>{item.message}</p>
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-on-ink-muted">
+              {item.tone === "error" ? "Failed" : "Done"}
+            </span>
+            <p className="text-[13.5px] leading-snug text-on-ink">{item.message}</p>
           </div>
         ))}
       </div>

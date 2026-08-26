@@ -1,12 +1,3 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  Bone,
-  Brain,
-  HeartPulse,
-  Scan,
-  Stethoscope,
-} from "lucide-react";
-
 const DATE_LONG: Intl.DateTimeFormatOptions = {
   weekday: "long",
   month: "short",
@@ -33,18 +24,6 @@ export const SPECIALTIES = [
 ] as const;
 
 export const LOCATIONS = ["Main Clinic", "North Clinic", "Specialty Center"] as const;
-
-const SPECIALTY_ICONS: Record<string, LucideIcon> = {
-  Cardiology: HeartPulse,
-  "Primary Care": Stethoscope,
-  Orthopedics: Bone,
-  Dermatology: Scan,
-  Neurology: Brain,
-};
-
-export function specialtyIcon(specialty: string): LucideIcon {
-  return SPECIALTY_ICONS[specialty] ?? Stethoscope;
-}
 
 export function greeting(name: string, now = new Date()): string {
   const hour = now.getHours();

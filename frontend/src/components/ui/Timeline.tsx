@@ -1,6 +1,7 @@
-import type { LucideIcon } from "lucide-react";
-import { CalendarDays } from "lucide-react";
-
+/**
+ * Hairline-ruled rows, mono timestamp in its own column. No bullet glyphs —
+ * the rule and the column carry the sequence.
+ */
 export function Timeline({
   items,
 }: {
@@ -9,27 +10,25 @@ export function Timeline({
     title: string;
     detail?: string;
     at: string;
-    icon?: LucideIcon;
   }>;
 }) {
   if (!items.length) return null;
   return (
-    <ol className="space-y-3">
-      {items.map((item) => {
-        const Icon = item.icon ?? CalendarDays;
-        return (
-          <li key={item.id} className="flex gap-3">
-            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-50 text-teal-800">
-              <Icon aria-hidden className="h-4 w-4" />
-            </span>
-            <div>
-              <p className="text-sm font-medium text-slate-900">{item.title}</p>
-              {item.detail ? <p className="text-sm text-slate-600">{item.detail}</p> : null}
-              <p className="mt-0.5 text-xs text-slate-500">{item.at}</p>
-            </div>
-          </li>
-        );
-      })}
+    <ol className="flex flex-col">
+      {items.map((item) => (
+        <li
+          key={item.id}
+          className="grid grid-cols-[108px_minmax(0,1fr)] items-baseline gap-5 border-b border-rule py-[18px]"
+        >
+          <span className="font-mono text-[12px] text-muted">{item.at}</span>
+          <div className="min-w-0">
+            <p className="text-[15px] leading-[1.6] text-body">{item.title}</p>
+            {item.detail ? (
+              <p className="mt-1 text-[13.5px] leading-snug text-secondary">{item.detail}</p>
+            ) : null}
+          </div>
+        </li>
+      ))}
     </ol>
   );
 }

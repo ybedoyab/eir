@@ -1,24 +1,59 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------ *
+ * Blue paper — one neutral ramp carries structure, hue is spent only
+ * on state (risk, health, approval, adapter degradation, agent work).
+ * Tailwind v4 is CSS-first; these tokens are the whole config.
+ * ------------------------------------------------------------------ */
+@theme {
+  /* neutrals — blue-tinted, warm-to-cool at identical tonal values */
+  --color-paper: #f7fafd;
+  --color-raised: #eff3f9;
+  --color-hover: #e2eaf3;
+  --color-rule: #d5e0ed;
+  --color-rule-strong: #b7c7da;
+  --color-inactive: #7b8ca3;
+  --color-muted: #58687f;
+  --color-secondary: #48566b;
+  --color-body: #1f2a3a;
+  --color-ink: #0c1622;
+
+  /* accent and state */
+  --color-accent: #1a4f8f;
+  --color-accent-hover: #143f73;
+  --color-ok: #1f6b52;
+  --color-warn: #9a5b0b;
+  --color-warn-tint: #f8efe0;
+  --color-high: #b23a22;
+  --color-crit: #8c1c10;
+  --color-on-ink: #c3cedc;
+  --color-on-ink-muted: #93a5bc;
+  --color-on-ink-rule: #2c3b4d;
+
+  /* type — IBM Plex superfamily, three jobs */
+  --font-sans: var(--font-plex-sans), "IBM Plex Sans", "Segoe UI", -apple-system,
+    system-ui, sans-serif;
+  --font-serif: var(--font-plex-serif), "IBM Plex Serif", Georgia, serif;
+  --font-mono: var(--font-plex-mono), "IBM Plex Mono", Consolas, monospace;
+
+  /* motion budget */
+  --ease-micro: ease-out;
+  --ease-state: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 :root {
   color-scheme: light;
-  --eir-brand: #0f766e;
-  --eir-brand-dark: #115e59;
-  --eir-brand-soft: #ecfdf5;
-  --eir-surface: #ffffff;
-  --eir-muted: #64748b;
-  --eir-border: #e2e8f0;
-  --eir-shadow: 0 1px 2px rgb(15 23 42 / 6%), 0 8px 24px rgb(15 23 42 / 6%);
+  /* the paper gap inside a focus ring; raised surfaces override it */
+  --focus-gap: var(--color-paper);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  color: #0f172a;
-  background:
-    radial-gradient(circle at top left, rgb(204 251 241 / 45%), transparent 28%),
-    radial-gradient(circle at top right, rgb(224 231 255 / 35%), transparent 24%),
-    #f8fafc;
+  background: var(--color-paper);
+  color: var(--color-body);
+  font-variant-numeric: tabular-nums;
+  text-wrap: pretty;
 }
 
 a {
@@ -27,5 +62,145 @@ a {
 }
 
 ::selection {
-  background: rgb(153 246 228 / 60%);
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+/* Focus is an ink ring on a paper gap — visible on every background in
+ * the ramp, and never the same colour as a status. */
+.focus-ink:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--color-ink);
+}
+
+.on-raised {
+  --focus-gap: var(--color-raised);
+}
+
+.on-ink {
+  --focus-gap: var(--color-ink);
+}
+
+.on-ink.focus-ink:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-ink), 0 0 0 4px var(--color-paper);
+}
+
+/* ------------------------------------------------------------------ *
+ * Motion. Every animated element's BASE state is its finished state,
+ * so reduced motion — or a browser without animation-timeline — gets
+ * the complete page instantly rather than a page with pieces missing.
+ * ------------------------------------------------------------------ */
+@keyframes eir-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes eir-cut {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes eir-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.eir-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--color-accent);
+  transform-origin: 0 50%;
+  z-index: 20;
+}
+
+/* micro-feedback: 140ms ease-out, per the motion budget */
+@media (prefers-reduced-motion: no-preference) {
+  a,
+  button,
+  summary,
+  [role="button"] {
+    transition:
+      background-color 140ms ease-out,
+      color 140ms ease-out,
+      border-color 140ms ease-out,
+      box-shadow 140ms ease-out;
+  }
+
+  /* state transition: 260ms, staggered by reading order */
+  .eir-enter {
+    animation: eir-enter 260ms var(--ease-state) both;
+  }
+
+  /* the halt does not animate. it is absent, then it is simply there. */
+  .eir-cut {
+    animation: eir-cut 1ms steps(1, end) 880ms both;
+  }
+
+  /* risk rise / row update */
+  .eir-state {
+    transition:
+      background-color 240ms var(--ease-state),
+      color 240ms var(--ease-state),
+      border-color 240ms var(--ease-state);
+  }
+
+  @supports (animation-timeline: view()) {
+    .eir-reveal {
+      animation: eir-enter linear both;
+      animation-timeline: view();
+      animation-range: entry 2% cover 24%;
+    }
+
+    .eir-progress {
+      animation: eir-progress linear both;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
+
+@keyframes eir-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Loading placeholders breathe only when motion is welcome. */
+@media (prefers-reduced-motion: no-preference) {
+  .eir-pulse {
+    animation: eir-pulse 2s ease-in-out infinite;
+  }
+}
+
+/* Halts are instant and static — 0ms, no easing, at every setting. */
+.eir-halt,
+.eir-halt * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Route / view change — degrades silently where unsupported. */
+@view-transition {
+  navigation: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }

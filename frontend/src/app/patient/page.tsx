@@ -1,23 +1,14 @@
 "use client";
 
-import {
-  CalendarDays,
-  HeartPulse,
-  MessageCircle,
-  CalendarPlus,
-  CalendarClock,
-  CalendarX,
-} from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AppointmentCard } from "@/components/ui/AppointmentCard";
-import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Icon } from "@/components/ui/Icon";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { loadSession } from "@/lib/auth";
@@ -63,153 +54,181 @@ export default function PatientHomePage() {
         .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()),
     [appointments],
   );
-  const nextAppointment = upcoming[0];
-  const later = upcoming.slice(1, 3);
+  const nextTwo = upcoming.slice(0, 2);
   const activeRecovery = episodes.find((item) => !["COMPLETED", "CANCELLED"].includes(item.status));
+  const checkInDue =
+    activeRecovery?.status === "WAITING" || activeRecovery?.status === "WAITING_FOR_NEXT_FOLLOWUP";
 
   return (
-    <section className="space-y-8">
-      <PageHeader
-        eyebrow="Patient portal"
-        title={greeting(name)}
-        description="Your visits, recovery, and hospital assistant in one place."
-        actions={
-          <div className="flex items-center gap-3">
-            <Avatar name={session?.display_name ?? name} size="lg" />
-            <Link href="/patient/assistant">
-              <Button>
-                <MessageCircle aria-hidden className="h-4 w-4" />
-                Ask EIR
-              </Button>
-            </Link>
-          </div>
-        }
-      />
+    <>
+      <header>
+        <h1 className="font-serif text-[40px] font-medium leading-[1.15] tracking-[-0.018em] text-ink">
+          {greeting(name)}.
+        </h1>
+        <p className="mt-3 text-[17px] leading-[1.6] text-secondary">
+          {checkInDue
+            ? "One thing needs you today."
+            : "Your visits, recovery and hospital assistant in one place."}
+        </p>
+      </header>
+
       {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
 
       {loading ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <CardSkeleton rows={5} />
-          <CardSkeleton rows={5} />
+        <div className="flex flex-col gap-10">
+          <CardSkeleton rows={4} />
+          <CardSkeleton rows={4} />
         </div>
       ) : (
         <>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card className="border-teal-100">
-              <p className="text-xs font-medium uppercase tracking-wide text-teal-700">
-                Next appointment
-              </p>
-              {nextAppointment ? (
-                <div className="mt-3 space-y-3">
-                  <AppointmentCard appointment={nextAppointment} className="shadow-none" />
-                  <Link href="/patient/appointments">
-                    <Button variant="secondary">Manage appointment</Button>
-                  </Link>
-                </div>
-              ) : (
-                <EmptyState
-                  title="No upcoming appointments"
-                  description="Schedule a visit when you are ready."
-                  icon={CalendarDays}
-                  action={
-                    <Link href="/patient/appointments?action=schedule">
-                      <Button>Schedule appointment</Button>
+          {/* the one action */}
+          {activeRecovery ? (
+            <section
+              className={`on-raised flex flex-col gap-8 border-l-[3px] bg-raised px-9 py-8 lg:flex-row lg:items-center lg:justify-between ${
+                checkInDue ? "border-warn" : "border-accent"
+              }`}
+            >
+              <div className="flex flex-col gap-2.5">
+                <span
+                  className={`font-mono text-[11px] uppercase tracking-[0.1em] ${
+                    checkInDue ? "text-warn" : "text-accent"
+                  }`}
+                >
+                  {checkInDue ? "Check-in due" : "Recovery in progress"}
+                </span>
+                <h2 className="font-serif text-[27px] font-medium leading-[1.25] text-ink">
+                  How is your recovery going today?
+                </h2>
+                <p className="max-w-[44ch] text-[16px] leading-[1.6] text-secondary">
+                  A few short questions about pain, swelling and movement. Takes about a minute. A
+                  nurse reads anything that looks concerning.
+                </p>
+                <p className="mt-1 text-[14px] text-secondary">
+                  Next check-in{" "}
+                  <span className="font-mono text-[13px] text-ink">
+                    {activeRecovery.next_follow_up_at
+                      ? formatWhen(activeRecovery.next_follow_up_at)
+                      : "to be scheduled"}
+                  </span>
+                </p>
+              </div>
+              <Link
+                href="/patient/recovery"
+                className="focus-ink inline-flex min-h-14 shrink-0 items-center gap-2.5 bg-accent px-8 text-[16px] font-medium text-paper hover:bg-accent-hover"
+              >
+                {checkInDue ? "Start check-in" : "Open recovery"}
+                <Icon name="arrowRight" size={16} />
+              </Link>
+            </section>
+          ) : null}
+
+          {/* appointments */}
+          <section className="flex flex-col">
+            <SectionHeader
+              title="Appointments"
+              actionHref="/patient/appointments"
+              actionLabel="See all"
+            />
+            {nextTwo.length ? (
+              nextTwo.map((appointment) => (
+                <AppointmentCard
+                  key={appointment.id}
+                  appointment={appointment}
+                  actions={
+                    <Link
+                      href="/patient/appointments?action=reschedule"
+                      className="focus-ink inline-flex min-h-11 items-center gap-2 border border-rule-strong px-4 text-sm font-medium text-body hover:bg-hover"
+                    >
+                      Reschedule
+                      <Icon name="chevronRight" size={14} className="text-muted" />
                     </Link>
                   }
                 />
-              )}
-            </Card>
-
-            <Card>
-              <p className="text-xs font-medium uppercase tracking-wide text-teal-700">Recovery</p>
-              {activeRecovery ? (
-                <div className="mt-4 space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    <StatusBadge status={episodeStatus(activeRecovery.status)} />
-                    <StatusBadge status={riskStatus(activeRecovery.risk_level, "patient")} />
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    Next check-in{" "}
-                    <span className="font-medium text-slate-900">
-                      {activeRecovery.next_follow_up_at
-                        ? formatWhen(activeRecovery.next_follow_up_at)
-                        : "to be scheduled"}
-                    </span>
-                  </p>
-                  <Link href="/patient/recovery">
-                    <Button variant="secondary">
-                      <HeartPulse aria-hidden className="h-4 w-4" />
-                      View recovery details
+              ))
+            ) : (
+              <EmptyState
+                title="No upcoming appointments"
+                description="Schedule a visit when you are ready."
+                action={
+                  <Link href="/patient/appointments?action=schedule">
+                    <Button>
+                      Schedule appointment
+                      <Icon name="arrowRight" size={16} />
                     </Button>
                   </Link>
+                }
+              />
+            )}
+          </section>
+
+          {/* recovery so far + assistant */}
+          <section className="grid gap-10 lg:grid-cols-3">
+            <div className="flex flex-col lg:col-span-2">
+              <SectionHeader title="Your recovery so far" />
+              {activeRecovery ? (
+                <div className="flex flex-col">
+                  <div className="grid grid-cols-[108px_minmax(0,1fr)_auto] items-center gap-5 border-b border-rule py-[18px]">
+                    <span className="font-mono text-[13px] text-muted">Status</span>
+                    <span className="text-[15px] leading-[1.6] text-body">
+                      Episode {activeRecovery.id.slice(0, 8)}
+                    </span>
+                    <StatusBadge status={episodeStatus(activeRecovery.status)} />
+                  </div>
+                  <div className="grid grid-cols-[108px_minmax(0,1fr)_auto] items-center gap-5 border-b border-rule py-[18px]">
+                    <span className="font-mono text-[13px] text-muted">How you are</span>
+                    <span className="text-[15px] leading-[1.6] text-body">
+                      Based on your last check-in
+                    </span>
+                    <StatusBadge status={riskStatus(activeRecovery.risk_level, "patient")} />
+                  </div>
+                  <div className="grid grid-cols-[108px_minmax(0,1fr)_auto] items-center gap-5 border-b border-rule py-[18px]">
+                    <span className="font-mono text-[13px] text-muted">Started</span>
+                    <span className="text-[15px] leading-[1.6] text-body">
+                      {formatWhen(activeRecovery.started_at)}
+                    </span>
+                    <span className="font-mono text-[12px] text-muted">—</span>
+                  </div>
                 </div>
               ) : (
                 <EmptyState
                   title="No active recovery"
                   description="Recovery follow-up appears here after a procedure or discharge."
-                  icon={HeartPulse}
                   action={
                     <Link href="/patient/recovery">
-                      <Button variant="secondary">Open recovery</Button>
+                      <Button variant="secondary">
+                        Open recovery
+                        <Icon name="chevronRight" size={15} />
+                      </Button>
                     </Link>
                   }
                 />
               )}
-            </Card>
-          </div>
+            </div>
 
-          {later.length ? (
-            <Card>
-              <p className="mb-4 text-xs font-medium uppercase tracking-wide text-slate-500">
-                Upcoming
+            <div className="flex flex-col">
+              <SectionHeader title="Assistant" />
+              <p className="text-[15px] leading-[1.65] text-secondary">
+                Ask about appointments, transport or what to expect this week. Anything clinical
+                goes straight to a person.
               </p>
-              <div className="space-y-3">
-                {later.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-slate-900">{item.specialty}</p>
-                      <p className="text-sm text-slate-500">{formatWhen(item.start)}</p>
-                    </div>
-                    <p className="text-sm text-slate-600">{item.practitioner_name}</p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          ) : null}
-
-          <Card>
-            <p className="mb-4 text-xs font-medium uppercase tracking-wide text-slate-500">
-              Quick actions
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Link href="/patient/appointments?action=schedule">
-                <Button variant="secondary" className="w-full">
-                  <CalendarPlus aria-hidden className="h-4 w-4" />
-                  Schedule
-                </Button>
+              <Link
+                href="/patient/assistant"
+                className="focus-ink mt-5 inline-flex min-h-14 items-center justify-center gap-2.5 border border-rule-strong px-6 text-[15px] font-medium text-body hover:bg-hover"
+              >
+                Ask a question
+                <Icon name="arrowRight" size={16} className="text-accent" />
               </Link>
-              <Link href="/patient/appointments?action=reschedule">
-                <Button variant="secondary" className="w-full">
-                  <CalendarClock aria-hidden className="h-4 w-4" />
-                  Reschedule
-                </Button>
-              </Link>
-              <Link href="/patient/appointments?action=cancel">
-                <Button variant="secondary" className="w-full">
-                  <CalendarX aria-hidden className="h-4 w-4" />
-                  Cancel
-                </Button>
-              </Link>
-              <Link href="/patient/assistant">
-                <Button className="w-full">
-                  <MessageCircle aria-hidden className="h-4 w-4" />
-                  Ask EIR
-                </Button>
+              <Link
+                href="/patient/appointments?action=schedule"
+                className="focus-ink mt-3 inline-flex min-h-14 items-center justify-center gap-2.5 border border-rule px-6 text-[15px] text-secondary hover:bg-hover hover:text-ink"
+              >
+                <Icon name="plus" size={16} />
+                Schedule a visit
               </Link>
             </div>
-          </Card>
+          </section>
         </>
       )}
-    </section>
+    </>
   );
 }

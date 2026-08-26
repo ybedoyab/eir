@@ -1,6 +1,5 @@
 "use client";
 
-import { X } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -8,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 
 const FOCUSABLE =
@@ -77,7 +77,7 @@ export function Dialog({
       <button
         type="button"
         aria-label="Close dialog"
-        className="absolute inset-0 bg-slate-900/40"
+        className="absolute inset-0 bg-ink/45"
         onClick={onClose}
       />
       <div
@@ -87,17 +87,17 @@ export function Dialog({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         className={cn(
-          "relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-6",
+          "relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto border-t-[3px] border-accent bg-paper p-6",
           className,
         )}
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <h2 id={titleId} className="text-lg font-semibold text-slate-900">
+            <h2 id={titleId} className="font-serif text-[23px] font-medium leading-tight text-ink">
               {title}
             </h2>
             {description ? (
-              <p id={descriptionId} className="mt-1 text-sm text-slate-600">
+              <p id={descriptionId} className="mt-2 text-[14px] leading-relaxed text-secondary">
                 {description}
               </p>
             ) : null}
@@ -105,10 +105,10 @@ export function Dialog({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+            className="focus-ink inline-flex h-11 w-11 shrink-0 items-center justify-center text-muted hover:bg-hover hover:text-ink"
             aria-label="Close"
           >
-            <X aria-hidden className="h-5 w-5" />
+            <Icon name="close" size={18} />
           </button>
         </div>
         {children}

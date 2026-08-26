@@ -1,49 +1,95 @@
 "use client";
 
-import {
-  Bot,
-  Brain,
-  CalendarDays,
-  HeartPulse,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Card } from "@/components/ui/Card";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Icon } from "@/components/ui/Icon";
 import { CardSkeleton } from "@/components/ui/Skeleton";
-import { StatusBadge } from "@/components/ui/StatusBadge";
-import { platformStatus } from "@/lib/statusLabels";
-import { getRuntimeStatus, listAgents } from "@/services/api";
-import type { AgentDescriptor, RuntimeStatus } from "@/types";
+import { StatCard, StatStrip } from "@/components/ui/StatCard";
+import { cn } from "@/lib/cn";
+import { formatWait } from "@/lib/format";
+import { getRuntimeStatus, listAgents, listReviews, listTraces } from "@/services/api";
+import type { AgentDescriptor, HumanReview, RuntimeStatus, WorkflowTrace } from "@/types";
 
-const LOGICAL_FLEET: Array<{ name: string; description: string; icon: LucideIcon }> = [
-  { name: "Patient Access", description: "Portal and conversational appointment access", icon: Users },
-  { name: "Scheduling", description: "Slot search, booking, reschedule, and waitlist", icon: CalendarDays },
-  { name: "Recovery / Outreach", description: "Longitudinal follow-up and check-ins", icon: HeartPulse },
-  { name: "Risk", description: "Escalation signals from recovery responses", icon: ShieldCheck },
-  { name: "Adherence", description: "Care-task follow-through", icon: HeartPulse },
-  { name: "Records", description: "Synthetic FHIR read path", icon: Brain },
-  { name: "Escalation", description: "Human review handoff", icon: Bot },
-];
+type AdapterState = "real" | "fallback" | "unknown";
+
+interface AdapterRow {
+  name: string;
+  state: AdapterState;
+  detail: string;
+}
+
+const ADAPTER_TONE: Record<AdapterState, string> = {
+  real: "text-ok",
+  fallback: "text-warn",
+  unknown: "text-muted",
+};
+
+/** Reads what the runtime reports. A fallback is amber, never hidden, never green. */
+function adapterRows(runtime: RuntimeStatus | null): AdapterRow[] {
+  if (!runtime) return [];
+  const fleet = runtime.fleet;
+  const voice = fleet.voice;
+  const armorReal = runtime.content_guard.managed_model_armor_available === true;
+  const voiceReal = voice?.active_provider === "voximplant";
+  return [
+    {
+      name: "event_bus",
+      state: fleet.event_bus === "pubsub" ? "real" : "fallback",
+      detail: fleet.event_bus,
+    },
+    {
+      name: "fhir",
+      state: fleet.fhir_mode === "gcp" ? "real" : "fallback",
+      detail: fleet.fhir_mode === "gcp" ? "healthcare" : "local mocks",
+    },
+    {
+      name: "adk_runner",
+      state: fleet.adk_mode === "adk" ? "real" : "fallback",
+      detail: fleet.adk_allow_direct_fallback ? `${fleet.adk_mode} · direct allowed` : fleet.adk_mode,
+    },
+    {
+      name: "content_guard",
+      state: armorReal ? "real" : "fallback",
+      detail: runtime.content_guard.adapter,
+    },
+    {
+      name: "model_armor",
+      state: runtime.model_armor.available ? "real" : "fallback",
+      detail: runtime.model_armor.mode,
+    },
+    {
+      name: "voice",
+      state: voice ? (voiceReal ? "real" : "fallback") : "unknown",
+      detail: voice?.active_provider ?? "unreported",
+    },
+  ];
+}
 
 export default function AdminFleetPage() {
   const [agents, setAgents] = useState<AgentDescriptor[]>([]);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
+  const [traces, setTraces] = useState<WorkflowTrace[]>([]);
+  const [reviews, setReviews] = useState<HumanReview[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showTechnical, setShowTechnical] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
 
   async function refresh() {
     setLoading(true);
     setError(null);
     try {
-      const [agentItems, status] = await Promise.all([listAgents(), getRuntimeStatus()]);
+      const [agentItems, status, traceItems, reviewItems] = await Promise.all([
+        listAgents(),
+        getRuntimeStatus(),
+        listTraces(),
+        listReviews(true),
+      ]);
       setAgents(agentItems);
       setRuntime(status);
+      setTraces(traceItems);
+      setReviews(reviewItems);
+      setRefreshedAt(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load fleet");
     } finally {
@@ -55,155 +101,249 @@ export default function AdminFleetPage() {
     void refresh();
   }, []);
 
-  const platform = runtime?.fleet.platform;
-  const gemini = runtime?.fleet.gemini_model ?? "Gemini 3.5 Flash";
+  const adapters = adapterRows(runtime);
+  const degraded = adapters.filter((row) => row.state === "fallback");
+  const recent = [...traces]
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, 8);
+  const oldestReview = reviews.length
+    ? reviews.reduce((oldest, item) =>
+        new Date(item.created_at) < new Date(oldest.created_at) ? item : oldest,
+      )
+    : null;
 
   return (
-    <section className="space-y-8">
-      <PageHeader
-        eyebrow="Operations"
-        title="EIR Agent Fleet"
-        description="7 coordinated capabilities. Managed governance active."
-      />
+    <>
+      <header className="flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <h1 className="font-serif text-[27px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+            Agent fleet
+          </h1>
+          <p className="mt-1.5 text-[13.5px] leading-[1.5] text-secondary">
+            {agents.length} capability-routed agents.{" "}
+            {degraded.length
+              ? `${degraded.length} adapter${degraded.length === 1 ? " is" : "s are"} on a fallback — the runtime is saying so rather than hiding it.`
+              : "Every adapter is reporting real."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          className="focus-ink inline-flex min-h-11 items-center gap-2 px-2 font-mono text-[11px] text-muted hover:text-ink"
+        >
+          <Icon name="refresh" size={14} />
+          {refreshedAt
+            ? `refreshed ${refreshedAt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+            : "refresh"}
+        </button>
+      </header>
+
       {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
+
       {loading ? (
         <CardSkeleton rows={6} />
       ) : (
-        <>
-          <div>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Managed platform
-            </h2>
-            <div className="grid gap-4 md:grid-cols-2">
-              <PlatformCard
-                title="Patient Access Agent"
-                status={platformStatus(platform?.managed_agent_runtime_verified, "Live")}
-                detail={`Agent Runtime · ${gemini}`}
+        <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="flex min-w-0 flex-col gap-6">
+            <StatStrip className="sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                label="Reviews waiting"
+                value={reviews.length}
+                tone={reviews.length ? "high" : "ink"}
+                hint={
+                  oldestReview
+                    ? `oldest ${formatWait(oldestReview.created_at).replace(" waiting", "")}`
+                    : "nothing parked"
+                }
               />
-              <PlatformCard
-                title="Memory Bank"
-                status={platformStatus(platform?.managed_memory_bank_verified, "Live")}
-                detail="Cross-session context"
+              <StatCard
+                label="Registered agents"
+                value={agents.length}
+                hint="first match by registration order"
               />
-              <PlatformCard
-                title="Agent Registry"
-                status={platformStatus(platform?.managed_registry_verified, "Live")}
-                detail="eir-patient-access"
+              <StatCard
+                label="Cascade depth"
+                value={
+                  <>
+                    {recent.length ? recent.length : 0}
+                    <span className="text-[15px] text-muted"> / 12</span>
+                  </>
+                }
+                hint="drops at 12 · no loop"
               />
-              <PlatformCard
-                title="Agent Identity"
-                status={platformStatus(platform?.managed_agent_identity_verified, "Live")}
-                detail="Least privilege"
+              <StatCard
+                label="Adapters degraded"
+                value={degraded.length}
+                tone={degraded.length ? "warn" : "ok"}
+                hint={
+                  degraded.length
+                    ? `${degraded[0].name} on fallback`
+                    : "every adapter is the real thing"
+                }
               />
-              <PlatformCard
-                title="Agent Gateway"
-                status={{
-                  label: platform?.managed_agent_gateway_verified ? "Enforced" : "Unverified",
-                  tone: platform?.managed_agent_gateway_verified ? "success" : "warning",
-                }}
-                detail="AGENT_TO_ANYWHERE"
-              />
-              <PlatformCard
-                title="Model Armor"
-                status={{
-                  label: runtime?.content_guard.managed_model_armor_available ? "Active" : "Unverified",
-                  tone: runtime?.content_guard.managed_model_armor_available ? "success" : "warning",
-                }}
-                detail="Managed content screening"
-              />
-              <PlatformCard
-                title="Observability"
-                status={{
-                  label:
-                    platform?.otel_cloud_trace_verified || platform?.cloud_logging_verified
-                      ? "Active"
-                      : "Unverified",
-                  tone:
-                    platform?.otel_cloud_trace_verified || platform?.cloud_logging_verified
-                      ? "success"
-                      : "warning",
-                }}
-                detail="Cloud Trace and Logging"
-              />
-            </div>
+            </StatStrip>
+
+            {/* registry */}
+            <section className="flex flex-col">
+              <div className="flex items-baseline justify-between gap-4 pb-2">
+                <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+                  Registry
+                </h2>
+                <span className="font-mono text-[10.5px] text-muted">
+                  first match by registration order
+                </span>
+              </div>
+              <div className="grid grid-cols-[168px_minmax(0,1fr)_96px_96px] gap-4 border-b border-rule-strong pb-2">
+                {["Agent", "Granted capabilities", "Risk", "Version"].map((column) => (
+                  <span
+                    key={column}
+                    className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted"
+                  >
+                    {column}
+                  </span>
+                ))}
+              </div>
+              {agents.map((agent) => (
+                <div
+                  key={agent.name}
+                  className="grid min-h-11 grid-cols-[168px_minmax(0,1fr)_96px_96px] items-center gap-4 border-b border-rule"
+                  title={agent.description}
+                >
+                  <span className="truncate text-[14px] font-medium text-ink">{agent.name}</span>
+                  <span className="truncate font-mono text-[12px] text-secondary">
+                    {agent.capabilities.join(" · ")}
+                  </span>
+                  <span className="font-mono text-[12px] text-secondary">{agent.risk_level}</span>
+                  <span className="font-mono text-[12px] text-muted">{agent.version}</span>
+                </div>
+              ))}
+            </section>
+
+            {/* adapters */}
+            <section className="flex flex-col">
+              <div className="flex items-baseline justify-between gap-4 pb-2">
+                <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+                  Adapters
+                </h2>
+                <span className="font-mono text-[10.5px] text-muted">live from /health</span>
+              </div>
+              <div className="grid border-t border-rule-strong sm:grid-cols-2 lg:grid-cols-3">
+                {adapters.map((row) => (
+                  <div
+                    key={row.name}
+                    className={cn(
+                      "flex min-h-10 items-center justify-between gap-3 border-b border-rule px-4 first:pl-0",
+                      row.state === "fallback" && "bg-raised",
+                    )}
+                  >
+                    <span className="font-mono text-[12.5px] text-body">{row.name}</span>
+                    <span
+                      className={cn(
+                        "font-mono text-[11px] uppercase tracking-[0.06em]",
+                        ADAPTER_TONE[row.state],
+                      )}
+                    >
+                      {row.state} · {row.detail}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {runtime ? (
+              <details className="group border-t border-rule pt-3">
+                <summary className="focus-ink flex min-h-11 cursor-pointer list-none items-center gap-2 font-mono text-[11px] uppercase tracking-[0.1em] text-secondary hover:text-ink">
+                  <Icon
+                    name="chevronDown"
+                    size={14}
+                    className="transition-transform group-open:rotate-180"
+                  />
+                  Technical detail
+                </summary>
+                <dl className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-4 gap-y-2 pb-3 pt-2 font-mono text-[12px]">
+                  <dt className="text-muted">gemini model</dt>
+                  <dd className="text-body">{runtime.fleet.gemini_model}</dd>
+                  <dt className="text-muted">gemini location</dt>
+                  <dd className="text-body">{runtime.fleet.gemini_location}</dd>
+                  <dt className="text-muted">runtime region</dt>
+                  <dd className="text-body">{runtime.fleet.runtime_region}</dd>
+                  <dt className="text-muted">workflow subscriber</dt>
+                  <dd className="text-body">{runtime.fleet.workflow_subscriber}</dd>
+                  <dt className="text-muted">armor template</dt>
+                  <dd className="text-body">{runtime.model_armor.template || "—"}</dd>
+                  <dt className="text-muted">armor location</dt>
+                  <dd className="text-body">{runtime.model_armor.location || "—"}</dd>
+                </dl>
+              </details>
+            ) : null}
           </div>
 
-          <div>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Logical fleet
-            </h2>
-            <p className="mb-4 text-sm text-slate-600">
-              These are coordinated capabilities, not separate ReasoningEngine deployments.
-            </p>
-            <div className="grid gap-4 md:grid-cols-2">
-              {LOGICAL_FLEET.map((agent) => {
-                const Icon = agent.icon;
-                const registered = agents.find((item) =>
-                  item.name.toLowerCase().includes(agent.name.split(" ")[0].toLowerCase()),
-                );
-                return (
-                  <Card key={agent.name}>
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-800">
-                        <Icon aria-hidden className="h-5 w-5" />
-                      </span>
-                      <div>
-                        <p className="font-semibold text-slate-900">{agent.name}</p>
-                        <p className="mt-1 text-sm text-slate-600">{agent.description}</p>
-                        {registered ? (
-                          <p className="mt-2 text-xs text-slate-500">{registered.capabilities.join(" · ")}</p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
+          {/* live event stream */}
+          <aside className="on-raised flex flex-col border-l border-rule bg-raised">
+            <div className="flex items-center justify-between gap-3 border-b border-rule-strong px-5 pb-3 pt-5">
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-secondary">
+                Event stream
+              </span>
+              <span className="inline-flex items-center gap-2 font-mono text-[10.5px] tracking-[0.06em] text-accent">
+                <span className="h-1.5 w-1.5 bg-accent" aria-hidden />
+                LIVE
+              </span>
             </div>
-          </div>
+            {recent.length ? (
+              recent.map((trace) => (
+                <div
+                  key={`${trace.trace_id}-${trace.timestamp}`}
+                  className="flex flex-col gap-[3px] border-b border-rule px-5 py-2.5"
+                >
+                  <div className="flex items-baseline justify-between gap-2.5">
+                    <span className="truncate font-mono text-[12.5px] text-ink">
+                      {trace.event_type}
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 font-mono text-[11px]",
+                        trace.status === "blocked" || trace.status === "failed"
+                          ? "text-high"
+                          : "text-secondary",
+                      )}
+                    >
+                      {trace.status}
+                    </span>
+                  </div>
+                  <span className="truncate font-mono text-[11px] text-muted">
+                    {new Date(trace.timestamp).toLocaleTimeString()} · {trace.agent_name}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="px-5 py-4 text-[13px] text-muted">No traces recorded yet.</p>
+            )}
 
-          <button
-            type="button"
-            className="text-sm font-medium text-teal-700"
-            onClick={() => setShowTechnical((value) => !value)}
-          >
-            {showTechnical ? "Hide technical details" : "View technical details"}
-          </button>
-          {showTechnical && runtime ? (
-            <Card>
-              <dl className="grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                <div>ADK mode: {runtime.fleet.adk_mode}</div>
-                <div>FHIR mode: {runtime.fleet.fhir_mode}</div>
-                <div>Event bus: {runtime.fleet.event_bus}</div>
-                <div>Gemini: {runtime.fleet.gemini_model}</div>
-                <div>Armor template: {runtime.model_armor.template}</div>
-                <div>Armor mode: {runtime.model_armor.mode}</div>
-              </dl>
-            </Card>
-          ) : null}
-        </>
-      )}
-    </section>
-  );
-}
+            {/* the halt, echoed: register change, no hue, no motion */}
+            {oldestReview ? (
+              <div className="eir-halt m-5 flex flex-col gap-2 border-l-[3px] border-high bg-ink px-[18px] py-4">
+                <span className="inline-flex items-center gap-2 font-mono text-[11px] font-medium tracking-[0.12em] text-paper">
+                  <Icon name="halt" size={14} />
+                  CASCADE HALTED
+                </span>
+                <span className="text-[12.5px] leading-[1.55] text-on-ink">
+                  {oldestReview.pending_capability ?? oldestReview.capability} is a blocking
+                  capability. Next events suppressed, review parked for a clinician.
+                </span>
+                <span className="font-mono text-[11px] text-on-ink-muted">
+                  held {formatWait(oldestReview.created_at).replace(" waiting", "")}
+                </span>
+              </div>
+            ) : null}
 
-function PlatformCard({
-  title,
-  status,
-  detail,
-}: {
-  title: string;
-  status: { label: string; tone: "success" | "warning" | "danger" | "info" | "neutral" | "brand" };
-  detail: string;
-}) {
-  return (
-    <Card>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold text-slate-900">{title}</p>
-          <p className="mt-1 text-sm text-slate-600">{detail}</p>
+            <div className="mt-auto border-t border-rule px-5 py-4">
+              <span className="font-mono text-[10.5px] leading-[1.5] text-muted">
+                Timestamps from the event, not the fetch · synthetic demo environment
+              </span>
+            </div>
+          </aside>
         </div>
-        <StatusBadge status={status} />
-      </div>
-    </Card>
+      )}
+    </>
   );
 }

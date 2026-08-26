@@ -1,36 +1,46 @@
-import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 
+import { Icon } from "@/components/ui/Icon";
+
+/**
+ * A section label with its rule. Mono, uppercase, letterspaced — this is
+ * the only place that treatment is allowed, and it is never coloured.
+ */
 export function SectionHeader({
   title,
   description,
+  meta,
   actionHref,
   actionLabel,
-  icon: Icon,
 }: {
   title: string;
   description?: string;
+  /** Right-hand annotation, e.g. "first match by registration order". */
+  meta?: string;
   actionHref?: string;
   actionLabel?: string;
-  icon?: LucideIcon;
 }) {
   return (
-    <div className="mb-4 flex items-start justify-between gap-4">
-      <div>
-        <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
-          {Icon ? <Icon aria-hidden className="h-4 w-4 text-teal-700" /> : null}
+    <div className="mb-4 flex flex-col gap-2 border-b border-rule-strong pb-2.5">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
           {title}
         </h2>
-        {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+        {actionHref && actionLabel ? (
+          <Link
+            href={actionHref}
+            className="focus-ink -my-3 inline-flex min-h-11 items-center gap-1.5 text-sm text-accent hover:text-ink"
+          >
+            {actionLabel}
+            <Icon name="chevronRight" size={14} />
+          </Link>
+        ) : meta ? (
+          <span className="font-mono text-[10.5px] text-muted">{meta}</span>
+        ) : null}
       </div>
-      {actionHref && actionLabel ? (
-        <Link
-          href={actionHref}
-          className="text-sm font-medium text-teal-700 hover:text-teal-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
-        >
-          {actionLabel}
-        </Link>
+      {description ? (
+        <p className="text-[13.5px] leading-relaxed text-secondary">{description}</p>
       ) : null}
     </div>
   );

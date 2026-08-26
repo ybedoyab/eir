@@ -1,14 +1,14 @@
 "use client";
 
-import { CheckCircle2, HeartPulse, Pill } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Timeline } from "@/components/ui/Timeline";
@@ -64,58 +64,72 @@ export default function PatientRecoveryPage() {
   const history = episodes.filter((item) => item !== active);
 
   return (
-    <section className="space-y-6">
+    <>
       <PageHeader
-        eyebrow="Recovery"
+        density="patient"
         title="Recovery follow-up"
         description="Check-ins, care tasks, and the next time your care team will look in."
       />
       {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
+
       {loading ? (
         <CardSkeleton rows={6} />
       ) : active ? (
         <>
-          <RecoveryCard episode={active} events={eventsById[active.id] ?? []} />
-          <MedicationsCard
-            medications={medications}
-            events={eventsById[active.id] ?? []}
-          />
+          <RecoverySection episode={active} events={eventsById[active.id] ?? []} />
+          <MedicationsSection medications={medications} events={eventsById[active.id] ?? []} />
         </>
       ) : (
         <EmptyState
           title="No active recovery"
           description="If you recently had a procedure, recovery follow-up will appear here."
-          icon={HeartPulse}
         />
       )}
-      {history.map((episode) => (
-        <Card key={episode.id}>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="font-medium text-slate-900">Previous recovery</p>
-              <div className="mt-2">
-                <StatusBadge status={episodeStatus(episode.status)} />
+
+      {history.length ? (
+        <section className="flex flex-col">
+          <SectionHeader title="Earlier recoveries" />
+          {history.map((episode) => (
+            <div
+              key={episode.id}
+              className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-5 border-b border-rule py-[18px]"
+            >
+              <div className="flex flex-col gap-1">
+                <span className="text-[16px] text-body">Previous recovery</span>
+                <span className="font-mono text-[12px] text-muted">
+                  episode {episode.id.slice(0, 8)}
+                </span>
               </div>
+              <StatusBadge status={episodeStatus(episode.status)} />
+              <Link
+                href={`/recovery/${episode.id}`}
+                className="focus-ink inline-flex min-h-11 items-center gap-2 px-2 text-[14px] text-accent hover:text-ink"
+              >
+                Details
+                <Icon name="chevronRight" size={14} />
+              </Link>
             </div>
-            <Link href={`/recovery/${episode.id}`} className="text-sm font-medium text-teal-700">
-              View recovery details
-            </Link>
-          </div>
-        </Card>
-      ))}
-      <Card>
-        <p className="text-sm text-slate-600">
-          Judges can walk the full autonomous recovery story separately.
+          ))}
+        </section>
+      ) : null}
+
+      <section className="on-raised flex flex-col gap-4 border-l-[3px] border-rule-strong bg-raised px-8 py-7 sm:flex-row sm:items-center sm:justify-between">
+        <p className="max-w-[52ch] text-[15px] leading-relaxed text-secondary">
+          The full autonomous recovery story — every event, gate and halt — can be walked through
+          in the guided demo.
         </p>
-        <Link href="/demo" className="mt-3 inline-block">
-          <Button variant="secondary">Open guided recovery demo</Button>
+        <Link href="/demo" className="shrink-0">
+          <Button variant="secondary">
+            Open guided demo
+            <Icon name="arrowRight" size={16} />
+          </Button>
         </Link>
-      </Card>
-    </section>
+      </section>
+    </>
   );
 }
 
-function RecoveryCard({
+function RecoverySection({
   episode,
   events,
 }: {
@@ -125,70 +139,82 @@ function RecoveryCard({
   const started = events.find((item) => item.event_type === "RecoveryEpisodeStarted");
   const checkin = [...events].reverse().find((item) => item.event_type === "PatientResponded");
   const context = String(started?.payload.context ?? "Recovery follow-up");
-  const tasks = Array.isArray(started?.payload.tasks)
-    ? (started?.payload.tasks as string[])
-    : [];
+  const tasks = Array.isArray(started?.payload.tasks) ? (started?.payload.tasks as string[]) : [];
   const safeEvents = events.filter((item) => PATIENT_SAFE_EVENTS.has(item.event_type));
 
   return (
-    <Card>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-teal-700">Recovery status</p>
-          <h2 className="mt-2 text-xl font-semibold text-slate-900">{context}</h2>
-        </div>
+    <section className="flex flex-col gap-10">
+      <div className="flex flex-wrap items-start justify-between gap-5 border-b border-rule-strong pb-5">
+        <h2 className="font-serif text-[27px] font-medium leading-tight text-ink">{context}</h2>
         <div className="flex flex-wrap gap-2">
           <StatusBadge status={episodeStatus(episode.status)} />
           <StatusBadge status={riskStatus(episode.risk_level, "patient")} />
         </div>
       </div>
-      <dl className="mt-6 grid gap-4 sm:grid-cols-2">
-        <div>
-          <dt className="text-xs uppercase tracking-wide text-slate-500">Last check-in</dt>
-          <dd className="mt-1 text-sm text-slate-800">
+
+      <dl className="grid gap-0 sm:grid-cols-2">
+        <div className="flex min-h-14 flex-col justify-center gap-1 border-b border-rule py-4 sm:pr-8">
+          <dt className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+            Last check-in
+          </dt>
+          <dd className="text-[17px] text-body">
             {checkin ? formatWhen(checkin.occurred_at) : "Not yet recorded"}
           </dd>
         </div>
-        <div>
-          <dt className="text-xs uppercase tracking-wide text-slate-500">Next check-in</dt>
-          <dd className="mt-1 text-sm text-slate-800">
+        <div className="flex min-h-14 flex-col justify-center gap-1 border-b border-rule py-4 sm:border-l sm:border-l-rule sm:pl-8">
+          <dt className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+            Next check-in
+          </dt>
+          <dd className="text-[17px] text-body">
             {episode.next_follow_up_at ? formatWhen(episode.next_follow_up_at) : "To be scheduled"}
           </dd>
         </div>
       </dl>
+
       {tasks.length ? (
-        <div className="mt-6">
-          <p className="mb-2 text-sm font-medium text-slate-800">Care tasks</p>
-          <ul className="space-y-2">
+        <div className="flex flex-col">
+          <SectionHeader title="Care tasks" />
+          <ul className="flex flex-col">
             {tasks.map((task) => (
-              <li key={task} className="flex items-center gap-2 text-sm text-slate-700">
-                <CheckCircle2 aria-hidden className="h-4 w-4 text-teal-700" />
+              <li
+                key={task}
+                className="flex min-h-14 items-center gap-3 border-b border-rule py-3 text-[17px] text-body"
+              >
                 {task}
               </li>
             ))}
           </ul>
         </div>
       ) : null}
+
       {safeEvents.length ? (
-        <div className="mt-6">
-          <p className="mb-3 text-sm font-medium text-slate-800">Recent updates</p>
+        <div className="flex flex-col">
+          <SectionHeader title="Recent updates" />
           <Timeline
-            items={safeEvents.slice(-5).reverse().map((event) => ({
-              id: event.event_id,
-              title: eventLabel(event.event_type).title,
-              at: formatWhen(event.occurred_at),
-            }))}
+            items={safeEvents
+              .slice(-5)
+              .reverse()
+              .map((event) => ({
+                id: event.event_id,
+                title: eventLabel(event.event_type).title,
+                at: formatWhen(event.occurred_at),
+              }))}
           />
         </div>
       ) : null}
-      <Link href={`/recovery/${episode.id}`} className="mt-6 inline-block">
-        <Button variant="secondary">View recovery details</Button>
+
+      <Link
+        href={`/recovery/${episode.id}`}
+        className="focus-ink inline-flex min-h-14 w-fit items-center gap-2.5 border border-rule-strong px-6 text-[15px] font-medium text-body hover:bg-hover"
+      >
+        View recovery details
+        <Icon name="arrowRight" size={16} className="text-accent" />
       </Link>
-    </Card>
+    </section>
   );
 }
 
-function MedicationsCard({
+function MedicationsSection({
   medications,
   events,
 }: {
@@ -199,35 +225,30 @@ function MedicationsCard({
   const adherence = String(checkin?.payload.medication_adherence ?? "Not yet recorded");
 
   return (
-    <Card>
-      <h2 className="text-base font-semibold text-slate-900">Your medications</h2>
-      <p className="mt-2 text-sm text-slate-600">
+    <section className="flex flex-col">
+      <SectionHeader title="Your medications" />
+      <p className="max-w-[62ch] text-[15px] leading-[1.65] text-secondary">
         Your care team asked whether you have been taking your prescribed medications. Individual
         drug names are matched after the check-in, not spoken during the call.
       </p>
-      <p className="mt-4 text-sm text-slate-800">
-        Latest adherence: <span className="font-medium">{adherence}</span>
+      <p className="mt-4 text-[17px] text-body">
+        Latest adherence: <span className="font-medium text-ink">{adherence}</span>
       </p>
       {medications.length ? (
-        <ul className="mt-4 space-y-3">
+        <ul className="mt-6 flex flex-col">
           {medications.map((medication) => (
             <li
-              key={`${medication.sku || medication.rxnorm_code || medication.name}`}
-              className="flex items-start gap-3 rounded-xl border border-slate-200 p-4"
+              key={medication.sku || medication.rxnorm_code || medication.name}
+              className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-5 border-b border-rule py-3"
             >
-              <Pill aria-hidden className="mt-0.5 h-4 w-4 text-teal-700" />
-              <div>
-                <p className="font-medium text-slate-900">{medication.name}</p>
-                {medication.dose ? (
-                  <p className="mt-1 text-sm text-slate-600">{medication.dose}</p>
-                ) : null}
-              </div>
+              <span className="text-[17px] text-body">{medication.name}</span>
+              <span className="font-mono text-[13px] text-secondary">{medication.dose || "—"}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-sm text-slate-500">No prescribed medications on file.</p>
+        <p className="mt-4 text-[15px] text-muted">No prescribed medications on file.</p>
       )}
-    </Card>
+    </section>
   );
 }

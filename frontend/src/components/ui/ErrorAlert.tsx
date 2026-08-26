@@ -1,5 +1,3 @@
-import { AlertTriangle } from "lucide-react";
-
 import { Button } from "@/components/ui/Button";
 
 export function ErrorAlert({
@@ -12,11 +10,13 @@ export function ErrorAlert({
   return (
     <div
       role="alert"
-      className="mb-6 flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between"
+      className="on-raised mb-6 flex flex-col gap-3 border-l-[3px] border-high bg-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
     >
-      <p className="flex items-start gap-2">
-        <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>{message}</span>
+      <p className="flex flex-col gap-1">
+        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-high">
+          Failed
+        </span>
+        <span className="text-[13.5px] leading-snug text-secondary">{message}</span>
       </p>
       {onRetry ? (
         <Button variant="secondary" className="shrink-0" onClick={onRetry}>

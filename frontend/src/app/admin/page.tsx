@@ -1,23 +1,14 @@
 "use client";
 
-import {
-  CalendarDays,
-  ClipboardCheck,
-  HeartPulse,
-  LayoutGrid,
-  Package,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { Icon } from "@/components/ui/Icon";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
-import { StatCard } from "@/components/ui/StatCard";
+import { StatCard, StatStrip } from "@/components/ui/StatCard";
 import { formatWhen } from "@/lib/format";
 import type { AdminSnapshot, Appointment } from "@/lib/auth";
 import {
@@ -71,7 +62,7 @@ export default function AdminHomePage() {
   );
 
   const activity = useMemo(() => {
-    const items: Array<{ id: string; title: string; detail: string }> = [];
+    const items: Array<{ id: string; title: string; detail: string; tone?: string }> = [];
     for (const appointment of appointments) {
       if (appointment.status === "cancelled") {
         items.push({
@@ -86,6 +77,7 @@ export default function AdminHomePage() {
         id: `review-${review.id}`,
         title: review.status === "resolved" ? "Review resolved" : "Review opened",
         detail: review.reason,
+        tone: review.status === "resolved" ? undefined : "text-warn",
       });
     }
     for (const episode of recoveries.filter((item) => item.status === "ESCALATED")) {
@@ -93,6 +85,7 @@ export default function AdminHomePage() {
         id: `esc-${episode.id}`,
         title: "Recovery escalation",
         detail: names[episode.patient_id] ?? "Patient",
+        tone: "text-high",
       });
     }
     return items.slice(0, 8);
@@ -104,83 +97,115 @@ export default function AdminHomePage() {
   const pendingReviews = reviews.filter((item) => item.status === "pending").length;
 
   return (
-    <section className="space-y-8">
-      <PageHeader
-        eyebrow="Operations"
-        title="Hospital Operations Command Center"
-        description="Metrics computed from stored synthetic hospital data."
-      />
-      {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
-      {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <CardSkeleton rows={2} />
-          <CardSkeleton rows={2} />
-          <CardSkeleton rows={2} />
+    <>
+      <header className="flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <h1 className="font-serif text-[27px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+            Hospital operations
+          </h1>
+          <p className="mt-1.5 text-[13.5px] leading-[1.5] text-secondary">
+            Every figure below is computed from stored synthetic hospital data.
+          </p>
         </div>
+        <Link
+          href="/admin/fleet"
+          className="focus-ink inline-flex min-h-11 items-center gap-2 font-mono text-[11px] uppercase tracking-[0.1em] text-accent hover:text-ink"
+        >
+          Fleet and adapters
+          <Icon name="arrowRight" size={14} />
+        </Link>
+      </header>
+
+      {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
+
+      {loading ? (
+        <CardSkeleton rows={4} />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <StatStrip className="sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label="Reviews waiting"
+              value={pendingReviews}
+              tone={pendingReviews ? "high" : "ink"}
+              hint={pendingReviews ? "workflows parked on a clinician" : "nothing parked"}
+            />
+            <StatCard
+              label="Active recoveries"
+              value={activeRecoveries}
+              hint={`${recoveries.length} episodes on file`}
+            />
             <StatCard
               label="Appointments today"
               value={snapshot?.appointments.today_appointments ?? 0}
-              icon={CalendarDays}
-            />
-            <StatCard
-              label="Appointments next 7 days"
-              value={snapshot?.appointments.next_7_days ?? 0}
-              icon={LayoutGrid}
-            />
-            <StatCard
-              label="Open slots"
-              value={snapshot?.appointments.open_slots ?? 0}
-              icon={CalendarDays}
+              hint={`${snapshot?.appointments.open_slots ?? 0} open slots to fill`}
             />
             <StatCard
               label="Waitlist requests"
               value={snapshot?.waitlist_requests ?? 0}
-              icon={Users}
+              tone={snapshot?.waitlist_requests ? "warn" : "ink"}
+              hint="patients waiting on a slot"
             />
-            <StatCard label="Active recoveries" value={activeRecoveries} icon={HeartPulse} />
-            <StatCard label="Reviews waiting" value={pendingReviews} icon={ClipboardCheck} />
+          </StatStrip>
+
+          <StatStrip className="sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
-              label="Medications below reorder point"
+              label="Next 7 days"
+              value={snapshot?.appointments.next_7_days ?? 0}
+              hint="appointments already booked"
+            />
+            <StatCard
+              label="Below reorder point"
               value={snapshot?.low_stock_skus ?? 0}
-              icon={Package}
+              tone={snapshot?.low_stock_skus ? "warn" : "ink"}
               hint={
                 snapshot?.open_replenishments
                   ? `${snapshot.open_replenishments} replenishment case(s) in flight`
-                  : "Supply fleet idle"
+                  : "supply fleet idle"
               }
             />
             <StatCard
-              label="Purchase orders to authorize"
+              label="POs to authorize"
               value={snapshot?.pending_purchase_approvals ?? 0}
-              icon={ShieldCheck}
-              hint="Agents draft, a human authorizes"
+              tone={snapshot?.pending_purchase_approvals ? "warn" : "ink"}
+              hint="agents draft, a human authorizes"
             />
-          </div>
-          <Card>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-slate-900">Operational activity</h2>
-              <Link href="/admin/appointments" className="text-sm font-medium text-teal-700">
-                View all
-              </Link>
-            </div>
+            <StatCard
+              label="Patients on file"
+              value={patients.length}
+              hint="all synthetic identities"
+            />
+          </StatStrip>
+
+          <section className="flex flex-col">
+            <SectionHeader
+              title="Operational activity"
+              actionHref="/admin/appointments"
+              actionLabel="Appointments"
+            />
             {activity.length ? (
-              <ul className="space-y-3">
+              <ul className="flex flex-col">
                 {activity.map((item) => (
-                  <li key={item.id} className="rounded-xl border border-slate-200 px-4 py-3">
-                    <p className="text-sm font-medium text-slate-900">{item.title}</p>
-                    <p className="text-sm text-slate-600">{item.detail}</p>
+                  <li
+                    key={item.id}
+                    className="grid min-h-11 grid-cols-[220px_minmax(0,1fr)] items-center gap-4 border-b border-rule py-2"
+                  >
+                    <span className={`text-[14px] font-medium ${item.tone ?? "text-ink"}`}>
+                      {item.title}
+                    </span>
+                    <span className="truncate text-[13px] text-secondary">{item.detail}</span>
                   </li>
                 ))}
               </ul>
             ) : (
               <EmptyState title="No recent operational activity" />
             )}
-          </Card>
+          </section>
+
+          <p className="font-mono text-[11px] text-muted">
+            Synthetic demo environment · no real patient data
+          </p>
         </>
       )}
-    </section>
+    </>
   );
 }

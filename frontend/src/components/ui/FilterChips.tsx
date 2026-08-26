@@ -1,3 +1,4 @@
+import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 
 export function FilterChips<T extends string>({
@@ -22,12 +23,13 @@ export function FilterChips<T extends string>({
             aria-pressed={selected}
             onClick={() => onChange(option.id)}
             className={cn(
-              "inline-flex min-h-11 items-center rounded-full px-3.5 text-sm font-medium ring-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600",
+              "focus-ink inline-flex min-h-11 items-center gap-2 px-4 text-sm",
               selected
-                ? "bg-teal-700 text-white ring-teal-700"
-                : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50",
+                ? "border border-accent font-medium text-ink"
+                : "border border-rule text-secondary hover:bg-hover hover:text-ink",
             )}
           >
+            {selected ? <Icon name="approve" size={14} className="text-accent" /> : null}
             {option.label}
           </button>
         );

@@ -7,7 +7,20 @@ import type {
   SupplyUrgency,
 } from "@/types";
 
-export type StatusTone = "success" | "warning" | "danger" | "info" | "neutral" | "brand";
+/**
+ * Tones are visual weights, not colours picked per label. Severity climbs
+ * outline -> tint -> fill -> fill with an ink halt rule; everything that is
+ * not communicating state stays on the neutral ramp.
+ */
+export type StatusTone =
+  | "success"
+  | "warning"
+  | "danger"
+  | "critical"
+  | "info"
+  | "neutral"
+  | "brand"
+  | "inactive";
 
 export interface StatusView {
   label: string;
@@ -19,31 +32,31 @@ const APPOINTMENT_STATUS: Record<string, StatusView> = {
   proposed: { label: "Proposed", tone: "info" },
   pending: { label: "Pending", tone: "warning" },
   arrived: { label: "Arrived", tone: "brand" },
-  fulfilled: { label: "Completed", tone: "neutral" },
-  cancelled: { label: "Cancelled", tone: "neutral" },
-  canceled: { label: "Cancelled", tone: "neutral" },
+  fulfilled: { label: "Completed", tone: "inactive" },
+  cancelled: { label: "Cancelled", tone: "inactive" },
+  canceled: { label: "Cancelled", tone: "inactive" },
   noshow: { label: "No show", tone: "danger" },
 };
 
 const EPISODE_STATUS: Record<EpisodeStatus, StatusView> = {
-  ACTIVE: { label: "Active", tone: "brand" },
-  WAITING: { label: "Waiting", tone: "warning" },
-  WAITING_FOR_NEXT_FOLLOWUP: { label: "Follow-up scheduled", tone: "info" },
+  ACTIVE: { label: "Active", tone: "success" },
+  WAITING: { label: "Waiting", tone: "neutral" },
+  WAITING_FOR_NEXT_FOLLOWUP: { label: "Follow-up due", tone: "neutral" },
   ESCALATED: { label: "Escalated", tone: "danger" },
-  COMPLETED: { label: "Completed", tone: "success" },
-  CANCELLED: { label: "Cancelled", tone: "neutral" },
+  COMPLETED: { label: "Completed", tone: "inactive" },
+  CANCELLED: { label: "Cancelled", tone: "inactive" },
 };
 
 const RISK_CLINICIAN: Record<RiskLevel, StatusView> = {
-  LOW: { label: "Low risk", tone: "success" },
-  MEDIUM: { label: "Medium risk", tone: "warning" },
-  HIGH: { label: "High risk", tone: "danger" },
-  CRITICAL: { label: "Critical", tone: "danger" },
+  LOW: { label: "Low", tone: "neutral" },
+  MEDIUM: { label: "Medium", tone: "warning" },
+  HIGH: { label: "High", tone: "danger" },
+  CRITICAL: { label: "Critical", tone: "critical" },
 };
 
 const RISK_PATIENT: Record<RiskLevel, StatusView> = {
   LOW: { label: "On track", tone: "success" },
-  MEDIUM: { label: "Checking in regularly", tone: "info" },
+  MEDIUM: { label: "Checking in often", tone: "neutral" },
   HIGH: { label: "Care team reviewing", tone: "warning" },
   CRITICAL: { label: "Care team reviewing", tone: "warning" },
 };
@@ -62,7 +75,8 @@ export function riskStatus(risk: RiskLevel, audience: "patient" | "clinician" = 
 
 export function platformStatus(ok: boolean | null | undefined, liveLabel = "Live"): StatusView {
   if (ok === true) return { label: liveLabel, tone: "success" };
-  if (ok === false) return { label: "Unverified", tone: "warning" };
+  // A fallback adapter is amber, never hidden and never green.
+  if (ok === false) return { label: "Fallback", tone: "warning" };
   return { label: "Unknown", tone: "neutral" };
 }
 
@@ -70,7 +84,7 @@ const STOCK_STATUS: Record<StockStatus, StatusView> = {
   HEALTHY: { label: "In stock", tone: "success" },
   LOW: { label: "Low stock", tone: "warning" },
   CRITICAL: { label: "Critically low", tone: "danger" },
-  OUT_OF_STOCK: { label: "Out of stock", tone: "danger" },
+  OUT_OF_STOCK: { label: "Out of stock", tone: "critical" },
 };
 
 const REPLENISHMENT_STATUS: Record<ReplenishmentStatus, StatusView> = {
@@ -80,21 +94,21 @@ const REPLENISHMENT_STATUS: Record<ReplenishmentStatus, StatusView> = {
   BLOCKED: { label: "Needs a buyer", tone: "danger" },
   ORDERED: { label: "Ordered", tone: "brand" },
   COMPLETED: { label: "Delivered", tone: "success" },
-  CANCELLED: { label: "Cancelled", tone: "neutral" },
+  CANCELLED: { label: "Cancelled", tone: "inactive" },
 };
 
 const SUPPLY_URGENCY: Record<SupplyUrgency, StatusView> = {
   NORMAL: { label: "Routine", tone: "neutral" },
   HIGH: { label: "Urgent", tone: "warning" },
-  CRITICAL: { label: "Critical medication", tone: "danger" },
+  CRITICAL: { label: "Critical medication", tone: "critical" },
 };
 
 const PURCHASE_ORDER_STATUS: Record<PurchaseOrderStatus, StatusView> = {
-  DRAFT: { label: "Draft", tone: "warning" },
-  APPROVED: { label: "Approved", tone: "info" },
+  DRAFT: { label: "Draft", tone: "neutral" },
+  APPROVED: { label: "Approved", tone: "brand" },
   PLACED: { label: "Placed", tone: "brand" },
   RECEIVED: { label: "Received", tone: "success" },
-  CANCELLED: { label: "Cancelled", tone: "neutral" },
+  CANCELLED: { label: "Cancelled", tone: "inactive" },
 };
 
 export function stockStatus(status: StockStatus): StatusView {

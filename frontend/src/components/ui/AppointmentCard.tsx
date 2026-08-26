@@ -1,13 +1,15 @@
-import { MapPin } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Avatar } from "@/components/ui/Avatar";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/cn";
-import { formatDateShort, formatTime, specialtyIcon } from "@/lib/format";
+import { formatDateShort, formatTime } from "@/lib/format";
 import { appointmentStatus } from "@/lib/statusLabels";
 import type { Appointment } from "@/lib/auth";
 
+/**
+ * An appointment row, not a card: date column, what and where, status,
+ * action. Hairline rule underneath, square edges, no shadow.
+ */
 export function AppointmentCard({
   appointment,
   patientName,
@@ -19,44 +21,34 @@ export function AppointmentCard({
   actions?: ReactNode;
   className?: string;
 }) {
-  const Icon = specialtyIcon(appointment.specialty);
   const status = appointmentStatus(appointment.status);
   return (
     <article
       className={cn(
-        "flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[var(--eir-shadow)] sm:flex-row sm:items-start sm:justify-between",
+        "grid grid-cols-1 items-center gap-4 border-b border-rule py-6 sm:grid-cols-[132px_minmax(0,1fr)_auto] sm:gap-6",
         className,
       )}
     >
-      <div className="flex gap-4">
-        <div className="flex h-[4.5rem] w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-teal-50 text-teal-900">
-          <span className="text-xs font-medium uppercase tracking-wide">
-            {formatDateShort(appointment.start).split(" ")[0]}
-          </span>
-          <span className="text-lg font-semibold leading-tight">
-            {new Date(appointment.start).getDate()}
-          </span>
-        </div>
-        <div>
-          <p className="flex items-center gap-2 text-base font-semibold text-slate-900">
-            <Icon aria-hidden className="h-4 w-4 text-teal-700" />
-            {appointment.specialty}
-          </p>
-          <div className="mt-1 flex items-center gap-2 text-sm text-slate-600">
-            <Avatar name={patientName ?? appointment.practitioner_name} size="sm" />
-            <span>{patientName ?? appointment.practitioner_name}</span>
-          </div>
-          <p className="mt-2 text-sm text-slate-700">{formatTime(appointment.start)}</p>
-          <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
-            <MapPin aria-hidden className="h-3.5 w-3.5" />
-            {appointment.location_name}
-          </p>
-          <div className="mt-3">
-            <StatusBadge status={status} />
-          </div>
-        </div>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[20px] font-semibold leading-tight text-ink">
+          {formatDateShort(appointment.start)}
+        </span>
+        <span className="font-mono text-[13px] text-secondary">
+          {formatTime(appointment.start)}
+        </span>
       </div>
-      {actions ? <div className="flex flex-wrap gap-2 sm:justify-end">{actions}</div> : null}
+
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="text-[17px] font-medium text-ink">{appointment.specialty}</span>
+        <span className="text-[14px] text-secondary">
+          {patientName ?? appointment.practitioner_name} · {appointment.location_name}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+        <StatusBadge status={status} />
+        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+      </div>
     </article>
   );
 }

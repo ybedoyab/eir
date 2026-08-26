@@ -1,166 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { Badge } from "@/components/ui/Badge";
-import { Card, CardHeader } from "@/components/ui/Card";
+import { CascadeWaterfall, HaltBanner, type CascadeStep } from "@/components/cascade/CascadeWaterfall";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
+import { cn } from "@/lib/cn";
 import { getRuntimeHistory, getRuntimeStatus, listTraces } from "@/services/api";
 import type { AdkWorkerTelemetry, RuntimeStatus, WorkflowTrace } from "@/types";
 
-function statusBadge(ok: boolean | null | undefined, okLabel: string, failLabel: string) {
-  if (ok === true) {
-    return <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">{okLabel}</Badge>;
-  }
-  if (ok === false) {
-    return <Badge className="bg-rose-50 text-rose-700 ring-rose-200">{failLabel}</Badge>;
-  }
-  return <Badge className="bg-slate-100 text-slate-600 ring-slate-200">Unknown</Badge>;
+const BLOCKED_STATUSES = new Set(["blocked", "failed", "denied"]);
+
+function traceKind(trace: WorkflowTrace): CascadeStep["kind"] {
+  if (BLOCKED_STATUSES.has(trace.status)) return "suppressed";
+  return trace.agent_name && trace.agent_name !== "runtime" ? "agent" : "runtime";
 }
 
-function FleetRuntime({ runtime }: { runtime: RuntimeStatus }) {
-  const armor = runtime.model_armor;
-  const fleet = runtime.fleet;
-  const adkLive = fleet.adk_mode === "adk" && fleet.vertex_probe_success;
-
-  return (
-    <Card className="mb-6">
-      <CardHeader
-        title="Fleet Runtime"
-        description="Shared production proof from API and worker telemetry."
-      />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Gemini</p>
-          <p className="mt-2 text-sm font-medium text-slate-900">{fleet.gemini_model}</p>
-          <p className="mt-1 text-xs text-slate-500">Location: {fleet.gemini_location}</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">ADK</p>
-          <div className="mt-2">{statusBadge(adkLive, "Live", "Offline")}</div>
-          <p className="mt-2 text-xs text-slate-500">
-            Direct fallback: {fleet.adk_allow_direct_fallback ? "Enabled" : "Disabled"}
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Model Armor</p>
-          <div className="mt-2">
-            {armor.mode === "managed" ? (
-              statusBadge(true, "Managed", "Unavailable")
-            ) : armor.mode === "degraded" ? (
-              <Badge className="bg-amber-50 text-amber-800 ring-amber-200">Degraded</Badge>
-            ) : (
-              statusBadge(false, "Managed", "Fallback")
-            )}
-          </div>
-          <p className="mt-2 text-xs text-slate-500">
-            {armor.template || "regex"} · {armor.location || "local"}
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Platform</p>
-          <p className="mt-2 text-sm text-slate-800">Pub/Sub · FHIR · Scheduler</p>
-          <p className="mt-1 text-xs text-slate-500">
-            {fleet.event_bus} · {fleet.fhir_mode} · {fleet.runtime_region}
-          </p>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function LastAutonomousAction({ worker }: { worker: AdkWorkerTelemetry | null }) {
-  if (!worker) {
-    return (
-      <Card className="mb-6">
-        <CardHeader
-          title="Last autonomous action"
-          description="Waiting for the worker to record shared ADK telemetry."
-        />
-        <EmptyState title="No worker telemetry yet" description="Trigger a follow-up to populate proof." />
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="mb-6 border-teal-200 bg-teal-50/40">
-      <CardHeader
-        title="Last autonomous action"
-        description="Latest shared worker ADK invocation (no PHI)."
-      />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Agent</p>
-          <p className="mt-1 text-sm font-medium text-slate-900">{worker.agent_name}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Capability</p>
-          <p className="mt-1 text-sm font-medium text-slate-900">{worker.capability}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Worker</p>
-          <p className="mt-1 text-sm font-medium text-slate-900">{worker.service}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Tools invoked</p>
-          <p className="mt-1 text-sm text-slate-800">{worker.tools_invoked.join(", ") || "None"}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Outcome</p>
-          <div className="mt-1 flex flex-wrap gap-2">
-            {statusBadge(worker.success, "Success", "Failed")}
-            {statusBadge(!worker.used_direct_fallback, "No fallback", "Fallback used")}
-          </div>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Timestamp</p>
-          <p className="mt-1 font-mono text-xs text-slate-600">{worker.timestamp}</p>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function AutonomousHistory({ items }: { items: AdkWorkerTelemetry[] }) {
-  if (items.length === 0) {
-    return null;
-  }
-  return (
-    <Card className="mb-6">
-      <CardHeader
-        title="Autonomous action history"
-        description="Latest sanitized worker hops — outreach, risk, escalation, and security blocks."
-      />
-      <ol className="space-y-2">
-        {items.map((item) => (
-          <li
-            key={`${item.trace_id}-${item.timestamp}`}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2"
-          >
-            <div>
-              <p className="text-sm font-medium text-slate-900">
-                {item.agent_name} · {item.capability}
-              </p>
-              <p className="text-xs text-slate-500">
-                {item.tools_invoked?.join(", ") || item.security_category || "no tools"}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {item.security_adapter ? (
-                <Badge className="bg-rose-50 text-rose-700 ring-rose-200">
-                  {item.security_adapter}
-                </Badge>
-              ) : null}
-              {statusBadge(item.success, "OK", "Blocked")}
-            </div>
-          </li>
-        ))}
-      </ol>
-    </Card>
-  );
+function toSteps(traces: WorkflowTrace[]): CascadeStep[] {
+  return [...traces]
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    .map((trace) => ({
+      id: `${trace.trace_id}-${trace.timestamp}`,
+      label: `${trace.agent_name} · ${trace.event_type}`,
+      detail: `episode ${trace.episode_id.slice(0, 8)} · ${trace.status}`,
+      at: trace.timestamp,
+      kind: traceKind(trace),
+      halted: BLOCKED_STATUSES.has(trace.status),
+    }));
 }
 
 export default function ObservabilityPage() {
@@ -169,6 +36,7 @@ export default function ObservabilityPage() {
   const [history, setHistory] = useState<AdkWorkerTelemetry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([listTraces(), getRuntimeStatus(), getRuntimeHistory(25)])
@@ -181,62 +49,188 @@ export default function ObservabilityPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const steps = useMemo(() => toSteps(traces), [traces]);
+  const selected = steps.find((step) => step.id === selectedId) ?? steps[steps.length - 1] ?? null;
+  const selectedTrace = traces.find(
+    (trace) => `${trace.trace_id}-${trace.timestamp}` === selected?.id,
+  );
+  const selectedTelemetry = history.find((item) => item.trace_id === selectedTrace?.trace_id);
+  const blocked = steps.filter((step) => step.halted);
+  const armor = runtime?.model_armor;
+
   return (
-    <section>
-      <PageHeader
-        eyebrow="Operations"
-        title="Observability"
-        description="System status, recent agent actions, and security decisions. Trace IDs stay secondary."
-      />
+    <>
+      <header className="flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <h1 className="font-serif text-[26px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+            Event cascade
+          </h1>
+          <p className="mt-1.5 max-w-[70ch] text-[13.5px] leading-[1.5] text-secondary">
+            Laid out against the event timestamps themselves, not the fetch. Every step is a real
+            handler result — the model never produced one.
+          </p>
+        </div>
+        <div className="flex items-center gap-5 font-mono text-[12px] text-secondary">
+          <span>
+            steps <span className="text-ink">{steps.length}</span>
+          </span>
+          <span>
+            depth guard <span className="text-ink">12</span>
+          </span>
+        </div>
+      </header>
 
       {error ? <ErrorAlert message={`API unavailable: ${error}`} /> : null}
 
-      {loading && !runtime ? <CardSkeleton rows={4} /> : null}
-      {runtime ? <FleetRuntime runtime={runtime} /> : null}
-      {runtime ? <LastAutonomousAction worker={runtime.adk_worker} /> : null}
-      <AutonomousHistory items={history} />
-
-      <Card>
-        <CardHeader
-          title="Trace details"
-          description="Technical identifiers for judges. Prompt and transcript content is never shown."
+      {loading ? (
+        <CardSkeleton rows={6} />
+      ) : steps.length === 0 ? (
+        <EmptyState
+          title="No traces recorded"
+          description="Run a recovery workflow to populate the cascade."
         />
-        {loading ? (
-          <p className="text-sm text-slate-500">Loading traces…</p>
-        ) : traces.length === 0 ? (
-          <EmptyState
-            title="No traces recorded"
-            description="Run a recovery workflow to populate observability data."
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                  <th className="px-3 py-2 font-medium">Time</th>
-                  <th className="px-3 py-2 font-medium">Agent</th>
-                  <th className="px-3 py-2 font-medium">Event</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
-                  <th className="px-3 py-2 font-medium">Episode</th>
-                </tr>
-              </thead>
-              <tbody>
-                {traces.map((trace) => (
-                  <tr key={trace.trace_id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-3 py-3 font-mono text-xs text-slate-500">{trace.timestamp}</td>
-                    <td className="px-3 py-3 font-medium text-slate-800">{trace.agent_name}</td>
-                    <td className="px-3 py-3 text-slate-700">{trace.event_type}</td>
-                    <td className="px-3 py-3">
-                      <Badge className="bg-slate-100 text-slate-700 ring-slate-200">{trace.status}</Badge>
-                    </td>
-                    <td className="px-3 py-3 font-mono text-xs text-slate-500">{trace.episode_id}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      ) : (
+        <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="flex min-w-0 flex-col gap-6">
+            <CascadeWaterfall steps={steps} selectedId={selected?.id} onSelect={setSelectedId} />
+            {blocked.length ? (
+              <HaltBanner
+                title="CASCADE HALTED"
+                detail={`${blocked.length} step${blocked.length === 1 ? " was" : "s were"} blocked or suppressed. The workflow resumes only when a person answers.`}
+              />
+            ) : null}
           </div>
-        )}
-      </Card>
-    </section>
+
+          {/* span detail */}
+          <aside className="on-raised flex flex-col border-l border-rule bg-raised xl:sticky xl:top-6">
+            <div className="flex flex-col gap-2 border-b border-rule px-6 pb-4 pt-5">
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+                Selected step
+              </span>
+              <h2 className="font-mono text-[17px] font-medium text-ink">
+                {selectedTrace?.event_type ?? "—"}
+              </h2>
+              <span className="font-mono text-[11.5px] text-muted">
+                {selectedTrace
+                  ? `${selectedTrace.agent_name} · trace ${selectedTrace.trace_id.slice(0, 8)}`
+                  : "no step selected"}
+              </span>
+            </div>
+
+            {selectedTrace ? (
+              <dl className="grid grid-cols-[118px_minmax(0,1fr)] gap-x-3.5 gap-y-2 border-b border-rule px-6 py-4 font-mono text-[12px]">
+                <dt className="text-muted">episode</dt>
+                <dd className="truncate text-body">{selectedTrace.episode_id}</dd>
+                <dt className="text-muted">workflow</dt>
+                <dd className="truncate text-body">{selectedTrace.workflow_id}</dd>
+                <dt className="text-muted">status</dt>
+                <dd
+                  className={cn(
+                    BLOCKED_STATUSES.has(selectedTrace.status) ? "text-high" : "text-ok",
+                  )}
+                >
+                  {selectedTrace.status}
+                </dd>
+                <dt className="text-muted">timestamp</dt>
+                <dd className="text-body">{selectedTrace.timestamp}</dd>
+              </dl>
+            ) : null}
+
+            {selectedTelemetry ? (
+              <div className="flex flex-col gap-2.5 border-b border-rule px-6 py-4">
+                <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+                  ADK run
+                </span>
+                <dl className="grid grid-cols-[118px_minmax(0,1fr)] gap-x-3.5 gap-y-2 font-mono text-[12px]">
+                  <dt className="text-muted">model</dt>
+                  <dd className="truncate text-body">{selectedTelemetry.model}</dd>
+                  <dt className="text-muted">capability</dt>
+                  <dd className="truncate text-body">{selectedTelemetry.capability}</dd>
+                  <dt className="text-muted">tools invoked</dt>
+                  <dd className="text-body">
+                    {selectedTelemetry.tools_invoked.join(", ") || "none"}
+                  </dd>
+                  <dt className="text-muted">direct fallback</dt>
+                  <dd className={selectedTelemetry.used_direct_fallback ? "text-warn" : "text-ok"}>
+                    {String(selectedTelemetry.used_direct_fallback)}
+                  </dd>
+                </dl>
+              </div>
+            ) : null}
+
+            {runtime ? (
+              <div className="flex flex-col gap-2.5 border-b border-rule px-6 py-4">
+                <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+                  Safety gate
+                </span>
+                <dl className="grid grid-cols-[118px_minmax(0,1fr)] gap-x-3.5 gap-y-2 font-mono text-[12px]">
+                  <dt className="text-muted">armor mode</dt>
+                  <dd className={armor?.mode === "managed" ? "text-ok" : "text-warn"}>
+                    {armor?.mode ?? "unknown"}
+                  </dd>
+                  <dt className="text-muted">content guard</dt>
+                  <dd
+                    className={
+                      runtime.content_guard.managed_model_armor_available
+                        ? "text-ok"
+                        : "text-warn"
+                    }
+                  >
+                    {runtime.content_guard.adapter}
+                  </dd>
+                  <dt className="text-muted">last screening</dt>
+                  <dd className="text-body">
+                    {armor?.last_screening_success === null
+                      ? "not run"
+                      : String(armor?.last_screening_success)}
+                  </dd>
+                </dl>
+              </div>
+            ) : null}
+
+            <div className="mt-auto flex flex-col gap-2 border-t border-rule-strong px-6 pb-5 pt-4">
+              <span className="font-mono text-[10.5px] leading-[1.55] text-muted">
+                Handler results come from Python, never from the model.
+              </span>
+              <span className="font-mono text-[10.5px] leading-[1.55] text-muted">
+                Synthetic demo environment · no real patient data
+              </span>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {history.length ? (
+        <section className="flex flex-col">
+          <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-2.5">
+            <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+              Autonomous action history
+            </h2>
+            <span className="font-mono text-[10.5px] text-muted">sanitized worker hops</span>
+          </div>
+          {history.map((item) => (
+            <div
+              key={`${item.trace_id}-${item.timestamp}`}
+              className="grid min-h-11 grid-cols-[200px_minmax(0,1fr)_120px] items-center gap-4 border-b border-rule"
+            >
+              <span className="truncate font-mono text-[12.5px] text-ink">
+                {item.agent_name} · {item.capability}
+              </span>
+              <span className="truncate font-mono text-[11.5px] text-muted">
+                {item.tools_invoked?.join(", ") || item.security_category || "no tools"}
+              </span>
+              <span
+                className={cn(
+                  "text-right font-mono text-[11.5px] uppercase tracking-[0.06em]",
+                  item.success ? "text-ok" : "text-high",
+                )}
+              >
+                {item.security_adapter ? item.security_adapter : item.success ? "ok" : "blocked"}
+              </span>
+            </div>
+          ))}
+        </section>
+      ) : null}
+    </>
   );
 }

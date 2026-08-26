@@ -1,31 +1,20 @@
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  ShieldCheck,
-  XCircle,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-
 import { cn } from "@/lib/cn";
 import type { StatusTone, StatusView } from "@/lib/statusLabels";
 
+/**
+ * Severity climbs in visual weight, not just hue:
+ * outline -> tint -> fill -> fill with an ink halt rule.
+ * No icons. The word carries the meaning; a glyph would only compete.
+ */
 const TONE_CLASS: Record<StatusTone, string> = {
-  success: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  warning: "bg-amber-50 text-amber-800 ring-amber-200",
-  danger: "bg-rose-50 text-rose-800 ring-rose-200",
-  info: "bg-sky-50 text-sky-800 ring-sky-200",
-  brand: "bg-teal-50 text-teal-800 ring-teal-200",
-  neutral: "bg-slate-100 text-slate-700 ring-slate-200",
-};
-
-const TONE_ICON: Record<StatusTone, LucideIcon> = {
-  success: CheckCircle2,
-  warning: AlertTriangle,
-  danger: XCircle,
-  info: Clock,
-  brand: ShieldCheck,
-  neutral: Clock,
+  neutral: "border border-rule-strong text-secondary",
+  inactive: "border border-rule text-muted",
+  info: "border border-rule-strong text-secondary",
+  brand: "border border-accent text-accent",
+  success: "border border-ok text-ok",
+  warning: "border border-warn bg-warn-tint text-warn",
+  danger: "bg-high font-medium text-paper",
+  critical: "border-l-[3px] border-ink bg-crit font-medium text-paper",
 };
 
 export function StatusBadge({
@@ -35,16 +24,14 @@ export function StatusBadge({
   status: StatusView;
   className?: string;
 }) {
-  const Icon = TONE_ICON[status.tone];
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
+        "eir-state inline-flex h-[26px] w-fit items-center px-2.5 font-mono text-[11.5px] uppercase leading-none tracking-[0.06em]",
         TONE_CLASS[status.tone],
         className,
       )}
     >
-      <Icon aria-hidden className="h-3.5 w-3.5" />
       {status.label}
     </span>
   );
