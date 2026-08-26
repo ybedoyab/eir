@@ -6,7 +6,7 @@ Do not show the destination phone number.
 The episode-scoped agent chain is on `/demo` (`GET /api/v1/runtime/history?episode_id=`).
 `/observability` is the **global** fleet view. Do not say it is scoped to this episode.
 
-Optional filler while a teal activity banner is visible (Pub/Sub / worker lag is normal):
+Optional filler while a teal activity banner is visible (the worker is catching up):
 
 > This is asynchronous by design — the API publishes the event and the worker resumes the persistent Recovery Episode.
 

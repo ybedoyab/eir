@@ -16,7 +16,7 @@ import logging
 import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread
 from typing import Any
 
 from eir_shared.env import load_root_env, repo_root
@@ -27,6 +27,22 @@ from app.integrations.enterprise.adk_otel import setup_adk_otel
 from app.integrations.messaging.pubsub import decode_pubsub_payload
 
 logger = logging.getLogger("eir.worker")
+HANDLE_TIMEOUT_S = 180.0
+
+
+def _spawn_async_loop() -> asyncio.AbstractEventLoop:
+    loop = asyncio.new_event_loop()
+    started = Event()
+
+    def _run() -> None:
+        asyncio.set_event_loop(loop)
+        started.set()
+        loop.run_forever()
+
+    Thread(target=_run, daemon=True, name="eir-worker-async").start()
+    if not started.wait(timeout=5):
+        raise RuntimeError("worker async loop failed to start")
+    return loop
 
 
 class _HealthHandler(BaseHTTPRequestHandler):
@@ -53,6 +69,8 @@ def _inbox_path() -> Path:
 
 
 def _record(event_type: str, episode_id: str, payload: dict) -> None:
+    if settings.environment.strip().lower() == "production":
+        return
     line = json.dumps(
         {"event_type": event_type, "episode_id": episode_id, "payload": payload},
         default=str,
@@ -80,20 +98,39 @@ def run_worker(*, handle: bool) -> None:
         settings.pubsub_handle = True
         get_container.cache_clear()
     container = get_container() if handle else None
+    loop = _spawn_async_loop() if handle else None
 
     def callback(message: Any) -> None:
         try:
             event = decode_pubsub_payload(message.data)
             _record(event.event_type, event.episode_id, event.payload)
             logger.info("consumed %s episode=%s", event.event_type, event.episode_id)
-            if handle and container is not None:
-                asyncio.run(container.runtime.handle(event))
+            if handle and container is not None and loop is not None:
+                try:
+                    message.modify_ack_deadline(int(HANDLE_TIMEOUT_S))
+                except Exception:
+                    logger.debug("modify_ack_deadline skipped", exc_info=True)
+                future = asyncio.run_coroutine_threadsafe(
+                    container.runtime.handle(event),
+                    loop,
+                )
+                future.result(timeout=HANDLE_TIMEOUT_S)
             message.ack()
         except Exception:
             logger.exception("failed to consume Pub/Sub message")
             message.nack()
 
-    streaming = subscriber.subscribe(path, callback=callback)
+    flow_control = None
+    try:
+        from google.cloud.pubsub_v1.types import FlowControl
+
+        flow_control = FlowControl(max_messages=1)
+    except Exception:
+        logger.debug("Pub/Sub FlowControl unavailable", exc_info=True)
+    subscribe_kwargs: dict[str, Any] = {"callback": callback}
+    if flow_control is not None:
+        subscribe_kwargs["flow_control"] = flow_control
+    streaming = subscriber.subscribe(path, **subscribe_kwargs)
     logger.info("listening on %s handle=%s", path, handle)
     try:
         streaming.result()
