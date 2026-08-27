@@ -28,7 +28,9 @@ const PATIENT_SAFE_EVENTS = new Set([
 ]);
 
 export default function PatientRecoveryPage() {
-  const session = loadSession();
+  // Read once per mount; `loadSession` hits localStorage + JSON.parse, and these
+  // pages re-render on every fetch/state tick.
+  const [session] = useState(loadSession);
   const [episodes, setEpisodes] = useState<RecoveryEpisode[]>([]);
   const [eventsById, setEventsById] = useState<Record<string, DomainEvent[]>>({});
   const [medications, setMedications] = useState<PatientMedication[]>([]);

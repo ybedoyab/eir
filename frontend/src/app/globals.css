@@ -66,6 +66,22 @@
     text-decoration: none;
   }
 
+  /* Tailwind v4's preflight dropped v3's `button { cursor: pointer }`, so every
+   * control in the app silently fell back to the arrow cursor while only <a
+   * href> kept the hand. Restore it for everything actually actionable. The
+   * `:not(:disabled)` guard keeps the Button variants' `disabled:cursor-not-
+   * allowed` intact, and `a` without an href stays an arrow, as it should. */
+  button:not(:disabled),
+  summary,
+  select:not(:disabled),
+  label[for],
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  input:where([type="checkbox"], [type="radio"], [type="submit"], [type="button"], [type="reset"]):not(:disabled) {
+    cursor: pointer;
+  }
+
   ::selection {
     background: color-mix(in srgb, var(--color-accent) 22%, transparent);
   }

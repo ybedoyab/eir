@@ -18,7 +18,9 @@ import type { Appointment } from "@/lib/auth";
 import type { HumanReview, Patient, RecoveryEpisode } from "@/types";
 
 export default function ClinicianHomePage() {
-  const session = loadSession();
+  // Read once per mount; `loadSession` hits localStorage + JSON.parse, and these
+  // pages re-render on every fetch/state tick.
+  const [session] = useState(loadSession);
   const [reviews, setReviews] = useState<HumanReview[]>([]);
   const [episodes, setEpisodes] = useState<RecoveryEpisode[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);

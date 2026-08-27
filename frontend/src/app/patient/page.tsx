@@ -19,7 +19,9 @@ import type { Appointment } from "@/lib/auth";
 import type { RecoveryEpisode } from "@/types";
 
 export default function PatientHomePage() {
-  const session = loadSession();
+  // Read once per mount; `loadSession` hits localStorage + JSON.parse, and these
+  // pages re-render on every fetch/state tick.
+  const [session] = useState(loadSession);
   const name = firstName(session?.display_name ?? "there");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [episodes, setEpisodes] = useState<RecoveryEpisode[]>([]);

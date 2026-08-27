@@ -20,7 +20,9 @@ const SUGGESTIONS = [
 ];
 
 export default function PatientAssistantPage() {
-  const session = loadSession();
+  // Read once per mount; `loadSession` hits localStorage + JSON.parse, and these
+  // pages re-render on every fetch/state tick.
+  const [session] = useState(loadSession);
   const [sessionId, setSessionId] = useState("");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
