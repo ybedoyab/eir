@@ -879,6 +879,7 @@ export default function VoicePreviewClient() {
 
         <section className="flex min-w-0 flex-col">
           <SectionHeader
+            level="major"
             title="Live transcript"
             description="Turns build up as Gemini hears and speaks. The transcript stays in this browser session only and is never saved to the episode."
             actionHref={episodeId ? `/recovery/${episodeId}` : undefined}

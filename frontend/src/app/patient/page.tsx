@@ -127,6 +127,7 @@ export default function PatientHomePage() {
           {/* appointments */}
           <section className="flex flex-col">
             <SectionHeader
+              level="major"
               title="Appointments"
               actionHref="/patient/appointments"
               actionLabel="See all"
@@ -166,7 +167,7 @@ export default function PatientHomePage() {
           {/* recovery so far + assistant */}
           <section className="grid gap-10 lg:grid-cols-3">
             <div className="flex flex-col lg:col-span-2">
-              <SectionHeader title="Your recovery so far" />
+              <SectionHeader level="major" title="Your recovery so far" />
               {activeRecovery ? (
                 <div className="flex flex-col">
                   <div className="grid grid-cols-[108px_minmax(0,1fr)_auto] items-center gap-5 border-b border-rule py-[18px]">
@@ -208,7 +209,7 @@ export default function PatientHomePage() {
             </div>
 
             <div className="flex flex-col">
-              <SectionHeader title="Assistant" />
+              <SectionHeader level="major" title="Assistant" />
               <p className="text-[0.9375rem] leading-[1.65] text-secondary">
                 Ask about appointments, transport or what to expect this week. Anything clinical
                 goes straight to a person.

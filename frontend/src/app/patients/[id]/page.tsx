@@ -74,7 +74,7 @@ export default function PatientDetailPage({
       {patient ? (
         <div className="grid gap-7 lg:grid-cols-[1.2fr_0.8fr]">
           <section className="flex flex-col">
-            <SectionHeader title="Demographics" meta="non-clinical demo metadata" />
+            <SectionHeader level="major" title="Demographics" meta="non-clinical demo metadata" />
             <dl className="grid grid-cols-[152px_minmax(0,1fr)] gap-x-5 gap-y-2.5 font-mono text-[0.8125rem]">
               <dt className="text-muted">patient_id</dt>
               <dd className="truncate text-ink">{patient.id}</dd>
@@ -92,6 +92,7 @@ export default function PatientDetailPage({
 
           <section className="flex flex-col">
             <SectionHeader
+              level="major"
               title="Recovery"
               description="Launch a new episode or open the active workflow."
             />

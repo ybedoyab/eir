@@ -178,6 +178,7 @@ export default function AdminHomePage() {
 
           <section className="flex flex-col">
             <SectionHeader
+              level="major"
               title="Operational activity"
               actionHref="/admin/appointments"
               actionLabel="Appointments"

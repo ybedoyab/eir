@@ -3,8 +3,10 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * A section, not a card. Square edges, no shadow, delimited by a hairline
- * rule. Density comes from removing chrome, never from shrinking targets.
+ * A section, not a card. Square edges, no shadow, opened by the same 2px ink
+ * cap a `SectionHeader level="major"` draws — a Card sits at that same rank,
+ * so it must not read as a different kind of thing. Density comes from
+ * removing chrome, never from shrinking targets.
  */
 export function Card({
   children,
@@ -14,7 +16,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <section className={cn("flex flex-col border-t border-rule-strong pt-4", className)}>
+    <section className={cn("flex flex-col border-t-2 border-ink pt-3.5", className)}>
       {children}
     </section>
   );
@@ -30,13 +32,13 @@ export function CardHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-4 flex items-baseline justify-between gap-4 border-b border-rule pb-2.5">
+    <div className="mb-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
       <div>
-        <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
+        <h2 className="font-mono text-[11.5px] font-semibold uppercase tracking-[0.12em] text-ink">
           {title}
         </h2>
         {description ? (
-          <p className="mt-2 text-[13.5px] leading-relaxed text-secondary normal-case tracking-normal">
+          <p className="mt-2 max-w-[68ch] text-[13.5px] leading-relaxed text-secondary normal-case tracking-normal">
             {description}
           </p>
         ) : null}

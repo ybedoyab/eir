@@ -112,7 +112,11 @@ export default function PatientRecoveryPage() {
 
       {history.length ? (
         <section className="flex flex-col">
-          <SectionHeader title="Earlier recoveries" />
+          <SectionHeader
+            level="major"
+            title="Earlier recoveries"
+            meta={`${history.length} on record`}
+          />
           {history.map((episode) => (
             <div
               key={episode.id}
@@ -169,75 +173,89 @@ function RecoverySection({
   const safeEvents = events.filter((item) => PATIENT_SAFE_EVENTS.has(item.event_type));
 
   return (
-    <section className="flex flex-col gap-10">
-      <div className="flex flex-wrap items-start justify-between gap-5 border-b border-rule-strong pb-5">
-        <h2 className="font-serif text-[1.6875rem] font-medium leading-tight text-ink">{context}</h2>
-        <div className="flex flex-wrap gap-2">
-          <StatusBadge status={episodeStatus(episode.status)} />
-          <StatusBadge status={riskStatus(episode.risk_level, "patient")} />
+    <section className="flex flex-col">
+      <SectionHeader
+        level="major"
+        title="Current recovery"
+        meta={`episode ${episode.id.slice(0, 8)}`}
+      />
+
+      {/* Blocks inside the section sit at gap-8 — half the gap-14 that
+          separates one major section from the next. */}
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-3">
+          <h3 className="font-serif text-[1.6875rem] font-medium leading-tight text-ink">
+            {context}
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            <StatusBadge status={episodeStatus(episode.status)} />
+            <StatusBadge status={riskStatus(episode.risk_level, "patient")} />
+          </div>
         </div>
+
+        {/* The two dates read as one inset panel rather than two more hairline
+            rows — a surface change, so it cannot be mistaken for list content. */}
+        <dl className="grid bg-raised sm:grid-cols-2">
+          <div className="flex min-h-14 flex-col justify-center gap-1 px-6 py-5">
+            <dt className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+              Last check-in
+            </dt>
+            <dd className="text-[1.0625rem] text-body">
+              {checkin ? formatWhen(checkin.occurred_at) : "Not yet recorded"}
+            </dd>
+          </div>
+          <div className="flex min-h-14 flex-col justify-center gap-1 border-t border-rule px-6 py-5 sm:border-l sm:border-t-0 sm:border-l-rule">
+            <dt className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
+              Next check-in
+            </dt>
+            <dd className="text-[1.0625rem] text-body">
+              {episode.next_follow_up_at ? formatWhen(episode.next_follow_up_at) : "To be scheduled"}
+            </dd>
+          </div>
+        </dl>
+
+        <RecoveryVideoPanel episodeId={episode.id} events={events} onRefresh={onRefresh} />
+
+        {tasks.length ? (
+          <div className="flex flex-col">
+            <SectionHeader title="Care tasks" />
+            <ul className="flex flex-col">
+              {tasks.map((task) => (
+                <li
+                  key={task}
+                  className="flex min-h-14 items-center gap-3 border-b border-rule py-3 text-[1.0625rem] text-body"
+                >
+                  {task}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {safeEvents.length ? (
+          <div className="flex flex-col">
+            <SectionHeader title="Recent updates" />
+            <Timeline
+              items={safeEvents
+                .slice(-5)
+                .reverse()
+                .map((event) => ({
+                  id: event.event_id,
+                  title: eventLabel(event.event_type).title,
+                  at: formatWhen(event.occurred_at),
+                }))}
+            />
+          </div>
+        ) : null}
+
+        <Link
+          href={`/recovery/${episode.id}`}
+          className="focus-ink inline-flex min-h-14 w-fit items-center gap-2.5 border border-rule-strong px-6 text-[0.9375rem] font-medium text-body hover:bg-hover"
+        >
+          View recovery details
+          <Icon name="arrowRight" size={16} className="text-accent" />
+        </Link>
       </div>
-
-      <dl className="grid gap-0 sm:grid-cols-2">
-        <div className="flex min-h-14 flex-col justify-center gap-1 border-b border-rule py-4 sm:pr-8">
-          <dt className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
-            Last check-in
-          </dt>
-          <dd className="text-[1.0625rem] text-body">
-            {checkin ? formatWhen(checkin.occurred_at) : "Not yet recorded"}
-          </dd>
-        </div>
-        <div className="flex min-h-14 flex-col justify-center gap-1 border-b border-rule py-4 sm:border-l sm:border-l-rule sm:pl-8">
-          <dt className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
-            Next check-in
-          </dt>
-          <dd className="text-[1.0625rem] text-body">
-            {episode.next_follow_up_at ? formatWhen(episode.next_follow_up_at) : "To be scheduled"}
-          </dd>
-        </div>
-      </dl>
-
-      <RecoveryVideoPanel episodeId={episode.id} events={events} onRefresh={onRefresh} />
-
-      {tasks.length ? (
-        <div className="flex flex-col">
-          <SectionHeader title="Care tasks" />
-          <ul className="flex flex-col">
-            {tasks.map((task) => (
-              <li
-                key={task}
-                className="flex min-h-14 items-center gap-3 border-b border-rule py-3 text-[1.0625rem] text-body"
-              >
-                {task}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {safeEvents.length ? (
-        <div className="flex flex-col">
-          <SectionHeader title="Recent updates" />
-          <Timeline
-            items={safeEvents
-              .slice(-5)
-              .reverse()
-              .map((event) => ({
-                id: event.event_id,
-                title: eventLabel(event.event_type).title,
-                at: formatWhen(event.occurred_at),
-              }))}
-          />
-        </div>
-      ) : null}
-
-      <Link
-        href={`/recovery/${episode.id}`}
-        className="focus-ink inline-flex min-h-14 w-fit items-center gap-2.5 border border-rule-strong px-6 text-[0.9375rem] font-medium text-body hover:bg-hover"
-      >
-        View recovery details
-        <Icon name="arrowRight" size={16} className="text-accent" />
-      </Link>
     </section>
   );
 }
@@ -287,13 +305,17 @@ function RecoveryVideoPanel({
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SectionHeader title="Recovery video" />
-        <Button variant="secondary" onClick={() => void handleRegenerate()} disabled={pending}>
-          {pending ? "Generating…" : videoUrl ? "Regenerate video" : "Generate video"}
-        </Button>
-      </div>
+    <div className="flex flex-col">
+      {/* The button lives in the header so the header's rule spans the block
+          instead of being squeezed to a stub beside it. */}
+      <SectionHeader
+        title="Recovery video"
+        action={
+          <Button variant="secondary" onClick={() => void handleRegenerate()} disabled={pending}>
+            {pending ? "Generating…" : videoUrl ? "Regenerate video" : "Generate video"}
+          </Button>
+        }
+      />
       {error ? <ErrorAlert message={error} onRetry={() => void handleRegenerate()} /> : null}
       {videoUrl ? (
         <div className="flex justify-center">
@@ -335,12 +357,13 @@ function MedicationsSection({
 
   return (
     <section className="flex flex-col">
-      <SectionHeader title="Your medications" />
-      <p className="max-w-[62ch] text-[0.9375rem] leading-[1.65] text-secondary">
-        Your care team asked whether you have been taking your prescribed medications. Individual
-        drug names are matched after the check-in, not spoken during the call.
-      </p>
-      <p className="mt-4 text-[1.0625rem] text-body">
+      <SectionHeader
+        level="major"
+        title="Your medications"
+        description="Your care team asked whether you have been taking your prescribed medications. Individual drug names are matched after the check-in, not spoken during the call."
+        meta={medications.length ? `${medications.length} on file` : undefined}
+      />
+      <p className="text-[1.0625rem] text-body">
         Latest adherence: <span className="font-medium text-ink">{adherence}</span>
       </p>
       {medications.length ? (

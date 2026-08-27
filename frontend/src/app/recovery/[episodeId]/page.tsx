@@ -131,6 +131,7 @@ export default function RecoveryEpisodePage({
         <>
           <section className="mb-7 flex flex-col">
             <SectionHeader
+              level="major"
               title="Autonomous monitoring"
               description="EIR monitors this episode proactively. Cloud Scheduler and the worker fleet trigger outreach when the follow-up window is due — clinicians do not need to press a button for normal operation."
             />
@@ -207,6 +208,7 @@ export default function RecoveryEpisodePage({
           {voiceStarted || voiceConnected || voiceCompleted || voiceFailedEvent ? (
             <section className="mb-7 flex flex-col">
               <SectionHeader
+                level="major"
                 title="Voice outreach"
                 meta={
                   voiceCompleted
@@ -270,7 +272,7 @@ export default function RecoveryEpisodePage({
           ) : null}
 
           <section className="mb-7 flex flex-col">
-            <SectionHeader title="Human review" />
+            <SectionHeader level="major" title="Human review" />
             <div className="flex flex-wrap items-center gap-3">
               {pendingReview ? (
                 <>
@@ -292,6 +294,7 @@ export default function RecoveryEpisodePage({
 
       <section className="flex flex-col">
         <SectionHeader
+          level="major"
           title="Episode timeline"
           description="Human-readable stages with technical event names."
           meta={events.length ? `${events.length} events` : undefined}

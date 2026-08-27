@@ -2,17 +2,45 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { Icon } from "@/components/ui/Icon";
+import { cn } from "@/lib/cn";
 
 /**
- * A section label with its rule. Mono, uppercase, letterspaced — this is
- * the only place that treatment is allowed, and it is never coloured.
+ * Two ranks, so a page reads as a stack of blocks rather than one column of
+ * hairlines. Mono, uppercase, letterspaced — this is the only place that
+ * treatment is allowed, and it is never coloured.
+ *
+ * `major` opens a top-level section with a 2px ink cap rule above the label:
+ * heavier than any rule inside a section, so the eye finds the boundaries
+ * without a card, a shadow or a tint.
+ *
+ * `sub` (default) labels a block *inside* a major section — a hairline under
+ * the label, one step down in size and contrast. Rank is carried by the rule
+ * weight and the ink, never by colour.
  */
+type Level = "major" | "sub";
+
+// Three rule weights, so the eye can rank a line without reading it:
+// 2px ink (section opens) > 2px rule-strong (block opens) > 1px rule (list row).
+// A 1px sub rule was indistinguishable from the rows underneath it.
+const WRAPPER: Record<Level, string> = {
+  major: "mb-6 border-t-2 border-ink pt-3.5",
+  sub: "mb-5 border-b-2 border-rule-strong pb-2.5",
+};
+
+const LABEL: Record<Level, string> = {
+  major: "text-[11.5px] font-semibold tracking-[0.12em] text-ink",
+  sub: "text-[11px] font-medium tracking-[0.1em] text-secondary",
+};
+
 export function SectionHeader({
   title,
   description,
   meta,
   actionHref,
   actionLabel,
+  action,
+  level = "sub",
+  className,
 }: {
   title: string;
   description?: string;
@@ -20,14 +48,22 @@ export function SectionHeader({
   meta?: string;
   actionHref?: string;
   actionLabel?: string;
+  /** An arbitrary right-hand control. Wins over `actionHref` and `meta`. */
+  action?: ReactNode;
+  level?: Level;
+  className?: string;
 }) {
+  // A major header opens the section, so it is the section's h2 and every
+  // block inside it drops to h3. The outline follows the rules on the page.
+  const Heading = level === "major" ? "h2" : "h3";
+
   return (
-    <div className="mb-4 flex flex-col gap-2 border-b border-rule-strong pb-2.5">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
-          {title}
-        </h2>
-        {actionHref && actionLabel ? (
+    <div className={cn("flex flex-col gap-2", WRAPPER[level], className)}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+        <Heading className={cn("font-mono uppercase", LABEL[level])}>{title}</Heading>
+        {action ? (
+          action
+        ) : actionHref && actionLabel ? (
           <Link
             href={actionHref}
             className="focus-ink -my-3 inline-flex min-h-11 items-center gap-1.5 text-sm text-accent hover:text-ink"
@@ -40,7 +76,7 @@ export function SectionHeader({
         ) : null}
       </div>
       {description ? (
-        <p className="text-[13.5px] leading-relaxed text-secondary">{description}</p>
+        <p className="max-w-[68ch] text-[13.5px] leading-relaxed text-secondary">{description}</p>
       ) : null}
     </div>
   );

@@ -149,7 +149,7 @@ export default function ReplenishmentCasePage({
       ) : supplyCase ? (
         <div className="flex flex-col gap-7">
           <section className="flex flex-col">
-            <SectionHeader title="Why this case opened" />
+            <SectionHeader level="major" title="Why this case opened" />
             <p className="max-w-[74ch] text-[0.875rem] leading-[1.6] text-secondary">
               {supplyCase.rationale}
             </p>
@@ -228,6 +228,7 @@ export default function ReplenishmentCasePage({
           {quotes.length ? (
             <section className="flex flex-col">
               <SectionHeader
+                level="major"
                 title="Supplier quotes"
                 description="Recorded from the calls. The agent never states a figure a supplier did not give."
               />
@@ -296,6 +297,7 @@ export default function ReplenishmentCasePage({
 
           <section className="flex flex-col">
             <SectionHeader
+              level="major"
               title="Audit timeline"
               description="Every step the supply fleet took on this case."
               meta={events.length ? `${events.length} events` : undefined}

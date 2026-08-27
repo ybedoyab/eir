@@ -150,6 +150,7 @@ export default function AdminInventoryPage() {
       {awaitingApproval.length ? (
         <section className="flex flex-col">
           <SectionHeader
+            level="major"
             title="Purchase orders waiting on you"
             description="The procurement agent drafted these. No order is placed until an operations admin authorizes it."
           />

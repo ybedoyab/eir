@@ -154,6 +154,7 @@ export function PatientChart({ patientId }: { patientId: string }) {
       <div className="grid gap-7 lg:grid-cols-2">
         <section className="flex flex-col">
           <SectionHeader
+            level="major"
             title="Appointments"
             meta={`${appointments.length} on file`}
           />
@@ -180,7 +181,7 @@ export function PatientChart({ patientId }: { patientId: string }) {
         </section>
 
         <section className="flex flex-col">
-          <SectionHeader title="Active recovery" />
+          <SectionHeader level="major" title="Active recovery" />
           {activeRecovery ? (
             <div className="flex flex-col gap-4 pb-2">
               <div className="flex flex-wrap gap-2">
@@ -213,6 +214,7 @@ export function PatientChart({ patientId }: { patientId: string }) {
 
       <section className="mt-7 flex flex-col">
         <SectionHeader
+          level="major"
           title="Medications and adherence"
           description="The latest check-in reports whether prescribed medications were taken. Drug names are matched on the server after the call — the voice check-in asks about medications in general."
         />
@@ -261,7 +263,7 @@ export function PatientChart({ patientId }: { patientId: string }) {
       </section>
 
       <section className="mt-7 flex flex-col">
-        <SectionHeader title="Timeline" meta="most recent first" />
+        <SectionHeader level="major" title="Timeline" meta="most recent first" />
         {timeline.length ? <Timeline items={timeline} /> : <EmptyState title="No timeline yet" />}
       </section>
 

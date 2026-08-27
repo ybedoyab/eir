@@ -132,6 +132,7 @@ export default function ClinicianHomePage() {
           <div className="grid gap-8 lg:grid-cols-2">
             <section className="flex min-w-0 flex-col">
               <SectionHeader
+                level="major"
                 title="Needs attention"
                 actionHref="/clinician/reviews"
                 actionLabel="Open review queue"
@@ -177,6 +178,7 @@ export default function ClinicianHomePage() {
 
             <section className="flex min-w-0 flex-col">
               <SectionHeader
+                level="major"
                 title="Today’s schedule"
                 actionHref="/clinician/schedule"
                 actionLabel="Full schedule"
@@ -213,7 +215,11 @@ export default function ClinicianHomePage() {
           </div>
 
           <section className="flex flex-col">
-            <SectionHeader title="Recovery escalations" />
+            <SectionHeader
+              level="major"
+              title="Recovery escalations"
+              meta={escalated.length ? `${escalated.length} escalated` : undefined}
+            />
             {escalated.length ? (
               escalated.slice(0, 5).map((episode) => (
                 <Link
@@ -245,6 +251,7 @@ export default function ClinicianHomePage() {
 
           <section className="flex flex-col">
             <SectionHeader
+              level="major"
               title="Recent patients"
               actionHref="/clinician/patients"
               actionLabel="All patients"

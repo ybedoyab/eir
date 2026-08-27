@@ -51,6 +51,7 @@ export default function RecoveryPage() {
       <div className="grid gap-7 lg:grid-cols-[1.2fr_0.8fr]">
         <section className="flex flex-col">
           <SectionHeader
+            level="major"
             title="Episodes"
             description="Active and historical recovery workflows."
             meta={`${episodes.length} on record`}
@@ -99,6 +100,7 @@ export default function RecoveryPage() {
 
         <section className="flex flex-col">
           <SectionHeader
+            level="major"
             title="Pending review"
             description="Human-in-the-loop checkpoints requiring approval."
             meta={reviews.length ? `${reviews.length} parked` : "nothing parked"}
