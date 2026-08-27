@@ -165,7 +165,7 @@ export function PatientChart({ patientId }: { patientId: string }) {
                   className="grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-rule"
                 >
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="truncate text-[15px] text-ink">{appointment.specialty}</span>
+                    <span className="truncate text-[0.9375rem] text-ink">{appointment.specialty}</span>
                     <span className="truncate font-mono text-[11.5px] text-muted">
                       {formatWhen(appointment.start)}
                     </span>
@@ -218,18 +218,18 @@ export function PatientChart({ patientId }: { patientId: string }) {
         />
         <dl className="mb-5 grid gap-x-5 gap-y-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
-            <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+            <dt className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
               Last reported adherence
             </dt>
-            <dd className="text-[14px] text-body">
+            <dd className="text-[0.875rem] text-body">
               {String(latestCheckin?.payload.medication_adherence ?? "not yet recorded")}
             </dd>
           </div>
           <div className="flex flex-col gap-1">
-            <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+            <dt className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
               Adherence concern
             </dt>
-            <dd className="text-[14px] text-body">
+            <dd className="text-[0.875rem] text-body">
               {latestAdherence ? formatWhen(latestAdherence.occurred_at) : "none recorded"}
             </dd>
           </div>
@@ -242,7 +242,7 @@ export function PatientChart({ patientId }: { patientId: string }) {
                 className="grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-rule"
               >
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-[15px] text-ink">{medication.name}</span>
+                  <span className="truncate text-[0.9375rem] text-ink">{medication.name}</span>
                   <span className="truncate font-mono text-[11.5px] text-muted">
                     {[medication.dose, medication.sku].filter(Boolean).join(" · ") || "no dose recorded"}
                   </span>
@@ -268,13 +268,13 @@ export function PatientChart({ patientId }: { patientId: string }) {
       <div className="mt-6 flex flex-col gap-3">
         <button
           type="button"
-          className="focus-ink -mx-2 inline-flex min-h-11 w-fit items-center px-2 font-mono text-[11px] uppercase tracking-[0.1em] text-muted hover:text-ink"
+          className="focus-ink -mx-2 inline-flex min-h-11 w-fit items-center px-2 font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted hover:text-ink"
           onClick={() => setShowSystem((value) => !value)}
         >
           {showSystem ? "Hide system details" : "System details"}
         </button>
         {showSystem ? (
-          <dl className="grid grid-cols-[132px_minmax(0,1fr)] gap-x-5 gap-y-2 border-t border-rule pt-4 font-mono text-[12px]">
+          <dl className="grid grid-cols-[132px_minmax(0,1fr)] gap-x-5 gap-y-2 border-t border-rule pt-4 font-mono text-[0.75rem]">
             <dt className="text-muted">patient_id</dt>
             <dd className="truncate text-body">{patient.id}</dd>
             <dt className="text-muted">date_of_birth</dt>

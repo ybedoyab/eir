@@ -30,17 +30,17 @@ export function AppointmentCard({
       )}
     >
       <div className="flex flex-col gap-0.5">
-        <span className="text-[20px] font-semibold leading-tight text-ink">
+        <span className="text-[1.25rem] font-semibold leading-tight text-ink">
           {formatDateShort(appointment.start)}
         </span>
-        <span className="font-mono text-[13px] text-secondary">
+        <span className="font-mono text-[0.8125rem] text-secondary">
           {formatTime(appointment.start)}
         </span>
       </div>
 
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="text-[17px] font-medium text-ink">{appointment.specialty}</span>
-        <span className="text-[14px] text-secondary">
+        <span className="text-[1.0625rem] font-medium text-ink">{appointment.specialty}</span>
+        <span className="text-[0.875rem] text-secondary">
           {patientName ?? appointment.practitioner_name} · {appointment.location_name}
         </span>
       </div>

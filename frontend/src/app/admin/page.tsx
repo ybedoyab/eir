@@ -100,7 +100,7 @@ export default function AdminHomePage() {
     <>
       <header className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <h1 className="font-serif text-[27px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+          <h1 className="font-serif text-[1.6875rem] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
             Hospital operations
           </h1>
           <p className="mt-1.5 text-[13.5px] leading-[1.5] text-secondary">
@@ -109,7 +109,7 @@ export default function AdminHomePage() {
         </div>
         <Link
           href="/admin/fleet"
-          className="focus-ink inline-flex min-h-11 items-center gap-2 font-mono text-[11px] uppercase tracking-[0.1em] text-accent hover:text-ink"
+          className="focus-ink inline-flex min-h-11 items-center gap-2 font-mono text-[0.75rem] uppercase tracking-[0.1em] text-accent hover:text-ink"
         >
           Fleet and adapters
           <Icon name="arrowRight" size={14} />
@@ -189,10 +189,10 @@ export default function AdminHomePage() {
                     key={item.id}
                     className="grid min-h-11 grid-cols-[220px_minmax(0,1fr)] items-center gap-4 border-b border-rule py-2"
                   >
-                    <span className={`text-[14px] font-medium ${item.tone ?? "text-ink"}`}>
+                    <span className={`text-[0.875rem] font-medium ${item.tone ?? "text-ink"}`}>
                       {item.title}
                     </span>
-                    <span className="truncate text-[13px] text-secondary">{item.detail}</span>
+                    <span className="truncate text-[0.8125rem] text-secondary">{item.detail}</span>
                   </li>
                 ))}
               </ul>
@@ -201,7 +201,7 @@ export default function AdminHomePage() {
             )}
           </section>
 
-          <p className="font-mono text-[11px] text-muted">
+          <p className="font-mono text-[0.75rem] text-muted">
             Synthetic demo environment · no real patient data
           </p>
         </>

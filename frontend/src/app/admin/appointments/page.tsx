@@ -122,7 +122,7 @@ export default function AdminAppointmentsPage() {
               {["Time", "Patient", "Specialty", "Clinician", "Location", "Status"].map((head) => (
                 <span
                   key={head}
-                  className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted"
+                  className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted"
                 >
                   {head}
                 </span>
@@ -133,10 +133,10 @@ export default function AdminAppointmentsPage() {
                 key={appointment.id}
                 className="grid min-h-11 items-center gap-1 border-b border-rule py-2.5 lg:grid-cols-[150px_minmax(0,1fr)_120px_150px_130px_110px] lg:gap-4 lg:py-0"
               >
-                <span className="truncate font-mono text-[12px] text-secondary">
+                <span className="truncate font-mono text-[0.75rem] text-secondary">
                   {formatWhen(appointment.start)}
                 </span>
-                <span className="truncate text-[14px] text-ink">
+                <span className="truncate text-[0.875rem] text-ink">
                   {names[appointment.patient_id] ?? "Patient"}
                 </span>
                 <span className="truncate text-[13.5px] text-secondary">

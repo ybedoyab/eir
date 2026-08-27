@@ -106,13 +106,13 @@ export function PatientDirectory({
       ) : rows.length ? (
         <div className="flex flex-col">
           <div className="grid grid-cols-[minmax(0,1fr)_180px] items-baseline gap-4 border-b border-rule-strong pb-2.5 sm:grid-cols-[minmax(0,1fr)_220px_200px]">
-            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+            <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
               Patient
             </span>
-            <span className="hidden font-mono text-[10px] uppercase tracking-[0.1em] text-muted sm:block">
+            <span className="hidden font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted sm:block">
               Next visit
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+            <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
               Recovery
             </span>
           </div>
@@ -126,14 +126,14 @@ export function PatientDirectory({
               <span className="flex min-w-0 items-center gap-3">
                 <Avatar name={patient.name} size="sm" />
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-[15px] text-ink">{patient.name}</span>
-                  <span className="truncate font-mono text-[11px] text-muted">
+                  <span className="truncate text-[0.9375rem] text-ink">{patient.name}</span>
+                  <span className="truncate font-mono text-[0.75rem] text-muted">
                     {patient.preferred_language} · {patient.preferred_contact_channel}
                   </span>
                 </span>
               </span>
 
-              <span className="hidden truncate font-mono text-[12px] text-secondary sm:block">
+              <span className="hidden truncate font-mono text-[0.75rem] text-secondary sm:block">
                 {next ? formatWhen(next.start) : "none scheduled"}
               </span>
 

@@ -104,7 +104,7 @@ function ActivityBanner({ title, detail }: { title: string; detail?: string }) {
     <div className="on-raised flex items-start gap-3 border-l-[3px] border-accent bg-raised px-5 py-4">
       <span className="eir-pulse mt-2 h-1.5 w-1.5 shrink-0 bg-accent" aria-hidden />
       <div>
-        <p className="text-[16px] font-medium text-ink">{title}</p>
+        <p className="text-[1rem] font-medium text-ink">{title}</p>
         {detail ? (
           <p className="mt-1 max-w-[74ch] text-[13.5px] leading-[1.6] text-secondary">{detail}</p>
         ) : null}
@@ -433,14 +433,14 @@ export default function DemoPage() {
       {/* top bar — Cascade.dc.html */}
       <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-b border-rule px-7 py-4">
         <div className="flex flex-wrap items-center gap-4">
-          <span className="font-serif text-[20px] font-semibold tracking-[-0.01em] text-ink">
+          <span className="font-serif text-[1.25rem] font-semibold tracking-[-0.01em] text-ink">
             EIR
           </span>
           <span className="hidden h-[15px] w-px bg-rule-strong sm:block" aria-hidden />
           <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
             Live run
           </span>
-          <span className="font-mono text-[12px] text-secondary">
+          <span className="font-mono text-[0.75rem] text-secondary">
             {episodeId
               ? `episode ${shortEpisodeId(episodeId)}${patientName ? ` · ${patientName}` : ""}`
               : "no episode open"}
@@ -448,17 +448,17 @@ export default function DemoPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-5">
-          <span className="font-mono text-[12px] text-secondary">
+          <span className="font-mono text-[0.75rem] text-secondary">
             steps <span className="text-ink">{cascade.length}</span>
           </span>
-          <span className="font-mono text-[12px] text-secondary">
+          <span className="font-mono text-[0.75rem] text-secondary">
             depth guard <span className="text-ink">12</span>
           </span>
-          <span className="font-mono text-[12px] text-secondary">
+          <span className="font-mono text-[0.75rem] text-secondary">
             elapsed <span className="text-ink">{formatElapsed(runElapsed)}</span>
           </span>
           {halted ? (
-            <span className="eir-halt inline-flex h-[26px] items-center gap-[7px] bg-ink px-2.5 font-mono text-[11px] tracking-[0.08em] text-paper">
+            <span className="eir-halt inline-flex h-[26px] items-center gap-[7px] bg-ink px-2.5 font-mono text-[0.75rem] tracking-[0.08em] text-paper">
               <Icon name="halt" size={14} />
               HALTED
             </span>
@@ -476,7 +476,7 @@ export default function DemoPage() {
       <div className="grid flex-grow items-start gap-7 px-7 pb-10 pt-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-0 xl:px-0 xl:pt-0">
         <main className="flex min-w-0 flex-col gap-6 xl:px-7 xl:pb-6 xl:pt-6">
           <div>
-            <h1 className="font-serif text-[26px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+            <h1 className="font-serif text-[1.625rem] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
               Autonomous recovery run
             </h1>
             <p className="mt-1.5 max-w-[70ch] text-[13.5px] leading-[1.5] text-secondary">
@@ -492,7 +492,7 @@ export default function DemoPage() {
               <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
                 Consultation just ended
               </span>
-              <h2 className="mt-2 font-serif text-[27px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+              <h2 className="mt-2 font-serif text-[1.6875rem] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
                 Start a synthetic recovery episode
               </h2>
               <p className="mt-2 max-w-[62ch] text-[14.5px] leading-[1.55] text-secondary">
@@ -594,7 +594,7 @@ export default function DemoPage() {
                   <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
                     Time control
                   </h2>
-                  <p className="mt-2 max-w-[62ch] text-[14px] leading-[1.55] text-secondary">
+                  <p className="mt-2 max-w-[62ch] text-[0.875rem] leading-[1.55] text-secondary">
                     Demo time control only — production waits on Cloud Scheduler.
                   </p>
                   <div className="mt-4 flex">
@@ -611,12 +611,12 @@ export default function DemoPage() {
                   <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
                     Real voice outreach
                   </span>
-                  <h2 className="mt-1.5 text-[16px] font-medium text-ink">
+                  <h2 className="mt-1.5 text-[1rem] font-medium text-ink">
                     {hasEvent(events, "VoiceCallConnected")
                       ? "Gemini Live conversation active"
                       : "Calling patient…"}
                   </h2>
-                  <dl className="mt-3 grid grid-cols-[128px_minmax(0,1fr)] gap-x-3.5 gap-y-2 font-mono text-[12px]">
+                  <dl className="mt-3 grid grid-cols-[128px_minmax(0,1fr)] gap-x-3.5 gap-y-2 font-mono text-[0.75rem]">
                     <dt className="text-muted">transport</dt>
                     <dd className="text-body">voximplant · pstn</dd>
                     <dt className="text-muted">model</dt>
@@ -640,7 +640,7 @@ export default function DemoPage() {
                       {pstnCheckin ? "real phone follow-up" : "scripted voice"}
                     </span>
                   </div>
-                  <dl className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 py-4 font-mono text-[13px]">
+                  <dl className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 py-4 font-mono text-[0.8125rem]">
                     <dt className="text-muted">pain_score</dt>
                     <dd className="text-ink">{String(checkin.payload.pain_score ?? "—")}/10</dd>
                     <dt className="text-muted">reported_issue</dt>
@@ -661,7 +661,7 @@ export default function DemoPage() {
 
               {callFailed ? (
                 <section className="flex flex-col border-l-[3px] border-warn bg-warn-tint px-5 py-4">
-                  <h2 className="text-[16px] font-medium text-ink">
+                  <h2 className="text-[1rem] font-medium text-ink">
                     Voice outreach did not complete
                   </h2>
                   <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-[1.6] text-secondary">
@@ -684,7 +684,7 @@ export default function DemoPage() {
                   <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
                     Adversarial input
                   </h2>
-                  <p className="mt-3 border-l-[3px] border-rule-strong bg-raised px-4 py-3 font-mono text-[13px] text-body">
+                  <p className="mt-3 border-l-[3px] border-rule-strong bg-raised px-4 py-3 font-mono text-[0.8125rem] text-body">
                     {DEMO_ATTACK_PROMPT}
                   </p>
                   <div className="mt-4 flex">
@@ -701,12 +701,12 @@ export default function DemoPage() {
 
               {securityEvent ? (
                 <section className="eir-halt on-ink flex flex-col border-l-[3px] border-high bg-ink px-5 py-4">
-                  <span className="inline-flex items-center gap-2 font-mono text-[11px] font-medium tracking-[0.12em] text-paper">
+                  <span className="inline-flex items-center gap-2 font-mono text-[0.75rem] font-medium tracking-[0.12em] text-paper">
                     <Icon name="halt" size={14} />
                     BLOCKED BY MODEL ARMOR
                   </span>
                   <p className="mt-2 font-mono text-[12.5px] text-on-ink">{armor.title}</p>
-                  <dl className="mt-3 grid grid-cols-[148px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[12px]">
+                  <dl className="mt-3 grid grid-cols-[148px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[0.75rem]">
                     <dt className="text-on-ink-muted">classification</dt>
                     <dd className="text-paper">prompt injection / jailbreak</dd>
                     <dt className="text-on-ink-muted">tools executed</dt>
@@ -731,11 +731,11 @@ export default function DemoPage() {
                       only if the live call is unavailable
                     </span>
                   </div>
-                  <p className="mt-2 max-w-[62ch] text-[14px] leading-[1.55] text-secondary">
+                  <p className="mt-2 max-w-[62ch] text-[0.875rem] leading-[1.55] text-secondary">
                     Simulates a concerning spoken response so the risk agent has something to assess
                     during a recording.
                   </p>
-                  <dl className="mt-3 grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[13px]">
+                  <dl className="mt-3 grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[0.8125rem]">
                     <dt className="text-muted">pain_score</dt>
                     <dd className="text-ink">8/10</dd>
                     <dt className="text-muted">reported_issue</dt>
@@ -750,7 +750,7 @@ export default function DemoPage() {
               ) : null}
 
               {(preparingReview || pendingReview || awaiting === "review") && completed[5] ? (
-                <p className="border-l-[3px] border-accent bg-raised px-5 py-4 text-[14px] leading-[1.6] text-secondary">
+                <p className="border-l-[3px] border-accent bg-raised px-5 py-4 text-[0.875rem] leading-[1.6] text-secondary">
                   <span className="font-medium text-ink">EIR escalated instead of guessing.</span>{" "}
                   The agent detected a concerning recovery signal and routed the case to a clinician
                   rather than acting on it.
@@ -767,7 +767,7 @@ export default function DemoPage() {
                       replayed verbatim on resume
                     </span>
                   </div>
-                  <dl className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 py-4 font-mono text-[13px]">
+                  <dl className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 py-4 font-mono text-[0.8125rem]">
                     <dt className="text-muted">reason</dt>
                     <dd className="text-ink">{pendingReview.reason}</dd>
                     <dt className="text-muted">requested_by</dt>
@@ -823,7 +823,7 @@ export default function DemoPage() {
 
               {loopComplete ? (
                 <section className="flex flex-col border-t border-rule-strong pt-5">
-                  <h2 className="font-serif text-[27px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+                  <h2 className="font-serif text-[1.6875rem] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
                     Recovery loop completed
                   </h2>
                   <ol className="mt-4">
@@ -841,7 +841,7 @@ export default function DemoPage() {
                         <span className="font-mono text-[10.5px] text-muted">
                           {String(index + 1).padStart(2, "0")}
                         </span>
-                        <span className="text-[14px] text-secondary">{line}</span>
+                        <span className="text-[0.875rem] text-secondary">{line}</span>
                       </li>
                     ))}
                   </ol>
@@ -885,10 +885,10 @@ export default function DemoPage() {
                         className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-rule"
                       >
                         <div className="flex min-w-0 flex-col gap-0.5">
-                          <span className="truncate text-[14px] text-ink">
+                          <span className="truncate text-[0.875rem] text-ink">
                             {eventLabel(event.event_type).title}
                           </span>
-                          <span className="truncate font-mono text-[11px] text-muted">
+                          <span className="truncate font-mono text-[0.75rem] text-muted">
                             {event.event_type}
                           </span>
                         </div>
@@ -911,7 +911,7 @@ export default function DemoPage() {
               <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
                 Episode
               </span>
-              <h2 className="font-mono text-[17px] font-medium text-ink">
+              <h2 className="font-mono text-[1.0625rem] font-medium text-ink">
                 {patientName || "Synthetic patient"}
               </h2>
               <span className="font-mono text-[11.5px] text-muted">
@@ -932,7 +932,7 @@ export default function DemoPage() {
               <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
                 Schedule
               </span>
-              <dl className="grid grid-cols-[104px_minmax(0,1fr)] gap-x-3.5 gap-y-2 font-mono text-[12px]">
+              <dl className="grid grid-cols-[104px_minmax(0,1fr)] gap-x-3.5 gap-y-2 font-mono text-[0.75rem]">
                 <dt className="text-muted">started</dt>
                 <dd className="text-body">{formatWhen(episode.started_at)}</dd>
                 <dt className="text-muted">next follow-up</dt>
@@ -948,7 +948,7 @@ export default function DemoPage() {
               <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
                 Runtime proof
               </span>
-              <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3.5 gap-y-2 font-mono text-[12px]">
+              <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3.5 gap-y-2 font-mono text-[0.75rem]">
                 {proof.map((row) => (
                   <div key={row.label} className="contents">
                     <dt className="truncate text-muted">{row.label}</dt>
@@ -997,7 +997,7 @@ export default function DemoPage() {
                     {String(index + 1).padStart(2, "0")}
                   </span>
                   <span className="flex flex-col gap-1">
-                    <span className="font-mono text-[12px] text-ink">{item.title}</span>
+                    <span className="font-mono text-[0.75rem] text-ink">{item.title}</span>
                     <span className="text-[12.5px] leading-[1.55] text-secondary">{item.body}</span>
                   </span>
                 </li>

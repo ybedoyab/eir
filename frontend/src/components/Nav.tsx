@@ -30,7 +30,7 @@ export function Nav() {
     <header className="on-raised sticky top-0 z-40 border-b border-rule bg-raised">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 sm:px-6">
         <Link href="/" className="focus-ink inline-flex min-h-11 items-center gap-3">
-          <span className="font-serif text-[21px] font-semibold tracking-[-0.01em] text-ink">
+          <span className="font-serif text-[1.3125rem] font-semibold tracking-[-0.01em] text-ink">
             EIR
           </span>
           <span className="h-4 w-px bg-rule-strong" aria-hidden />

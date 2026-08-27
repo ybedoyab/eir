@@ -114,7 +114,7 @@ export default function RecoveryEpisodePage({
         actions={
           episode ? (
             <div className="flex flex-col items-end gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
                 Demo control
               </span>
               <Button variant="secondary" onClick={() => void runFollowUp()} disabled={running}>
@@ -135,9 +135,9 @@ export default function RecoveryEpisodePage({
               description="EIR monitors this episode proactively. Cloud Scheduler and the worker fleet trigger outreach when the follow-up window is due — clinicians do not need to press a button for normal operation."
             />
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <p className="text-[17px] leading-[1.5] text-ink">
+              <p className="text-[1.0625rem] leading-[1.5] text-ink">
                 Next autonomous follow-up{" "}
-                <span className="font-mono text-[15px]">
+                <span className="font-mono text-[0.9375rem]">
                   {formatWhen(episode.next_follow_up_at)}
                 </span>
               </p>
@@ -218,7 +218,7 @@ export default function RecoveryEpisodePage({
                         : "started"
                 }
               />
-              <dl className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[13px]">
+              <dl className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[0.8125rem]">
                 <dt className="text-muted">provider</dt>
                 <dd className="text-ink">
                   {String(
@@ -254,10 +254,10 @@ export default function RecoveryEpisodePage({
               </dl>
               {latestContact?.payload.issue_summary || voiceCompleted?.payload.issue_summary ? (
                 <div className="mt-5 flex flex-col gap-2 border-l-[3px] border-rule-strong bg-raised px-4 py-3.5">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                  <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
                     Structured summary
                   </span>
-                  <p className="text-[14px] leading-[1.6] text-body">
+                  <p className="text-[0.875rem] leading-[1.6] text-body">
                     {String(
                       latestContact?.payload.issue_summary ??
                         voiceCompleted?.payload.issue_summary ??
@@ -275,7 +275,7 @@ export default function RecoveryEpisodePage({
               {pendingReview ? (
                 <>
                   <Badge className="bg-high font-medium text-paper">Review needed</Badge>
-                  <span className="text-[14px] text-secondary">{pendingReview.reason}</span>
+                  <span className="text-[0.875rem] text-secondary">{pendingReview.reason}</span>
                 </>
               ) : (
                 <Badge className="border border-ok text-ok">No pending review</Badge>
@@ -311,11 +311,11 @@ export default function RecoveryEpisodePage({
                   className="grid gap-2 border-b border-rule py-[18px] sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-5"
                 >
                   <span className="flex flex-col gap-1">
-                    <span className="font-mono text-[12px] text-muted">{event.occurred_at}</span>
-                    <span className="font-mono text-[11px] text-inactive">{event.event_type}</span>
+                    <span className="font-mono text-[0.75rem] text-muted">{event.occurred_at}</span>
+                    <span className="font-mono text-[0.75rem] text-inactive">{event.event_type}</span>
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[15px] leading-[1.5] text-ink">{label.title}</p>
+                    <p className="text-[0.9375rem] leading-[1.5] text-ink">{label.title}</p>
                     <p className="mt-1 text-[13.5px] leading-[1.55] text-secondary">
                       {label.description}
                     </p>

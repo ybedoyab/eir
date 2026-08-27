@@ -11,9 +11,9 @@ export function EmptyState({
 }) {
   return (
     <div className="border-t border-rule px-0 py-10">
-      <p className="text-[15px] font-medium text-ink">{title}</p>
+      <p className="text-[0.9375rem] font-medium text-ink">{title}</p>
       {description ? (
-        <p className="mt-2 max-w-[56ch] text-[14px] leading-relaxed text-secondary">
+        <p className="mt-2 max-w-[56ch] text-[0.875rem] leading-relaxed text-secondary">
           {description}
         </p>
       ) : null}

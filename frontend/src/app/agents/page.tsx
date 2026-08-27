@@ -42,16 +42,16 @@ export default function AgentsPage() {
       ) : (
         <div className="flex flex-col">
           <div className="grid grid-cols-[minmax(0,1fr)_88px] items-baseline gap-4 border-b border-rule-strong pb-2.5 md:grid-cols-[220px_minmax(0,1fr)_96px_88px]">
-            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+            <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
               Agent
             </span>
-            <span className="hidden font-mono text-[10px] uppercase tracking-[0.1em] text-muted md:block">
+            <span className="hidden font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted md:block">
               Capabilities
             </span>
-            <span className="hidden text-right font-mono text-[10px] uppercase tracking-[0.1em] text-muted md:block">
+            <span className="hidden text-right font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted md:block">
               Risk
             </span>
-            <span className="text-right font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+            <span className="text-right font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
               Version
             </span>
           </div>

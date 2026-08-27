@@ -45,13 +45,13 @@ export default function PatientsPage() {
       ) : (
         <div className="flex flex-col">
           <div className="grid grid-cols-[minmax(0,1fr)_120px] items-baseline gap-4 border-b border-rule-strong pb-2.5 sm:grid-cols-[minmax(0,1fr)_140px_160px]">
-            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+            <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
               Patient
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+            <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
               Born
             </span>
-            <span className="hidden font-mono text-[10px] uppercase tracking-[0.1em] text-muted sm:block">
+            <span className="hidden font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted sm:block">
               Reach them by
             </span>
           </div>
@@ -65,14 +65,14 @@ export default function PatientsPage() {
               <span className="flex min-w-0 items-center gap-3">
                 <Avatar name={patient.name} size="sm" />
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-[15px] text-ink">{patient.name}</span>
-                  <span className="truncate font-mono text-[11px] text-muted">{patient.id}</span>
+                  <span className="truncate text-[0.9375rem] text-ink">{patient.name}</span>
+                  <span className="truncate font-mono text-[0.75rem] text-muted">{patient.id}</span>
                 </span>
               </span>
-              <span className="font-mono text-[12px] text-secondary">
+              <span className="font-mono text-[0.75rem] text-secondary">
                 {patient.date_of_birth}
               </span>
-              <span className="hidden items-center gap-2 font-mono text-[12px] text-secondary sm:flex">
+              <span className="hidden items-center gap-2 font-mono text-[0.75rem] text-secondary sm:flex">
                 {patient.preferred_contact_channel} · {patient.preferred_language}
                 <Icon name="chevronRight" size={14} className="ml-auto text-muted" />
               </span>

@@ -40,7 +40,7 @@ const NAV_BY_ROLE: Record<DemoRole, NavLink[]> = {
 
 /** Density is the same dials at three settings; targets never shrink. */
 const RAIL: Record<DemoRole, { pad: string; row: string; text: string; kicker: string }> = {
-  PATIENT: { pad: "px-5 py-6", row: "min-h-12 px-3", text: "text-[15px]", kicker: "Patient" },
+  PATIENT: { pad: "px-5 py-6", row: "min-h-12 px-3", text: "text-[0.9375rem]", kicker: "Patient" },
   CLINICIAN: {
     pad: "px-4 py-5",
     row: "min-h-11 px-2.5",
@@ -50,7 +50,7 @@ const RAIL: Record<DemoRole, { pad: string; row: string; text: string; kicker: s
   OPERATIONS_ADMIN: {
     pad: "px-3.5 py-4.5",
     row: "min-h-11 px-2.5",
-    text: "text-[14px]",
+    text: "text-[0.875rem]",
     kicker: "Operations",
   },
 };
@@ -146,10 +146,10 @@ export function RoleNav({ role }: { role: DemoRole }) {
   const identity = (
     <div className="flex flex-col gap-2 border-t border-rule pt-4">
       <div className="flex flex-col gap-0.5">
-        <span className="text-[14px] font-medium text-ink">
+        <span className="text-[0.875rem] font-medium text-ink">
           {session?.display_name ?? roleLabel(role)}
         </span>
-        <span className="font-mono text-[11px] text-muted">
+        <span className="font-mono text-[0.75rem] text-muted">
           {session?.patient_id ?? roleLabel(role).toLowerCase()}
         </span>
       </div>
@@ -160,14 +160,14 @@ export function RoleNav({ role }: { role: DemoRole }) {
         <Link
           href="/login"
           onClick={() => clearSession()}
-          className="focus-ink inline-flex min-h-11 items-center px-2 text-[13px] text-secondary hover:text-ink"
+          className="focus-ink inline-flex min-h-11 items-center px-2 text-[0.8125rem] text-secondary hover:text-ink"
         >
           Switch role
         </Link>
         <button
           type="button"
           onClick={signOut}
-          className="focus-ink inline-flex min-h-11 items-center gap-2 px-2 text-[13px] text-secondary hover:text-ink"
+          className="focus-ink inline-flex min-h-11 items-center gap-2 px-2 text-[0.8125rem] text-secondary hover:text-ink"
         >
           <Icon name="signOut" size={15} />
           Sign out
@@ -182,7 +182,7 @@ export function RoleNav({ role }: { role: DemoRole }) {
       <header className="on-raised sticky top-0 z-40 border-b border-rule bg-raised lg:hidden">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <Link href={roleHome(role)} className="focus-ink inline-flex min-h-11 items-center">
-            <Wordmark kicker={density.kicker} size="text-[19px]" />
+            <Wordmark kicker={density.kicker} size="text-[1.1875rem]" />
           </Link>
           <button
             type="button"
@@ -221,7 +221,7 @@ export function RoleNav({ role }: { role: DemoRole }) {
           href={roleHome(role)}
           className="focus-ink mb-4 inline-flex min-h-11 items-center px-3"
         >
-          <Wordmark kicker={density.kicker} size="text-[21px]" />
+          <Wordmark kicker={density.kicker} size="text-[1.3125rem]" />
         </Link>
         <nav className="flex flex-col gap-0.5" aria-label="Primary">
           <NavRows links={links} pathname={pathname} density={density} />

@@ -116,7 +116,7 @@ export default function AdminFleetPage() {
     <>
       <header className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <h1 className="font-serif text-[27px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+          <h1 className="font-serif text-[1.6875rem] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
             Agent fleet
           </h1>
           <p className="mt-1.5 text-[13.5px] leading-[1.5] text-secondary">
@@ -129,7 +129,7 @@ export default function AdminFleetPage() {
         <button
           type="button"
           onClick={() => void refresh()}
-          className="focus-ink inline-flex min-h-11 items-center gap-2 px-2 font-mono text-[11px] text-muted hover:text-ink"
+          className="focus-ink inline-flex min-h-11 items-center gap-2 px-2 font-mono text-[0.75rem] text-muted hover:text-ink"
         >
           <Icon name="refresh" size={14} />
           {refreshedAt
@@ -192,7 +192,7 @@ export default function AdminFleetPage() {
                 {["Agent", "Granted capabilities", "Risk", "Version"].map((column) => (
                   <span
                     key={column}
-                    className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted"
+                    className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted"
                   >
                     {column}
                   </span>
@@ -204,12 +204,12 @@ export default function AdminFleetPage() {
                   className="grid min-h-11 grid-cols-[168px_minmax(0,1fr)_96px_96px] items-center gap-4 border-b border-rule"
                   title={agent.description}
                 >
-                  <span className="truncate text-[14px] font-medium text-ink">{agent.name}</span>
-                  <span className="truncate font-mono text-[12px] text-secondary">
+                  <span className="truncate text-[0.875rem] font-medium text-ink">{agent.name}</span>
+                  <span className="truncate font-mono text-[0.75rem] text-secondary">
                     {agent.capabilities.join(" · ")}
                   </span>
-                  <span className="font-mono text-[12px] text-secondary">{agent.risk_level}</span>
-                  <span className="font-mono text-[12px] text-muted">{agent.version}</span>
+                  <span className="font-mono text-[0.75rem] text-secondary">{agent.risk_level}</span>
+                  <span className="font-mono text-[0.75rem] text-muted">{agent.version}</span>
                 </div>
               ))}
             </section>
@@ -234,7 +234,7 @@ export default function AdminFleetPage() {
                     <span className="font-mono text-[12.5px] text-body">{row.name}</span>
                     <span
                       className={cn(
-                        "font-mono text-[11px] uppercase tracking-[0.06em]",
+                        "font-mono text-[0.75rem] uppercase tracking-[0.06em]",
                         ADAPTER_TONE[row.state],
                       )}
                     >
@@ -247,7 +247,7 @@ export default function AdminFleetPage() {
 
             {runtime ? (
               <details className="group border-t border-rule pt-3">
-                <summary className="focus-ink flex min-h-11 cursor-pointer list-none items-center gap-2 font-mono text-[11px] uppercase tracking-[0.1em] text-secondary hover:text-ink">
+                <summary className="focus-ink flex min-h-11 cursor-pointer list-none items-center gap-2 font-mono text-[0.75rem] uppercase tracking-[0.1em] text-secondary hover:text-ink">
                   <Icon
                     name="chevronDown"
                     size={14}
@@ -255,7 +255,7 @@ export default function AdminFleetPage() {
                   />
                   Technical detail
                 </summary>
-                <dl className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-4 gap-y-2 pb-3 pt-2 font-mono text-[12px]">
+                <dl className="grid grid-cols-[168px_minmax(0,1fr)] gap-x-4 gap-y-2 pb-3 pt-2 font-mono text-[0.75rem]">
                   <dt className="text-muted">gemini model</dt>
                   <dd className="text-body">{runtime.fleet.gemini_model}</dd>
                   <dt className="text-muted">gemini location</dt>
@@ -296,7 +296,7 @@ export default function AdminFleetPage() {
                     </span>
                     <span
                       className={cn(
-                        "shrink-0 font-mono text-[11px]",
+                        "shrink-0 font-mono text-[0.75rem]",
                         trace.status === "blocked" || trace.status === "failed"
                           ? "text-high"
                           : "text-secondary",
@@ -305,19 +305,19 @@ export default function AdminFleetPage() {
                       {trace.status}
                     </span>
                   </div>
-                  <span className="truncate font-mono text-[11px] text-muted">
+                  <span className="truncate font-mono text-[0.75rem] text-muted">
                     {new Date(trace.timestamp).toLocaleTimeString()} · {trace.agent_name}
                   </span>
                 </div>
               ))
             ) : (
-              <p className="px-5 py-4 text-[13px] text-muted">No traces recorded yet.</p>
+              <p className="px-5 py-4 text-[0.8125rem] text-muted">No traces recorded yet.</p>
             )}
 
             {/* the halt, echoed: register change, no hue, no motion */}
             {oldestReview ? (
               <div className="eir-halt m-5 flex flex-col gap-2 border-l-[3px] border-high bg-ink px-[18px] py-4">
-                <span className="inline-flex items-center gap-2 font-mono text-[11px] font-medium tracking-[0.12em] text-paper">
+                <span className="inline-flex items-center gap-2 font-mono text-[0.75rem] font-medium tracking-[0.12em] text-paper">
                   <Icon name="halt" size={14} />
                   CASCADE HALTED
                 </span>
@@ -325,7 +325,7 @@ export default function AdminFleetPage() {
                   {oldestReview.pending_capability ?? oldestReview.capability} is a blocking
                   capability. Next events suppressed, review parked for a clinician.
                 </span>
-                <span className="font-mono text-[11px] text-on-ink-muted">
+                <span className="font-mono text-[0.75rem] text-on-ink-muted">
                   held {formatWait(oldestReview.created_at).replace(" waiting", "")}
                 </span>
               </div>

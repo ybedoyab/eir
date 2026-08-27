@@ -6,13 +6,13 @@ type Density = "patient" | "staff" | "dense";
 
 /** Row heights and type sizes per surface, from the density table. */
 const TITLE: Record<Density, string> = {
-  patient: "text-[40px] leading-[1.15] tracking-[-0.018em]",
-  staff: "text-[30px] leading-[1.2] tracking-[-0.015em]",
-  dense: "text-[27px] leading-[1.2] tracking-[-0.015em]",
+  patient: "text-[2.5rem] leading-[1.15] tracking-[-0.018em]",
+  staff: "text-[1.875rem] leading-[1.2] tracking-[-0.015em]",
+  dense: "text-[1.6875rem] leading-[1.2] tracking-[-0.015em]",
 };
 
 const DESCRIPTION: Record<Density, string> = {
-  patient: "mt-3 text-[17px] leading-[1.6]",
+  patient: "mt-3 text-[1.0625rem] leading-[1.6]",
   staff: "mt-2 text-[14.5px] leading-[1.55]",
   dense: "mt-1.5 text-[13.5px] leading-[1.5]",
 };

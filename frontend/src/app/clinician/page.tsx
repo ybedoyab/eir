@@ -87,7 +87,7 @@ export default function ClinicianHomePage() {
     <>
       <header className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <h1 className="font-serif text-[30px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+          <h1 className="font-serif text-[1.875rem] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
             {greeting(shortClinicianName(session?.display_name ?? "Doctor"))}.
           </h1>
           <p className="mt-2 text-[14.5px] leading-[1.55] text-secondary">
@@ -149,10 +149,10 @@ export default function ClinicianHomePage() {
                       className="focus-ink group grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-b border-rule py-3 pl-1 pr-1 hover:bg-hover"
                     >
                       <span className="flex min-w-0 flex-col gap-[3px]">
-                        <span className="truncate text-[15px] font-medium text-ink">
+                        <span className="truncate text-[0.9375rem] font-medium text-ink">
                           {patientName}
                         </span>
-                        <span className="truncate text-[13px] text-secondary">
+                        <span className="truncate text-[0.8125rem] text-secondary">
                           {review.reason}
                         </span>
                       </span>
@@ -188,14 +188,14 @@ export default function ClinicianHomePage() {
                     href={`/clinician/patients/${appointment.patient_id}`}
                     className="focus-ink group grid min-h-[60px] grid-cols-[84px_minmax(0,1fr)_auto] items-center gap-4 border-b border-rule py-3 pl-1 pr-1 hover:bg-hover"
                   >
-                    <span className="font-mono text-[13px] text-secondary">
+                    <span className="font-mono text-[0.8125rem] text-secondary">
                       {formatWhen(appointment.start).split(", ").pop()}
                     </span>
                     <span className="flex min-w-0 flex-col gap-[3px]">
-                      <span className="truncate text-[15px] font-medium text-ink">
+                      <span className="truncate text-[0.9375rem] font-medium text-ink">
                         {names[appointment.patient_id] ?? "Patient"}
                       </span>
-                      <span className="truncate text-[13px] text-secondary">
+                      <span className="truncate text-[0.8125rem] text-secondary">
                         {appointment.specialty}
                       </span>
                     </span>
@@ -222,7 +222,7 @@ export default function ClinicianHomePage() {
                   className="focus-ink group grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-4 border-b border-rule py-3 pl-1 pr-1 hover:bg-hover"
                 >
                   <span className="flex min-w-0 flex-col gap-[3px]">
-                    <span className="truncate text-[15px] font-medium text-ink">
+                    <span className="truncate text-[0.9375rem] font-medium text-ink">
                       {names[episode.patient_id] ?? "Patient"}
                     </span>
                     <span className="truncate font-mono text-[11.5px] text-muted">
@@ -258,7 +258,7 @@ export default function ClinicianHomePage() {
                     className="focus-ink group flex min-h-[60px] items-center justify-between gap-3 border-b border-rule px-1 py-3 hover:bg-hover"
                   >
                     <span className="flex min-w-0 flex-col">
-                      <span className="truncate text-[15px] font-medium text-ink">
+                      <span className="truncate text-[0.9375rem] font-medium text-ink">
                         {patient.name}
                       </span>
                       <span className="truncate font-mono text-[11.5px] text-muted">
@@ -278,7 +278,7 @@ export default function ClinicianHomePage() {
             )}
           </section>
 
-          <p className="mt-2 font-mono text-[11px] text-muted">
+          <p className="mt-2 font-mono text-[0.75rem] text-muted">
             Synthetic demo environment · no real patient data
           </p>
         </>

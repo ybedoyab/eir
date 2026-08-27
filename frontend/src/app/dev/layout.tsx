@@ -10,7 +10,7 @@ export default function DevLayout({ children }: { children: ReactNode }) {
       <header className="on-raised border-b border-rule bg-raised">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 sm:px-8">
           <Link href="/" className="focus-ink inline-flex min-h-11 items-center gap-3">
-            <span className="font-serif text-[19px] font-semibold tracking-[-0.01em] text-ink">
+            <span className="font-serif text-[1.1875rem] font-semibold tracking-[-0.01em] text-ink">
               EIR
             </span>
             <span className="h-4 w-px bg-rule-strong" aria-hidden />

@@ -81,7 +81,7 @@ export default function RecoveryPage() {
                 >
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="truncate font-mono text-[12.5px] text-ink">{episode.id}</span>
-                    <span className="truncate font-mono text-[11px] text-muted">
+                    <span className="truncate font-mono text-[0.75rem] text-muted">
                       patient {episode.patient_id}
                     </span>
                   </span>
@@ -115,7 +115,7 @@ export default function RecoveryPage() {
                   key={review.id}
                   className="flex flex-col gap-3 border-l-[3px] border-high bg-raised px-4 py-3.5"
                 >
-                  <p className="text-[14px] leading-[1.55] text-ink">{review.reason}</p>
+                  <p className="text-[0.875rem] leading-[1.55] text-ink">{review.reason}</p>
                   <p className="font-mono text-[11.5px] text-muted">
                     {review.agent_name} · {review.capability}
                   </p>

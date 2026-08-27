@@ -34,12 +34,12 @@ export function StatCard({
 }) {
   return (
     <div className={cn("flex flex-col gap-[5px] px-5 py-4 first:pl-0 last:pr-0", className)}>
-      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+      <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
         {label}
       </span>
       <span
         className={cn(
-          "font-mono text-[27px] leading-none tabular-nums",
+          "font-mono text-[1.6875rem] leading-none tabular-nums",
           FIGURE_TONE[tone],
         )}
       >

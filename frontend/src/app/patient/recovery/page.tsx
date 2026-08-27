@@ -97,15 +97,15 @@ export default function PatientRecoveryPage() {
               className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-5 border-b border-rule py-[18px]"
             >
               <div className="flex flex-col gap-1">
-                <span className="text-[16px] text-body">Previous recovery</span>
-                <span className="font-mono text-[12px] text-muted">
+                <span className="text-[1rem] text-body">Previous recovery</span>
+                <span className="font-mono text-[0.75rem] text-muted">
                   episode {episode.id.slice(0, 8)}
                 </span>
               </div>
               <StatusBadge status={episodeStatus(episode.status)} />
               <Link
                 href={`/recovery/${episode.id}`}
-                className="focus-ink inline-flex min-h-11 items-center gap-2 px-2 text-[14px] text-accent hover:text-ink"
+                className="focus-ink inline-flex min-h-11 items-center gap-2 px-2 text-[0.875rem] text-accent hover:text-ink"
               >
                 Details
                 <Icon name="chevronRight" size={14} />
@@ -116,7 +116,7 @@ export default function PatientRecoveryPage() {
       ) : null}
 
       <section className="on-raised flex flex-col gap-4 border-l-[3px] border-rule-strong bg-raised px-8 py-7 sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-[52ch] text-[15px] leading-relaxed text-secondary">
+        <p className="max-w-[52ch] text-[0.9375rem] leading-relaxed text-secondary">
           The full autonomous recovery story — every event, gate and halt — can be walked through
           in the guided demo.
         </p>
@@ -147,7 +147,7 @@ function RecoverySection({
   return (
     <section className="flex flex-col gap-10">
       <div className="flex flex-wrap items-start justify-between gap-5 border-b border-rule-strong pb-5">
-        <h2 className="font-serif text-[27px] font-medium leading-tight text-ink">{context}</h2>
+        <h2 className="font-serif text-[1.6875rem] font-medium leading-tight text-ink">{context}</h2>
         <div className="flex flex-wrap gap-2">
           <StatusBadge status={episodeStatus(episode.status)} />
           <StatusBadge status={riskStatus(episode.risk_level, "patient")} />
@@ -159,7 +159,7 @@ function RecoverySection({
           <dt className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
             Last check-in
           </dt>
-          <dd className="text-[17px] text-body">
+          <dd className="text-[1.0625rem] text-body">
             {checkin ? formatWhen(checkin.occurred_at) : "Not yet recorded"}
           </dd>
         </div>
@@ -167,7 +167,7 @@ function RecoverySection({
           <dt className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
             Next check-in
           </dt>
-          <dd className="text-[17px] text-body">
+          <dd className="text-[1.0625rem] text-body">
             {episode.next_follow_up_at ? formatWhen(episode.next_follow_up_at) : "To be scheduled"}
           </dd>
         </div>
@@ -180,7 +180,7 @@ function RecoverySection({
             {tasks.map((task) => (
               <li
                 key={task}
-                className="flex min-h-14 items-center gap-3 border-b border-rule py-3 text-[17px] text-body"
+                className="flex min-h-14 items-center gap-3 border-b border-rule py-3 text-[1.0625rem] text-body"
               >
                 {task}
               </li>
@@ -207,7 +207,7 @@ function RecoverySection({
 
       <Link
         href={`/recovery/${episode.id}`}
-        className="focus-ink inline-flex min-h-14 w-fit items-center gap-2.5 border border-rule-strong px-6 text-[15px] font-medium text-body hover:bg-hover"
+        className="focus-ink inline-flex min-h-14 w-fit items-center gap-2.5 border border-rule-strong px-6 text-[0.9375rem] font-medium text-body hover:bg-hover"
       >
         View recovery details
         <Icon name="arrowRight" size={16} className="text-accent" />
@@ -229,11 +229,11 @@ function MedicationsSection({
   return (
     <section className="flex flex-col">
       <SectionHeader title="Your medications" />
-      <p className="max-w-[62ch] text-[15px] leading-[1.65] text-secondary">
+      <p className="max-w-[62ch] text-[0.9375rem] leading-[1.65] text-secondary">
         Your care team asked whether you have been taking your prescribed medications. Individual
         drug names are matched after the check-in, not spoken during the call.
       </p>
-      <p className="mt-4 text-[17px] text-body">
+      <p className="mt-4 text-[1.0625rem] text-body">
         Latest adherence: <span className="font-medium text-ink">{adherence}</span>
       </p>
       {medications.length ? (
@@ -243,13 +243,13 @@ function MedicationsSection({
               key={medication.sku || medication.rxnorm_code || medication.name}
               className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-5 border-b border-rule py-3"
             >
-              <span className="text-[17px] text-body">{medication.name}</span>
-              <span className="font-mono text-[13px] text-secondary">{medication.dose || "—"}</span>
+              <span className="text-[1.0625rem] text-body">{medication.name}</span>
+              <span className="font-mono text-[0.8125rem] text-secondary">{medication.dose || "—"}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-[15px] text-muted">No prescribed medications on file.</p>
+        <p className="mt-4 text-[0.9375rem] text-muted">No prescribed medications on file.</p>
       )}
     </section>
   );

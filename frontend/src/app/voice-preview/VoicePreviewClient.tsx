@@ -721,7 +721,7 @@ export default function VoicePreviewClient() {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="max-w-[74ch] text-[14px] leading-[1.6] text-secondary">
+      <p className="max-w-[74ch] text-[0.875rem] leading-[1.6] text-secondary">
         Audio runs over WebRTC — no phone call is placed and no number is dialled. Allow the
         microphone when your browser asks.
       </p>
@@ -739,18 +739,18 @@ export default function VoicePreviewClient() {
             <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-on-ink-muted">
               EIR Recovery
             </span>
-            <p className="mt-4 text-[22px] font-medium text-paper">{statusLabel(status)}</p>
-            <p className="mt-3 font-mono text-[38px] leading-none tabular-nums text-paper">
+            <p className="mt-4 text-[1.375rem] font-medium text-paper">{statusLabel(status)}</p>
+            <p className="mt-3 font-mono text-[2.375rem] leading-none tabular-nums text-paper">
               {live ? formatTimer(elapsed) : "00:00"}
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2">
-              <span className="inline-flex items-center gap-2 border border-on-ink-rule px-2.5 py-1 font-mono text-[11px] text-on-ink">
+              <span className="inline-flex items-center gap-2 border border-on-ink-rule px-2.5 py-1 font-mono text-[0.75rem] text-on-ink">
                 {dialing ? (
                   <span className="eir-pulse h-1.5 w-1.5 bg-paper" aria-hidden />
                 ) : null}
                 {micReady ? (micSending ? "Mic sending" : "Mic ready") : "Mic pending"}
               </span>
-              <span className="inline-flex items-center border border-on-ink-rule px-2.5 py-1 font-mono text-[11px] text-on-ink">
+              <span className="inline-flex items-center border border-on-ink-rule px-2.5 py-1 font-mono text-[0.75rem] text-on-ink">
                 {audioLabel(audioState)}
               </span>
             </div>
@@ -759,7 +759,7 @@ export default function VoicePreviewClient() {
           <div className="flex flex-col gap-4 border-b border-rule pt-5">
             {idle || status === "connecting" ? (
               <div className="flex flex-col gap-4">
-                <p className="text-[14px] leading-[1.6] text-secondary">
+                <p className="text-[0.875rem] leading-[1.6] text-secondary">
                   EIR will ask about your pain level, symptoms, and medication, then flag anything
                   that needs a clinician. It does not diagnose.
                 </p>
@@ -848,7 +848,7 @@ export default function VoicePreviewClient() {
                     }`}
                   />
                   <span
-                    className={`font-mono text-[12px] ${
+                    className={`font-mono text-[0.75rem] ${
                       phase === "thinking" ? "text-warn" : "text-ink"
                     }`}
                   >
@@ -863,7 +863,7 @@ export default function VoicePreviewClient() {
                     style={{ transform: "scaleX(0)" }}
                   />
                 </div>
-                <p className="font-mono text-[11px] text-muted">{audioLabel(audioState)}</p>
+                <p className="font-mono text-[0.75rem] text-muted">{audioLabel(audioState)}</p>
               </div>
             ) : (
               <p className="border border-dashed border-rule-strong px-3 py-4 text-center font-mono text-[11.5px] text-muted">
@@ -889,7 +889,7 @@ export default function VoicePreviewClient() {
             className="flex max-h-[34rem] min-h-[28rem] flex-col gap-4 overflow-y-auto"
           >
             {lines.length === 0 ? (
-              <p className="font-mono text-[12px] text-muted">
+              <p className="font-mono text-[0.75rem] text-muted">
                 {idle ? "Transcript appears here once the check-in starts." : phaseLabel(phase)}
               </p>
             ) : (
@@ -902,11 +902,11 @@ export default function VoicePreviewClient() {
                       : "ml-auto max-w-[92%] bg-raised px-4 py-3"
                   }
                 >
-                  <div className="mb-1.5 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                  <div className="mb-1.5 flex items-center gap-2 font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
                     <span>{line.role === "eir" ? "EIR" : "You"}</span>
                     {line.pending ? <span className="normal-case">typing…</span> : null}
                   </div>
-                  <p className="text-[14px] leading-[1.6] text-body">{line.text}</p>
+                  <p className="text-[0.875rem] leading-[1.6] text-body">{line.text}</p>
                 </div>
               ))
             )}

@@ -89,7 +89,7 @@ export default function PatientAssistantPage() {
               {message.role === "assistant" ? (
                 <span
                   aria-hidden
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center bg-accent font-mono text-[11px] tracking-[0.06em] text-paper"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center bg-accent font-mono text-[0.75rem] tracking-[0.06em] text-paper"
                 >
                   EIR
                 </span>
@@ -98,7 +98,7 @@ export default function PatientAssistantPage() {
               )}
               <p
                 className={cn(
-                  "px-4 py-3 text-[15px] leading-[1.6]",
+                  "px-4 py-3 text-[0.9375rem] leading-[1.6]",
                   message.role === "user"
                     ? "on-raised bg-raised text-body"
                     : "border-l-[3px] border-accent text-body",
@@ -109,7 +109,7 @@ export default function PatientAssistantPage() {
             </div>
           ))}
           {busy ? (
-            <p className="font-mono text-[12px] text-muted">EIR is typing…</p>
+            <p className="font-mono text-[0.75rem] text-muted">EIR is typing…</p>
           ) : null}
           <div ref={endRef} />
         </div>
@@ -120,7 +120,7 @@ export default function PatientAssistantPage() {
               key={suggestion}
               type="button"
               onClick={() => void send(suggestion)}
-              className="focus-ink inline-flex min-h-11 items-center border border-rule-strong px-3.5 text-[13px] text-secondary hover:bg-hover hover:text-ink"
+              className="focus-ink inline-flex min-h-11 items-center border border-rule-strong px-3.5 text-[0.8125rem] text-secondary hover:bg-hover hover:text-ink"
             >
               {suggestion}
             </button>
@@ -142,7 +142,7 @@ export default function PatientAssistantPage() {
             value={input}
             onChange={(event) => setInput(event.target.value)}
             placeholder="Ask about an appointment or recovery"
-            className="focus-ink h-11 flex-1 border border-rule-strong bg-paper px-4 text-[15px] text-ink placeholder:text-muted focus:border-accent"
+            className="focus-ink h-11 flex-1 border border-rule-strong bg-paper px-4 text-[0.9375rem] text-ink placeholder:text-muted focus:border-accent"
           />
           <Button type="submit" disabled={busy || !sessionId}>
             {busy ? "Sending…" : "Send"}

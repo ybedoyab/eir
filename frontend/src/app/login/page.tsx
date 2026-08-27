@@ -58,7 +58,7 @@ export default function LoginPage() {
   return (
     <section className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <div className="mb-8 flex items-center gap-4 border-b border-rule pb-5">
-        <span className="font-serif text-[20px] font-semibold tracking-[-0.01em] text-ink">
+        <span className="font-serif text-[1.25rem] font-semibold tracking-[-0.01em] text-ink">
           EIR
         </span>
         <span className="h-[15px] w-px bg-rule-strong" aria-hidden />
@@ -86,10 +86,10 @@ export default function LoginPage() {
               className="flex flex-col border-t border-rule-strong pt-4"
             >
               <Avatar name={user.display_name} size="lg" />
-              <span className="mt-4 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span className="mt-4 font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
                 {roleLabel(user.role)}
               </span>
-              <h2 className="mt-1.5 text-[17px] font-medium text-ink">{user.display_name}</h2>
+              <h2 className="mt-1.5 text-[1.0625rem] font-medium text-ink">{user.display_name}</h2>
               <p className="mt-2 text-[13.5px] leading-[1.6] text-secondary">
                 {user.copy?.description ?? "Explore this role."}
               </p>
@@ -121,8 +121,8 @@ export default function LoginPage() {
               <span className="flex min-w-0 items-center gap-3">
                 <Avatar name={user.display_name} size="sm" />
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-[15px] text-ink">{user.display_name}</span>
-                  <span className="truncate text-[13px] text-secondary">
+                  <span className="truncate text-[0.9375rem] text-ink">{user.display_name}</span>
+                  <span className="truncate text-[0.8125rem] text-secondary">
                     {user.copy?.description}
                   </span>
                 </span>

@@ -161,7 +161,7 @@ export default function AdminInventoryPage() {
                   className="focus-ink grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-rule py-2 hover:bg-hover"
                 >
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="truncate text-[14px] text-ink">
+                    <span className="truncate text-[0.875rem] text-ink">
                       {item.item_name || item.sku}
                     </span>
                     <span className="truncate font-mono text-[11.5px] text-muted">
@@ -219,7 +219,7 @@ export default function AdminInventoryPage() {
                   <th
                     key={head}
                     scope="col"
-                    className="pb-2.5 pr-4 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-muted last:pr-0"
+                    className="pb-2.5 pr-4 font-mono text-[0.75rem] font-medium uppercase tracking-[0.1em] text-muted last:pr-0"
                   >
                     {head}
                   </th>
@@ -234,7 +234,7 @@ export default function AdminInventoryPage() {
                     <th scope="row" className="py-2.5 pr-4 font-normal">
                       <span className="flex min-h-11 flex-col justify-center gap-0.5">
                         <span className="flex items-center gap-2.5">
-                          <span className="text-[14px] text-ink">{item.name}</span>
+                          <span className="text-[0.875rem] text-ink">{item.name}</span>
                           {item.critical ? (
                             <StatusBadge status={{ label: "Critical", tone: "danger" }} />
                           ) : null}
@@ -244,17 +244,17 @@ export default function AdminInventoryPage() {
                         </span>
                       </span>
                     </th>
-                    <td className="py-2.5 pr-4 font-mono text-[13px] text-ink">
+                    <td className="py-2.5 pr-4 font-mono text-[0.8125rem] text-ink">
                       {item.on_hand}
-                      <span className="ml-1 text-[11px] text-muted">{item.unit}</span>
+                      <span className="ml-1 text-[0.75rem] text-muted">{item.unit}</span>
                     </td>
-                    <td className="py-2.5 pr-4 font-mono text-[13px] text-secondary">
+                    <td className="py-2.5 pr-4 font-mono text-[0.8125rem] text-secondary">
                       {item.reorder_point}
                     </td>
-                    <td className="py-2.5 pr-4 font-mono text-[12px] text-secondary">
+                    <td className="py-2.5 pr-4 font-mono text-[0.75rem] text-secondary">
                       {coverLabel(item)}
                     </td>
-                    <td className="py-2.5 pr-4 font-mono text-[13px] text-secondary">
+                    <td className="py-2.5 pr-4 font-mono text-[0.8125rem] text-secondary">
                       {item.patient_count ?? 0}
                     </td>
                     <td className="py-2.5 pr-4">

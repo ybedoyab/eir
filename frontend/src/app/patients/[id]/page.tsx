@@ -75,7 +75,7 @@ export default function PatientDetailPage({
         <div className="grid gap-7 lg:grid-cols-[1.2fr_0.8fr]">
           <section className="flex flex-col">
             <SectionHeader title="Demographics" meta="non-clinical demo metadata" />
-            <dl className="grid grid-cols-[152px_minmax(0,1fr)] gap-x-5 gap-y-2.5 font-mono text-[13px]">
+            <dl className="grid grid-cols-[152px_minmax(0,1fr)] gap-x-5 gap-y-2.5 font-mono text-[0.8125rem]">
               <dt className="text-muted">patient_id</dt>
               <dd className="truncate text-ink">{patient.id}</dd>
               <dt className="text-muted">date_of_birth</dt>
@@ -85,7 +85,7 @@ export default function PatientDetailPage({
               <dt className="text-muted">contact_channel</dt>
               <dd className="text-ink">{patient.preferred_contact_channel}</dd>
             </dl>
-            <p className="mt-5 inline-flex w-fit items-center bg-ink px-2.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] text-paper">
+            <p className="mt-5 inline-flex w-fit items-center bg-ink px-2.5 py-1.5 font-mono text-[0.75rem] uppercase tracking-[0.06em] text-paper">
               Synthetic — not real patient data
             </p>
           </section>
@@ -98,12 +98,12 @@ export default function PatientDetailPage({
             {episode ? (
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                  <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
                     Latest episode
                   </span>
                   <Link
                     href={`/recovery/${episode.id}`}
-                    className="focus-ink -my-2 inline-flex min-h-11 w-fit items-center gap-2 font-mono text-[13px] text-accent hover:text-ink"
+                    className="focus-ink -my-2 inline-flex min-h-11 w-fit items-center gap-2 font-mono text-[0.8125rem] text-accent hover:text-ink"
                   >
                     {episode.id}
                     <Icon name="open" size={14} />
@@ -112,7 +112,7 @@ export default function PatientDetailPage({
                 <Badge className={episodeBadgeClass(episode.status)}>{episode.status}</Badge>
               </div>
             ) : (
-              <p className="text-[14px] leading-[1.6] text-secondary">
+              <p className="text-[0.875rem] leading-[1.6] text-secondary">
                 No episode yet. Start one to trigger outreach and risk assessment.
               </p>
             )}

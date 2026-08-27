@@ -77,11 +77,11 @@ export default function HomePage() {
 
       <header className="flex flex-wrap items-center justify-between gap-6 border-b border-rule px-6 py-5 sm:px-10 lg:px-16">
         <div className="flex items-center gap-4">
-          <span className="font-serif text-[23px] font-semibold tracking-[-0.01em] text-ink">
+          <span className="font-serif text-[1.4375rem] font-semibold tracking-[-0.01em] text-ink">
             EIR
           </span>
           <span className="h-5 w-px bg-rule-strong" aria-hidden />
-          <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted">
+          <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
             Enterprise Intelligence Runtime
           </span>
         </div>
@@ -105,10 +105,10 @@ export default function HomePage() {
       {/* hero + the runtime strip: the product, on the front page */}
       <section className="grid gap-12 px-6 pb-16 pt-16 sm:px-10 lg:grid-cols-12 lg:px-16 lg:pb-[68px] lg:pt-[76px]">
         <div className="eir-enter lg:col-span-7">
-          <h1 className="font-serif text-[40px] font-semibold leading-[1.06] tracking-[-0.022em] text-ink sm:text-[58px]">
+          <h1 className="font-serif text-[2.5rem] font-semibold leading-[1.06] tracking-[-0.022em] text-ink sm:text-[3.625rem]">
             Hospital operations run by a fleet you can watch.
           </h1>
-          <p className="mt-6 max-w-[30em] text-[17px] leading-[1.62] text-secondary">
+          <p className="mt-6 max-w-[30em] text-[1.0625rem] leading-[1.62] text-secondary">
             EIR coordinates patient access, recovery follow-up and clinical review across seven
             agents. Every routing decision, safety gate and halt is on screen — not buried in a
             log.
@@ -116,20 +116,20 @@ export default function HomePage() {
           <div className="mt-9 flex flex-wrap gap-3">
             <Link
               href="/demo"
-              className="focus-ink inline-flex min-h-11 items-center gap-2.5 bg-accent px-6 text-[15px] font-medium text-paper hover:bg-accent-hover"
+              className="focus-ink inline-flex min-h-11 items-center gap-2.5 bg-accent px-6 text-[0.9375rem] font-medium text-paper hover:bg-accent-hover"
             >
               Open the live demo
               <Icon name="arrowRight" size={16} />
             </Link>
             <Link
               href="/login"
-              className="focus-ink inline-flex min-h-11 items-center gap-2.5 border border-rule-strong px-6 text-[15px] font-medium text-body hover:bg-hover"
+              className="focus-ink inline-flex min-h-11 items-center gap-2.5 border border-rule-strong px-6 text-[0.9375rem] font-medium text-body hover:bg-hover"
             >
               Sign in by role
               <Icon name="chevronRight" size={15} className="text-muted" />
             </Link>
           </div>
-          <p className="mt-7 font-mono text-[12px] leading-snug text-muted">
+          <p className="mt-7 font-mono text-[0.75rem] leading-snug text-muted">
             Every identity and record in this environment is synthetic.
           </p>
         </div>
@@ -139,10 +139,10 @@ export default function HomePage() {
           style={{ animationDelay: "110ms" }}
         >
           <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-2.5">
-            <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-secondary">
+            <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-secondary">
               Recovery episode · live
             </span>
-            <span className="font-mono text-[11px] tracking-[0.06em] text-muted">depth 4 / 12</span>
+            <span className="font-mono text-[0.75rem] tracking-[0.06em] text-muted">depth 4 / 12</span>
           </div>
 
           <div className="flex flex-col">
@@ -161,15 +161,15 @@ export default function HomePage() {
 
             {/* the halt: register changes, no hue, no motion */}
             <div className="eir-cut eir-halt mt-3.5 flex items-center gap-4 border-l-[3px] border-high bg-ink px-[18px] py-4">
-              <span className="inline-flex items-center gap-2 font-mono text-[12px] font-medium tracking-[0.12em] text-paper">
+              <span className="inline-flex items-center gap-2 font-mono text-[0.75rem] font-medium tracking-[0.12em] text-paper">
                 <Icon name="halt" size={14} />
                 CASCADE HALTED
               </span>
-              <span className="text-[13px] leading-snug text-on-ink">
+              <span className="text-[0.8125rem] leading-snug text-on-ink">
                 Blocking capability parked the workflow for human approval.
               </span>
             </div>
-            <p className="eir-cut mt-3.5 text-[13px] leading-relaxed text-muted">
+            <p className="eir-cut mt-3.5 text-[0.8125rem] leading-relaxed text-muted">
               The runtime stops here until a clinician answers. Nothing downstream runs in the
               meantime.
             </p>
@@ -180,10 +180,10 @@ export default function HomePage() {
       {/* capability ledger — numbered rows, not three-across pillar cards */}
       <section className="px-6 pb-[72px] sm:px-10 lg:px-16">
         <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-3">
-          <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-secondary">
+          <h2 className="font-mono text-[0.75rem] font-medium uppercase tracking-[0.1em] text-secondary">
             What the fleet covers
           </h2>
-          <span className="font-mono text-[11px] tracking-[0.06em] text-muted">
+          <span className="font-mono text-[0.75rem] tracking-[0.06em] text-muted">
             7 agents · capability-routed
           </span>
         </div>
@@ -194,12 +194,12 @@ export default function HomePage() {
               key={item.index}
               className="eir-reveal grid gap-6 border-b border-rule py-[30px] lg:grid-cols-[56px_300px_minmax(0,1fr)_260px] lg:gap-8"
             >
-              <span className="font-mono text-[13px] text-muted">{item.index}</span>
-              <h3 className="font-serif text-[25px] font-medium tracking-[-0.01em] text-ink">
+              <span className="font-mono text-[0.8125rem] text-muted">{item.index}</span>
+              <h3 className="font-serif text-[1.5625rem] font-medium tracking-[-0.01em] text-ink">
                 {item.title}
               </h3>
-              <p className="text-[15px] leading-[1.65] text-secondary">{item.body}</p>
-              <div className="flex flex-col gap-1.5 font-mono text-[12px] text-muted">
+              <p className="text-[0.9375rem] leading-[1.65] text-secondary">{item.body}</p>
+              <div className="flex flex-col gap-1.5 font-mono text-[0.75rem] text-muted">
                 {item.capabilities.map((capability) => (
                   <span key={capability}>{capability}</span>
                 ))}
@@ -212,12 +212,12 @@ export default function HomePage() {
       {/* managed platform */}
       <section className="px-6 pb-[76px] sm:px-10 lg:px-16">
         <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-3">
-          <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-secondary">
+          <h2 className="font-mono text-[0.75rem] font-medium uppercase tracking-[0.1em] text-secondary">
             Managed platform
           </h2>
           <Link
             href="/admin/fleet"
-            className="focus-ink -my-3 inline-flex min-h-11 items-center gap-2 font-mono text-[11px] tracking-[0.06em] text-accent hover:text-ink"
+            className="focus-ink -my-3 inline-flex min-h-11 items-center gap-2 font-mono text-[0.75rem] tracking-[0.06em] text-accent hover:text-ink"
           >
             Live adapter status
             <Icon name="arrowRight" size={13} />
@@ -226,8 +226,8 @@ export default function HomePage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 [&>*]:border-b [&>*]:border-rule [&>*]:px-6 sm:[&>*]:border-r sm:[&>*:nth-child(2n)]:border-r-0 sm:[&>*:nth-child(2n+1)]:pl-0 lg:[&>*:nth-child(2n)]:border-r lg:[&>*:nth-child(2n+1)]:pl-6 lg:[&>*:nth-child(4n)]:border-r-0 lg:[&>*:nth-child(4n+1)]:pl-0">
           {platform.map((item) => (
             <div key={item.name} className="eir-reveal flex flex-col gap-1 py-[22px]">
-              <span className="text-[15px] font-medium text-ink">{item.name}</span>
-              <span className="font-mono text-[12px] text-muted">{item.detail}</span>
+              <span className="text-[0.9375rem] font-medium text-ink">{item.name}</span>
+              <span className="font-mono text-[0.75rem] text-muted">{item.detail}</span>
             </div>
           ))}
         </div>

@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 const VoicePreviewClient = dynamic(() => import("../../voice-preview/VoicePreviewClient"), {
   ssr: false,
   loading: () => (
-    <p className="font-mono text-[12px] text-muted">Loading voice preview…</p>
+    <p className="font-mono text-[0.75rem] text-muted">Loading voice preview…</p>
   ),
 });
 

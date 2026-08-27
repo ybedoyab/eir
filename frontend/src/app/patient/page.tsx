@@ -64,10 +64,10 @@ export default function PatientHomePage() {
   return (
     <>
       <header>
-        <h1 className="font-serif text-[40px] font-medium leading-[1.15] tracking-[-0.018em] text-ink">
+        <h1 className="font-serif text-[2.5rem] font-medium leading-[1.15] tracking-[-0.018em] text-ink">
           {greeting(name)}.
         </h1>
-        <p className="mt-3 text-[17px] leading-[1.6] text-secondary">
+        <p className="mt-3 text-[1.0625rem] leading-[1.6] text-secondary">
           {checkInDue
             ? "One thing needs you today."
             : "Your visits, recovery and hospital assistant in one place."}
@@ -92,22 +92,22 @@ export default function PatientHomePage() {
             >
               <div className="flex flex-col gap-2.5">
                 <span
-                  className={`font-mono text-[11px] uppercase tracking-[0.1em] ${
+                  className={`font-mono text-[0.75rem] uppercase tracking-[0.1em] ${
                     checkInDue ? "text-warn" : "text-accent"
                   }`}
                 >
                   {checkInDue ? "Check-in due" : "Recovery in progress"}
                 </span>
-                <h2 className="font-serif text-[27px] font-medium leading-[1.25] text-ink">
+                <h2 className="font-serif text-[1.6875rem] font-medium leading-[1.25] text-ink">
                   How is your recovery going today?
                 </h2>
-                <p className="max-w-[44ch] text-[16px] leading-[1.6] text-secondary">
+                <p className="max-w-[44ch] text-[1rem] leading-[1.6] text-secondary">
                   A few short questions about pain, swelling and movement. Takes about a minute. A
                   nurse reads anything that looks concerning.
                 </p>
-                <p className="mt-1 text-[14px] text-secondary">
+                <p className="mt-1 text-[0.875rem] text-secondary">
                   Next check-in{" "}
-                  <span className="font-mono text-[13px] text-ink">
+                  <span className="font-mono text-[0.8125rem] text-ink">
                     {activeRecovery.next_follow_up_at
                       ? formatWhen(activeRecovery.next_follow_up_at)
                       : "to be scheduled"}
@@ -116,7 +116,7 @@ export default function PatientHomePage() {
               </div>
               <Link
                 href="/patient/recovery"
-                className="focus-ink inline-flex min-h-14 shrink-0 items-center gap-2.5 bg-accent px-8 text-[16px] font-medium text-paper hover:bg-accent-hover"
+                className="focus-ink inline-flex min-h-14 shrink-0 items-center gap-2.5 bg-accent px-8 text-[1rem] font-medium text-paper hover:bg-accent-hover"
               >
                 {checkInDue ? "Start check-in" : "Open recovery"}
                 <Icon name="arrowRight" size={16} />
@@ -170,25 +170,25 @@ export default function PatientHomePage() {
               {activeRecovery ? (
                 <div className="flex flex-col">
                   <div className="grid grid-cols-[108px_minmax(0,1fr)_auto] items-center gap-5 border-b border-rule py-[18px]">
-                    <span className="font-mono text-[13px] text-muted">Status</span>
-                    <span className="text-[15px] leading-[1.6] text-body">
+                    <span className="font-mono text-[0.8125rem] text-muted">Status</span>
+                    <span className="text-[0.9375rem] leading-[1.6] text-body">
                       Episode {activeRecovery.id.slice(0, 8)}
                     </span>
                     <StatusBadge status={episodeStatus(activeRecovery.status)} />
                   </div>
                   <div className="grid grid-cols-[108px_minmax(0,1fr)_auto] items-center gap-5 border-b border-rule py-[18px]">
-                    <span className="font-mono text-[13px] text-muted">How you are</span>
-                    <span className="text-[15px] leading-[1.6] text-body">
+                    <span className="font-mono text-[0.8125rem] text-muted">How you are</span>
+                    <span className="text-[0.9375rem] leading-[1.6] text-body">
                       Based on your last check-in
                     </span>
                     <StatusBadge status={riskStatus(activeRecovery.risk_level, "patient")} />
                   </div>
                   <div className="grid grid-cols-[108px_minmax(0,1fr)_auto] items-center gap-5 border-b border-rule py-[18px]">
-                    <span className="font-mono text-[13px] text-muted">Started</span>
-                    <span className="text-[15px] leading-[1.6] text-body">
+                    <span className="font-mono text-[0.8125rem] text-muted">Started</span>
+                    <span className="text-[0.9375rem] leading-[1.6] text-body">
                       {formatWhen(activeRecovery.started_at)}
                     </span>
-                    <span className="font-mono text-[12px] text-muted">—</span>
+                    <span className="font-mono text-[0.75rem] text-muted">—</span>
                   </div>
                 </div>
               ) : (
@@ -209,20 +209,20 @@ export default function PatientHomePage() {
 
             <div className="flex flex-col">
               <SectionHeader title="Assistant" />
-              <p className="text-[15px] leading-[1.65] text-secondary">
+              <p className="text-[0.9375rem] leading-[1.65] text-secondary">
                 Ask about appointments, transport or what to expect this week. Anything clinical
                 goes straight to a person.
               </p>
               <Link
                 href="/patient/assistant"
-                className="focus-ink mt-5 inline-flex min-h-14 items-center justify-center gap-2.5 border border-rule-strong px-6 text-[15px] font-medium text-body hover:bg-hover"
+                className="focus-ink mt-5 inline-flex min-h-14 items-center justify-center gap-2.5 border border-rule-strong px-6 text-[0.9375rem] font-medium text-body hover:bg-hover"
               >
                 Ask a question
                 <Icon name="arrowRight" size={16} className="text-accent" />
               </Link>
               <Link
                 href="/patient/appointments?action=schedule"
-                className="focus-ink mt-3 inline-flex min-h-14 items-center justify-center gap-2.5 border border-rule px-6 text-[15px] text-secondary hover:bg-hover hover:text-ink"
+                className="focus-ink mt-3 inline-flex min-h-14 items-center justify-center gap-2.5 border border-rule px-6 text-[0.9375rem] text-secondary hover:bg-hover hover:text-ink"
               >
                 <Icon name="plus" size={16} />
                 Schedule a visit

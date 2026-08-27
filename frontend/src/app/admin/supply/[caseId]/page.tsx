@@ -150,10 +150,10 @@ export default function ReplenishmentCasePage({
         <div className="flex flex-col gap-7">
           <section className="flex flex-col">
             <SectionHeader title="Why this case opened" />
-            <p className="max-w-[74ch] text-[14px] leading-[1.6] text-secondary">
+            <p className="max-w-[74ch] text-[0.875rem] leading-[1.6] text-secondary">
               {supplyCase.rationale}
             </p>
-            <dl className="mt-4 grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[13px]">
+            <dl className="mt-4 grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[0.8125rem]">
               <dt className="text-muted">requested_quantity</dt>
               <dd className="text-ink">{supplyCase.requested_quantity}</dd>
               <dt className="text-muted">suppliers_called</dt>
@@ -181,7 +181,7 @@ export default function ReplenishmentCasePage({
                   ? "The agent drafted this order. Nothing is sent to the supplier until you authorize it."
                   : `Placed with ${order.supplier_name}.`}
               </p>
-              <dl className="mt-4 grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[13px]">
+              <dl className="mt-4 grid grid-cols-[168px_minmax(0,1fr)] gap-x-5 gap-y-2 font-mono text-[0.8125rem]">
                 <dt className="text-muted">supplier</dt>
                 <dd className="text-ink">{order.supplier_name}</dd>
                 <dt className="text-muted">quantity</dt>
@@ -240,7 +240,7 @@ export default function ReplenishmentCasePage({
                           <th
                             key={head}
                             scope="col"
-                            className="pb-2.5 pr-4 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-muted last:pr-0"
+                            className="pb-2.5 pr-4 font-mono text-[0.75rem] font-medium uppercase tracking-[0.1em] text-muted last:pr-0"
                           >
                             {head}
                           </th>
@@ -262,24 +262,24 @@ export default function ReplenishmentCasePage({
                           <th
                             scope="row"
                             className={cn(
-                              "min-h-11 py-3 pr-4 text-[14px] font-normal text-ink",
+                              "min-h-11 py-3 pr-4 text-[0.875rem] font-normal text-ink",
                               selected && "pl-2.5 font-medium",
                             )}
                           >
                             {quote.supplier_name}
                           </th>
-                          <td className="py-3 pr-4 font-mono text-[13px] text-secondary">
+                          <td className="py-3 pr-4 font-mono text-[0.8125rem] text-secondary">
                             {quote.unit_price.toFixed(2)} {quote.currency}
                           </td>
-                          <td className="py-3 pr-4 font-mono text-[13px] text-secondary">
+                          <td className="py-3 pr-4 font-mono text-[0.8125rem] text-secondary">
                             {quote.available_units}
                           </td>
-                          <td className="py-3 pr-4 font-mono text-[13px] text-secondary">
+                          <td className="py-3 pr-4 font-mono text-[0.8125rem] text-secondary">
                             {quote.lead_time_days}d
                           </td>
                           <td
                             className={cn(
-                              "py-3 font-mono text-[12px]",
+                              "py-3 font-mono text-[0.75rem]",
                               selected ? "text-ok" : "text-muted",
                             )}
                           >
@@ -309,15 +309,15 @@ export default function ReplenishmentCasePage({
                     className="grid gap-2 border-b border-rule py-[18px] sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-5"
                   >
                     <span className="flex flex-col gap-1">
-                      <span className="font-mono text-[12px] text-muted">
+                      <span className="font-mono text-[0.75rem] text-muted">
                         {formatWhen(event.occurred_at)}
                       </span>
-                      <span className="font-mono text-[11px] text-inactive">
+                      <span className="font-mono text-[0.75rem] text-inactive">
                         {event.event_type}
                       </span>
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[15px] leading-[1.5] text-ink">{label.title}</p>
+                      <p className="text-[0.9375rem] leading-[1.5] text-ink">{label.title}</p>
                       <p className="mt-1 text-[13.5px] leading-[1.55] text-secondary">
                         {label.description}
                       </p>

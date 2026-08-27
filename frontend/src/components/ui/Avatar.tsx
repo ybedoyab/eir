@@ -9,10 +9,10 @@ function initialsFor(name: string): string {
 }
 
 const sizes = {
-  sm: "h-8 w-8 text-[10px]",
-  md: "h-10 w-10 text-[12px]",
-  lg: "h-12 w-12 text-[13px]",
-  xl: "h-14 w-14 text-[15px]",
+  sm: "h-8 w-8 text-[0.75rem]",
+  md: "h-10 w-10 text-[0.75rem]",
+  lg: "h-12 w-12 text-[0.8125rem]",
+  xl: "h-14 w-14 text-[0.9375rem]",
 };
 
 /**

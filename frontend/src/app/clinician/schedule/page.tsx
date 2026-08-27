@@ -89,16 +89,16 @@ export default function ClinicianSchedulePage() {
         ) : rows.length ? (
           <div className="flex flex-col">
             <div className="hidden grid-cols-[92px_minmax(0,1fr)_150px_120px] items-baseline gap-4 border-b border-rule-strong pb-2.5 md:grid">
-              <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
                 Time
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
                 Patient
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
                 Specialty
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
                 Status
               </span>
             </div>
@@ -108,11 +108,11 @@ export default function ClinicianSchedulePage() {
                 href={`/clinician/patients/${appointment.patient_id}`}
                 className="focus-ink grid min-h-[60px] items-center gap-2 border-b border-rule py-3 hover:bg-hover md:grid-cols-[92px_minmax(0,1fr)_150px_120px] md:gap-4 md:py-0"
               >
-                <span className="font-mono text-[13px] text-ink">
+                <span className="font-mono text-[0.8125rem] text-ink">
                   {formatTime(appointment.start)}
                 </span>
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate text-[15px] text-ink">
+                  <span className="truncate text-[0.9375rem] text-ink">
                     {names[appointment.patient_id] ?? "Patient"}
                   </span>
                   <span className="truncate font-mono text-[11.5px] text-muted md:hidden">
@@ -122,7 +122,7 @@ export default function ClinicianSchedulePage() {
                     {appointment.location_name}
                   </span>
                 </span>
-                <span className="truncate text-[14px] text-secondary">
+                <span className="truncate text-[0.875rem] text-secondary">
                   {appointment.specialty}
                 </span>
                 <StatusBadge status={appointmentStatus(appointment.status)} />

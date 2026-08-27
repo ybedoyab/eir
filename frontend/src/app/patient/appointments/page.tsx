@@ -291,10 +291,10 @@ function PatientAppointmentsContent() {
                         onClick={() => setPendingSlot(slot)}
                         className="focus-ink inline-flex min-h-11 flex-col justify-center border border-rule-strong bg-paper px-4 py-2 text-left hover:bg-hover"
                       >
-                        <span className="font-mono text-[14px] text-ink">
+                        <span className="font-mono text-[0.875rem] text-ink">
                           {formatTime(slot.start)}
                         </span>
-                        <span className="font-mono text-[11px] text-muted">
+                        <span className="font-mono text-[0.75rem] text-muted">
                           {slot.location_name}
                         </span>
                       </button>
@@ -320,10 +320,10 @@ function PatientAppointmentsContent() {
             {selectedAppointment ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5 border-l-[3px] border-rule-strong bg-raised px-4 py-3.5">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                  <p className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
                     Current
                   </p>
-                  <p className="text-[15px] text-inactive line-through">
+                  <p className="text-[0.9375rem] text-inactive line-through">
                     {formatWhen(selectedAppointment.start)}
                   </p>
                   <p className="font-mono text-[11.5px] text-muted">
@@ -331,8 +331,8 @@ function PatientAppointmentsContent() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-1.5 border-l-[3px] border-accent bg-raised px-4 py-3.5">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">New</p>
-                  <p className="text-[15px] font-medium text-ink">
+                  <p className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">New</p>
+                  <p className="text-[0.9375rem] font-medium text-ink">
                     {formatWhen(pendingSlot.start)}
                   </p>
                   <p className="font-mono text-[11.5px] text-muted">{pendingSlot.location_name}</p>
@@ -340,8 +340,8 @@ function PatientAppointmentsContent() {
               </div>
             ) : (
               <div className="flex flex-col gap-1.5 border-l-[3px] border-accent bg-raised px-4 py-3.5">
-                <p className="text-[15px] font-medium text-ink">{pendingSlot.service_name}</p>
-                <p className="text-[14px] text-body">{formatWhen(pendingSlot.start)}</p>
+                <p className="text-[0.9375rem] font-medium text-ink">{pendingSlot.service_name}</p>
+                <p className="text-[0.875rem] text-body">{formatWhen(pendingSlot.start)}</p>
                 <p className="font-mono text-[11.5px] text-muted">{pendingSlot.location_name}</p>
                 <p className="font-mono text-[11.5px] text-muted">
                   {pendingSlot.practitioner_name}
@@ -372,11 +372,11 @@ function PatientAppointmentsContent() {
         {cancelTarget ? (
           <div className="space-y-4">
             <div className="flex flex-col gap-1.5 border-l-[3px] border-high bg-raised px-4 py-3.5">
-              <p className="text-[15px] font-medium text-ink">{cancelTarget.specialty}</p>
+              <p className="text-[0.9375rem] font-medium text-ink">{cancelTarget.specialty}</p>
               <p className="font-mono text-[11.5px] text-muted">
                 {cancelTarget.practitioner_name}
               </p>
-              <p className="text-[14px] text-body">{formatWhen(cancelTarget.start)}</p>
+              <p className="text-[0.875rem] text-body">{formatWhen(cancelTarget.start)}</p>
               <p className="font-mono text-[11.5px] text-muted">{cancelTarget.location_name}</p>
             </div>
             <label className="block text-[13.5px] font-medium text-body" htmlFor="cancel-reason">
@@ -387,7 +387,7 @@ function PatientAppointmentsContent() {
               value={cancelReason}
               onChange={(event) => setCancelReason(event.target.value)}
               rows={3}
-              className="focus-ink w-full border border-rule-strong bg-paper px-3.5 py-2.5 text-[14px] text-ink focus:border-accent"
+              className="focus-ink w-full border border-rule-strong bg-paper px-3.5 py-2.5 text-[0.875rem] text-ink focus:border-accent"
             />
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button variant="secondary" onClick={() => setCancelTarget(null)}>

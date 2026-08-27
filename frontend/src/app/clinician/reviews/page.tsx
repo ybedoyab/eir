@@ -109,7 +109,7 @@ export default function ClinicianReviewsPage() {
     <>
       <header className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <h1 className="font-serif text-[30px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+          <h1 className="font-serif text-[1.875rem] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
             Reviews
           </h1>
           <p className="mt-2 text-[14.5px] leading-[1.55] text-secondary">
@@ -118,7 +118,7 @@ export default function ClinicianReviewsPage() {
               : "Nothing is parked. The runtime is running every cascade to completion."}
           </p>
         </div>
-        <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted">
+        <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
           Pending {reviews.length}
         </span>
       </header>
@@ -176,7 +176,7 @@ export default function ClinicianReviewsPage() {
                     {episode ? (
                       <StatusBadge status={riskStatus(episode.risk_level)} className="h-6" />
                     ) : (
-                      <span className="font-mono text-[12px] text-muted">—</span>
+                      <span className="font-mono text-[0.75rem] text-muted">—</span>
                     )}
                     <span className="truncate font-mono text-[12.5px] text-body">
                       {review.pending_capability ?? review.capability}
@@ -198,7 +198,7 @@ export default function ClinicianReviewsPage() {
 
             {guardDegraded ? (
               <div className="on-raised mt-6 flex items-center gap-3 border-l-[3px] border-warn bg-raised px-4 py-3">
-                <span className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-warn">
+                <span className="font-mono text-[0.75rem] font-medium uppercase tracking-[0.08em] text-warn">
                   Degraded
                 </span>
                 <span className="text-[13.5px] leading-snug text-secondary">
@@ -209,8 +209,8 @@ export default function ClinicianReviewsPage() {
             ) : null}
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-5 border-t border-rule pt-4">
-              <span className="font-mono text-[11px] text-muted">↑↓ move · Enter open</span>
-              <span className="font-mono text-[11px] text-muted">
+              <span className="font-mono text-[0.75rem] text-muted">↑↓ move · Enter open</span>
+              <span className="font-mono text-[0.75rem] text-muted">
                 Synthetic demo environment · no real patient data
               </span>
             </div>
@@ -259,7 +259,7 @@ function ReviewDetail({
     <aside className="on-raised flex flex-col border-l border-rule bg-raised lg:sticky lg:top-6">
       <div className="flex flex-col gap-3 border-b border-rule px-7 py-6">
         {episode ? <StatusBadge status={riskStatus(episode.risk_level)} /> : null}
-        <h2 className="font-serif text-[25px] font-medium leading-[1.25] text-ink">
+        <h2 className="font-serif text-[1.5625rem] font-medium leading-[1.25] text-ink">
           Resolve {capability} for {patientName}?
         </h2>
         <p className="text-[14.5px] leading-[1.6] text-secondary">
@@ -271,7 +271,7 @@ function ReviewDetail({
         <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
           Why it stopped
         </span>
-        <blockquote className="m-0 border-l-2 border-rule-strong pl-3.5 font-serif text-[17px] leading-[1.55] text-ink">
+        <blockquote className="m-0 border-l-2 border-rule-strong pl-3.5 font-serif text-[1.0625rem] leading-[1.55] text-ink">
           {review.reason}
         </blockquote>
       </div>

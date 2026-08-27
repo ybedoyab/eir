@@ -62,7 +62,7 @@ export default function ObservabilityPage() {
     <>
       <header className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <h1 className="font-serif text-[26px] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
+          <h1 className="font-serif text-[1.625rem] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
             Event cascade
           </h1>
           <p className="mt-1.5 max-w-[70ch] text-[13.5px] leading-[1.5] text-secondary">
@@ -70,7 +70,7 @@ export default function ObservabilityPage() {
             handler result — the model never produced one.
           </p>
         </div>
-        <div className="flex items-center gap-5 font-mono text-[12px] text-secondary">
+        <div className="flex items-center gap-5 font-mono text-[0.75rem] text-secondary">
           <span>
             steps <span className="text-ink">{steps.length}</span>
           </span>
@@ -107,7 +107,7 @@ export default function ObservabilityPage() {
               <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
                 Selected step
               </span>
-              <h2 className="font-mono text-[17px] font-medium text-ink">
+              <h2 className="font-mono text-[1.0625rem] font-medium text-ink">
                 {selectedTrace?.event_type ?? "—"}
               </h2>
               <span className="font-mono text-[11.5px] text-muted">
@@ -118,7 +118,7 @@ export default function ObservabilityPage() {
             </div>
 
             {selectedTrace ? (
-              <dl className="grid grid-cols-[118px_minmax(0,1fr)] gap-x-3.5 gap-y-2 border-b border-rule px-6 py-4 font-mono text-[12px]">
+              <dl className="grid grid-cols-[118px_minmax(0,1fr)] gap-x-3.5 gap-y-2 border-b border-rule px-6 py-4 font-mono text-[0.75rem]">
                 <dt className="text-muted">episode</dt>
                 <dd className="truncate text-body">{selectedTrace.episode_id}</dd>
                 <dt className="text-muted">workflow</dt>
@@ -141,7 +141,7 @@ export default function ObservabilityPage() {
                 <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
                   ADK run
                 </span>
-                <dl className="grid grid-cols-[118px_minmax(0,1fr)] gap-x-3.5 gap-y-2 font-mono text-[12px]">
+                <dl className="grid grid-cols-[118px_minmax(0,1fr)] gap-x-3.5 gap-y-2 font-mono text-[0.75rem]">
                   <dt className="text-muted">model</dt>
                   <dd className="truncate text-body">{selectedTelemetry.model}</dd>
                   <dt className="text-muted">capability</dt>
@@ -163,7 +163,7 @@ export default function ObservabilityPage() {
                 <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
                   Safety gate
                 </span>
-                <dl className="grid grid-cols-[118px_minmax(0,1fr)] gap-x-3.5 gap-y-2 font-mono text-[12px]">
+                <dl className="grid grid-cols-[118px_minmax(0,1fr)] gap-x-3.5 gap-y-2 font-mono text-[0.75rem]">
                   <dt className="text-muted">armor mode</dt>
                   <dd className={armor?.mode === "managed" ? "text-ok" : "text-warn"}>
                     {armor?.mode ?? "unknown"}

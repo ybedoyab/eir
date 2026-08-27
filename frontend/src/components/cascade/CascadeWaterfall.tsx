@@ -104,15 +104,15 @@ export function CascadeWaterfall({
 
       {/* ruler */}
       <div className="grid grid-cols-[minmax(0,1fr)_78px] items-end gap-4 border-b border-rule-strong pb-1.5 sm:grid-cols-[280px_minmax(0,1fr)_78px]">
-        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Step</span>
-        <div className="hidden font-mono text-[10px] text-muted sm:flex">
+        <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">Step</span>
+        <div className="hidden font-mono text-[0.75rem] text-muted sm:flex">
           {Array.from({ length: ticks }, (_, index) => (
             <span key={index} className="flex-1">
               {index}s
             </span>
           ))}
         </div>
-        <span className="text-right font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+        <span className="text-right font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
           Took
         </span>
       </div>
@@ -154,7 +154,7 @@ export function CascadeWaterfall({
                 {row.detail ? (
                   <span
                     className={cn(
-                      "truncate font-mono text-[11px]",
+                      "truncate font-mono text-[0.75rem]",
                       row.halted ? "text-high" : "text-muted",
                     )}
                   >
@@ -217,13 +217,13 @@ export function HaltBanner({
         className,
       )}
     >
-      <span className="inline-flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium tracking-[0.12em] text-paper">
+      <span className="inline-flex shrink-0 items-center gap-2 font-mono text-[0.75rem] font-medium tracking-[0.12em] text-paper">
         <Icon name="halt" size={14} />
         {title}
       </span>
-      <span className="text-[13px] leading-snug text-on-ink">{detail}</span>
+      <span className="text-[0.8125rem] leading-snug text-on-ink">{detail}</span>
       {held ? (
-        <span className="font-mono text-[11px] text-on-ink-muted sm:ml-auto">held {held}</span>
+        <span className="font-mono text-[0.75rem] text-on-ink-muted sm:ml-auto">held {held}</span>
       ) : null}
     </div>
   );
