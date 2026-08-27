@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/cn";
 
 const links: Array<{ href: string; label: string; icon: IconName }> = [
@@ -29,7 +30,8 @@ export function Nav() {
   return (
     <header className="on-raised sticky top-0 z-40 border-b border-rule bg-raised">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 sm:px-6">
-        <Link href="/" className="focus-ink inline-flex min-h-11 items-center gap-3">
+        <Link href="/" className="focus-ink inline-flex min-h-11 items-center gap-2.5">
+          <Logo size={22} />
           <span className="font-serif text-[1.3125rem] font-semibold tracking-[-0.01em] text-ink">
             EIR
           </span>

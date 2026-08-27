@@ -8,6 +8,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { Icon } from "@/components/ui/Icon";
+import { Logo } from "@/components/ui/Logo";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { roleHome, saveSession } from "@/lib/auth";
@@ -57,7 +58,8 @@ export default function LoginPage() {
 
   return (
     <section className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <div className="mb-8 flex items-center gap-4 border-b border-rule pb-5">
+      <div className="mb-8 flex items-center gap-3 border-b border-rule pb-5">
+        <Logo size={21} />
         <span className="font-serif text-[1.25rem] font-semibold tracking-[-0.01em] text-ink">
           EIR
         </span>

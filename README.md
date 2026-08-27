@@ -1,4 +1,8 @@
+<img src="frontend/public/brand/logo-mark.png" alt="EIR logo" width="32" align="left" />
+
 # EIR — Healthcare Agent Fleet
+
+<br clear="left"/>
 
 EIR (Enterprise Intelligence Runtime) is a secure multi-agent hospital operations fleet. Patients can interact through web (and future voice) to manage routine hospital access workflows—appointments, reminders, recovery follow-up, and safe staff handoff—while clinicians and operations staff use dedicated workspaces. Recovery remains a first-class longitudinal module inside the broader fleet.
 

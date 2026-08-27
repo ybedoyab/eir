@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Icon } from "@/components/ui/Icon";
+import { Logo } from "@/components/ui/Logo";
 
 interface CascadeRow {
   at: string;
@@ -76,7 +77,8 @@ export default function HomePage() {
       <div className="eir-progress" aria-hidden />
 
       <header className="flex flex-wrap items-center justify-between gap-6 border-b border-rule px-6 py-5 sm:px-10 lg:px-16">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <Logo size={23} />
           <span className="font-serif text-[1.4375rem] font-semibold tracking-[-0.01em] text-ink">
             EIR
           </span>

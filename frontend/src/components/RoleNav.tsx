@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/cn";
 import { clearSession, loadSession, roleHome, type AuthSession, type DemoRole } from "@/lib/auth";
 import { roleLabel } from "@/lib/personas";
@@ -62,9 +63,10 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function Wordmark({ kicker, size }: { kicker: string; size: string }) {
+function Wordmark({ kicker, size, logoSize = 20 }: { kicker: string; size: string; logoSize?: number }) {
   return (
-    <span className="flex items-center gap-3">
+    <span className="flex items-center gap-2.5">
+      <Logo size={logoSize} />
       <span className={cn("font-serif font-semibold tracking-[-0.01em] text-ink", size)}>EIR</span>
       <span className="h-4 w-px bg-rule-strong" aria-hidden />
       <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
@@ -182,7 +184,7 @@ export function RoleNav({ role }: { role: DemoRole }) {
       <header className="on-raised sticky top-0 z-40 border-b border-rule bg-raised lg:hidden">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <Link href={roleHome(role)} className="focus-ink inline-flex min-h-11 items-center">
-            <Wordmark kicker={density.kicker} size="text-[1.1875rem]" />
+            <Wordmark kicker={density.kicker} size="text-[1.1875rem]" logoSize={19} />
           </Link>
           <button
             type="button"
@@ -221,7 +223,7 @@ export function RoleNav({ role }: { role: DemoRole }) {
           href={roleHome(role)}
           className="focus-ink mb-4 inline-flex min-h-11 items-center px-3"
         >
-          <Wordmark kicker={density.kicker} size="text-[1.3125rem]" />
+          <Wordmark kicker={density.kicker} size="text-[1.3125rem]" logoSize={22} />
         </Link>
         <nav className="flex flex-col gap-0.5" aria-label="Primary">
           <NavRows links={links} pathname={pathname} density={density} />

@@ -30,6 +30,11 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "EIR — Healthcare Agent Fleet",
   description: "AI-powered hospital operations with secure multi-agent workflows.",
+  // Set at build/deploy time (mirrors NEXT_PUBLIC_API_URL) so the auto-generated
+  // opengraph-image resolves to an absolute URL instead of falling back to localhost.
+  metadataBase: process.env.NEXT_PUBLIC_SITE_URL
+    ? new URL(process.env.NEXT_PUBLIC_SITE_URL)
+    : undefined,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
