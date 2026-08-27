@@ -80,6 +80,8 @@ class InvocationContext:
     summarizer: FollowUpSummarizer
     supply: Any = None
     supplier_voice: Any = None
+    video_client: Any = None
+    episodes: Any = None
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -196,6 +198,8 @@ class AdkAgentRunner:
             summarizer=ctx.summarizer,
             supply=ctx.supply,
             supplier_voice=ctx.supplier_voice,
+            video_client=ctx.video_client,
+            episodes=ctx.episodes,
         )
         required = toolkit.required_tool()
         tool = getattr(toolkit, required, None)
@@ -235,6 +239,8 @@ class AdkAgentRunner:
             summarizer=ctx.summarizer,
             supply=ctx.supply,
             supplier_voice=ctx.supplier_voice,
+            video_client=ctx.video_client,
+            episodes=ctx.episodes,
         )
         tools = toolkit.tools_for_capability()
         agent = self._agent_for(ctx.capability, tools)
@@ -347,6 +353,7 @@ class AdkAgentRunner:
             Capability.SUPPLIER_CONTACT: "procurement_agent",
             Capability.PURCHASE_ORDER_DRAFT: "procurement_agent",
             Capability.PURCHASE_ORDER_APPROVE: "procurement_agent",
+            Capability.RECOVERY_VIDEO_GENERATE: "recovery_video_agent",
         }
         return templates.get(capability, "recovery_specialist")
 

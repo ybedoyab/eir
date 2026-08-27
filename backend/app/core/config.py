@@ -68,6 +68,20 @@ class Settings(BaseSettings):
     adk_capture_message_content_in_spans: bool = False
     adk_otel_enabled: bool = True
     agent_runtime_audience: str = "https://eir-api-658898892127.us-central1.run.app"
+    # Off by default: only fires quota-costing Veo calls when explicitly enabled.
+    recovery_video_enabled: bool = False
+    # Cheapest tier at time of writing: the "fast" variant, which is also the only Veo
+    # tier with native synchronized audio narration (see VEO-RECOVERY-VIDEOS-PLAN.md §7).
+    veo_model: str = "veo-3.1-fast-generate-preview"
+    veo_location: str = "us-central1"
+    recovery_video_bucket: str = ""
+    recovery_video_max_wait_seconds: int = 90
+    # Veo 3 accepts a small set of clip lengths (4/6/8s) — confirm against the live model id
+    # before changing this.
+    recovery_video_duration_seconds: int = 8
+    # Server-side guards. The frontend's disabled button is not a rate limit; these are.
+    recovery_video_cooldown_seconds: int = 60
+    recovery_video_daily_limit: int = 25
 
     @field_validator("cors_origins", mode="before")
     @classmethod

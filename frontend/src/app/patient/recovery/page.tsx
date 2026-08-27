@@ -16,7 +16,13 @@ import { loadSession } from "@/lib/auth";
 import { formatWhen } from "@/lib/format";
 import { episodeStatus, riskStatus } from "@/lib/statusLabels";
 import { eventLabel } from "@/lib/eventLabels";
-import { listPatientMedications, listRecovery, listRecoveryEvents } from "@/services/api";
+import {
+  listPatientMedications,
+  listRecovery,
+  listRecoveryEvents,
+  recoveryVideoUrl,
+  requestRecoveryVideo,
+} from "@/services/api";
 import type { DomainEvent, PatientMedication, RecoveryEpisode } from "@/types";
 
 const PATIENT_SAFE_EVENTS = new Set([
@@ -25,6 +31,8 @@ const PATIENT_SAFE_EVENTS = new Set([
   "FollowUpDue",
   "AppointmentRequested",
   "RecoveryEpisodeCompleted",
+  "RecoveryVideoReady",
+  "RecoveryVideoFailed",
 ]);
 
 export default function PatientRecoveryPage() {
@@ -37,26 +45,36 @@ export default function PatientRecoveryPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const items = (await listRecovery()).filter(
-        (item) => item.patient_id === session?.patient_id,
-      );
-      setEpisodes(items);
-      const [entries, medicationItems] = await Promise.all([
-        Promise.all(items.map(async (item) => [item.id, await listRecoveryEvents(item.id)] as const)),
-        session?.patient_id ? listPatientMedications(session.patient_id) : Promise.resolve([]),
-      ]);
-      setEventsById(Object.fromEntries(entries));
-      setMedications(medicationItems);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load recovery");
-    } finally {
-      setLoading(false);
-    }
-  }, [session?.patient_id]);
+  // `silent` refetches without re-entering the skeleton state. Actions on the page (asking for
+  // a new recovery video) need their data refreshed, but flipping `loading` back on unmounts
+  // the whole section — which restarts any playing clip and reads as a full page reload.
+  const refresh = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!options?.silent) setLoading(true);
+      setError(null);
+      try {
+        const items = (await listRecovery()).filter(
+          (item) => item.patient_id === session?.patient_id,
+        );
+        setEpisodes(items);
+        const [entries, medicationItems] = await Promise.all([
+          Promise.all(
+            items.map(async (item) => [item.id, await listRecoveryEvents(item.id)] as const),
+          ),
+          session?.patient_id ? listPatientMedications(session.patient_id) : Promise.resolve([]),
+        ]);
+        setEventsById(Object.fromEntries(entries));
+        setMedications(medicationItems);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not load recovery");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [session?.patient_id],
+  );
+
+  const refreshQuietly = useCallback(() => void refresh({ silent: true }), [refresh]);
 
   useEffect(() => {
     void refresh();
@@ -78,7 +96,11 @@ export default function PatientRecoveryPage() {
         <CardSkeleton rows={6} />
       ) : active ? (
         <>
-          <RecoverySection episode={active} events={eventsById[active.id] ?? []} />
+          <RecoverySection
+            episode={active}
+            events={eventsById[active.id] ?? []}
+            onRefresh={refreshQuietly}
+          />
           <MedicationsSection medications={medications} events={eventsById[active.id] ?? []} />
         </>
       ) : (
@@ -134,9 +156,11 @@ export default function PatientRecoveryPage() {
 function RecoverySection({
   episode,
   events,
+  onRefresh,
 }: {
   episode: RecoveryEpisode;
   events: DomainEvent[];
+  onRefresh: () => void;
 }) {
   const started = events.find((item) => item.event_type === "RecoveryEpisodeStarted");
   const checkin = [...events].reverse().find((item) => item.event_type === "PatientResponded");
@@ -172,6 +196,8 @@ function RecoverySection({
           </dd>
         </div>
       </dl>
+
+      <RecoveryVideoPanel episodeId={episode.id} events={events} onRefresh={onRefresh} />
 
       {tasks.length ? (
         <div className="flex flex-col">
@@ -213,6 +239,87 @@ function RecoverySection({
         <Icon name="arrowRight" size={16} className="text-accent" />
       </Link>
     </section>
+  );
+}
+
+function RecoveryVideoPanel({
+  episodeId,
+  events,
+  onRefresh,
+}: {
+  episodeId: string;
+  events: DomainEvent[];
+  onRefresh: () => void;
+}) {
+  const [requesting, setRequesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const latestVideoEvent = [...events]
+    .reverse()
+    .find((item) =>
+      ["RecoveryVideoReady", "RecoveryVideoRequested", "RecoveryVideoFailed"].includes(
+        item.event_type,
+      ),
+    );
+  const pending = latestVideoEvent?.event_type === "RecoveryVideoRequested" || requesting;
+  const videoUrl =
+    latestVideoEvent?.event_type === "RecoveryVideoReady"
+      ? String(latestVideoEvent.payload.video_url ?? "")
+      : "";
+  const failureReason =
+    latestVideoEvent?.event_type === "RecoveryVideoFailed"
+      ? String(latestVideoEvent.payload.reason ?? "unknown error")
+      : "";
+
+  const handleRegenerate = async () => {
+    setRequesting(true);
+    setError(null);
+    try {
+      // Only an explicit regeneration forces a fresh Veo call; the first request is happy to
+      // reuse a cached clip for the same instructions.
+      await requestRecoveryVideo(episodeId, Boolean(videoUrl));
+      onRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not request a new video");
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SectionHeader title="Recovery video" />
+        <Button variant="secondary" onClick={() => void handleRegenerate()} disabled={pending}>
+          {pending ? "Generating…" : videoUrl ? "Regenerate video" : "Generate video"}
+        </Button>
+      </div>
+      {error ? <ErrorAlert message={error} onRetry={() => void handleRegenerate()} /> : null}
+      {videoUrl ? (
+        <div className="flex justify-center">
+          <video
+            key={videoUrl}
+            src={recoveryVideoUrl(videoUrl)}
+            controls
+            playsInline
+            className="aspect-[9/16] w-full max-w-[360px] border border-rule-strong bg-raised"
+          />
+        </div>
+      ) : pending ? (
+        <p className="text-[0.9375rem] text-muted">
+          Your personalized recovery video is being generated — this can take up to a minute.
+        </p>
+      ) : failureReason ? (
+        <p className="text-[0.9375rem] text-muted">
+          Video generation didn&apos;t complete ({failureReason}). Text instructions below
+          remain the source of truth.
+        </p>
+      ) : (
+        <p className="text-[0.9375rem] text-muted">
+          No recovery video yet. Text instructions below remain the source of truth.
+        </p>
+      )}
+    </div>
   );
 }
 

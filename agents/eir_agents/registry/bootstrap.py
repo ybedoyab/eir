@@ -6,6 +6,7 @@ from eir_agents.orchestrator.descriptor import DESCRIPTOR as ORCHESTRATOR
 from eir_agents.outreach.descriptor import DESCRIPTOR as OUTREACH
 from eir_agents.procurement.descriptor import DESCRIPTOR as PROCUREMENT
 from eir_agents.records.descriptor import DESCRIPTOR as RECORDS
+from eir_agents.recovery_video.descriptor import DESCRIPTOR as RECOVERY_VIDEO
 from eir_agents.registry.service import AgentRegistry
 from eir_agents.risk.descriptor import DESCRIPTOR as RISK
 from eir_agents.scheduling.descriptor import DESCRIPTOR as SCHEDULING
@@ -22,6 +23,7 @@ def default_registry() -> AgentRegistry:
         RISK,
         SCHEDULING,
         RECORDS,
+        RECOVERY_VIDEO,
         ESCALATION,
         SUPPLY_ORCHESTRATOR,
         INVENTORY,

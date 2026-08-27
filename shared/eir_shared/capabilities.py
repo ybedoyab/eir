@@ -34,6 +34,7 @@ class Capability(StrEnum):
     PURCHASE_ORDER_DRAFT = "purchase_order.draft"
     PURCHASE_ORDER_APPROVE = "purchase_order.approve"
     SUPPLY_ORCHESTRATE = "supply.orchestrate"
+    RECOVERY_VIDEO_GENERATE = "recovery.video.generate"
 
 
 PRE_APPROVAL_CAPABILITIES: frozenset[str] = frozenset(

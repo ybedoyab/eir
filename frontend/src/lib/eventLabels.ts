@@ -91,6 +91,18 @@ const EVENT_LABELS: Record<string, { title: string; description: string }> = {
     title: "Voice outreach failed",
     description: "The outbound call did not complete. No recovery data was invented.",
   },
+  RecoveryVideoRequested: {
+    title: "Recovery video requested",
+    description: "A personalized recovery-instruction video was requested from Veo.",
+  },
+  RecoveryVideoReady: {
+    title: "Recovery video ready",
+    description: "A personalized recovery-instruction video is ready to watch.",
+  },
+  RecoveryVideoFailed: {
+    title: "Recovery video unavailable",
+    description: "Video generation did not complete. Text instructions remain primary.",
+  },
 };
 
 export function eventLabel(eventType: string): { title: string; description: string } {

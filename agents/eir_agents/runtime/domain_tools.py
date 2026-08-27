@@ -20,6 +20,7 @@ from eir_agents.procurement.handler import commit_purchase_order, contact_suppli
 from eir_agents.procurement.handler import (
     draft_purchase_order as draft_purchase_order_handler,
 )
+from eir_agents.recovery_video.handler import generate_recovery_video
 from eir_agents.risk.handler import assess_response
 from eir_agents.scheduling.handler import schedule_appointment
 
@@ -31,6 +32,20 @@ def _run_async(coro: Any) -> Any:
         return asyncio.run(coro)
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         return pool.submit(asyncio.run, coro).result()
+
+
+def _run_blocking(func: Any, *args: Any, **kwargs: Any) -> Any:
+    """Run a plain (non-coroutine) blocking call off the event loop.
+
+    Veo generation polls a long-running operation with ``time.sleep`` for up to tens of
+    seconds; calling it inline here would freeze every other in-flight request.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return func(*args, **kwargs)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(func, *args, **kwargs).result()
 
 
 @dataclass
@@ -47,6 +62,8 @@ class DomainToolKit:
     summarizer: Any
     supply: Any = None
     supplier_voice: Any = None
+    video_client: Any = None
+    episodes: Any = None
     handler_result: HandlerResult | None = None
     tools_invoked: list[str] = field(default_factory=list)
 
@@ -187,6 +204,18 @@ class DomainToolKit:
         result = commit_purchase_order(self.event, supply=self.supply)
         return self._record("place_purchase_order", result)
 
+    def generate_care_video(self) -> dict[str, Any]:
+        """Generate a personalized recovery-instruction video for the current episode."""
+        result = _run_blocking(
+            generate_recovery_video,
+            self.event,
+            patient_id=self.patient_id,
+            fhir=self.fhir,
+            video_client=self.video_client,
+            episodes=self.episodes,
+        )
+        return self._record("generate_care_video", result)
+
     def tools_for_capability(self) -> list[Any]:
         from google.adk.tools import FunctionTool
 
@@ -218,22 +247,12 @@ class DomainToolKit:
             + [FunctionTool(self.draft_purchase_order)],
             Capability.PURCHASE_ORDER_APPROVE: supply_common
             + [FunctionTool(self.place_purchase_order)],
+            Capability.RECOVERY_VIDEO_GENERATE: common + [FunctionTool(self.generate_care_video)],
         }
         return by_capability.get(self.capability, common)
 
     def required_tool(self) -> str:
-        mapping = {
-            Capability.PATIENT_CONTACT: "conduct_outreach",
-            Capability.RISK_ASSESS: "assess_patient_response",
-            Capability.ESCALATION_REQUEST: "request_escalation",
-            Capability.ADHERENCE_CHECK: "check_adherence",
-            Capability.APPOINTMENT_SCHEDULE: "schedule_appointment_request",
-            Capability.SUPPLY_FORECAST: "size_replenishment",
-            Capability.SUPPLIER_CONTACT: "call_suppliers",
-            Capability.PURCHASE_ORDER_DRAFT: "draft_purchase_order",
-            Capability.PURCHASE_ORDER_APPROVE: "place_purchase_order",
-        }
-        return mapping.get(self.capability, "")
+        return REQUIRED_TOOL_BY_CAPABILITY.get(self.capability, "")
 
 
 REQUIRED_TOOL_BY_CAPABILITY = {
@@ -246,6 +265,7 @@ REQUIRED_TOOL_BY_CAPABILITY = {
     Capability.SUPPLIER_CONTACT: "call_suppliers",
     Capability.PURCHASE_ORDER_DRAFT: "draft_purchase_order",
     Capability.PURCHASE_ORDER_APPROVE: "place_purchase_order",
+    Capability.RECOVERY_VIDEO_GENERATE: "generate_care_video",
 }
 
 

@@ -23,6 +23,7 @@ EVENT_TO_CAPABILITY: dict[str, str] = {
     "RiskEscalated": Capability.ESCALATION_REQUEST,
     "AdherenceConcernDetected": Capability.ADHERENCE_CHECK,
     "AppointmentRequested": Capability.APPOINTMENT_SCHEDULE,
+    "RecoveryVideoRequested": Capability.RECOVERY_VIDEO_GENERATE,
 }
 
 

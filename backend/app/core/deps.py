@@ -22,7 +22,7 @@ from eir_agents.safety.handler import SafetyGate
 from eir_agents.supply.orchestrator import SupplyOrchestrator
 from eir_shared.env import repo_root
 from eir_shared.event_bus import InMemoryEventBus
-from eir_shared.gemini_config import configure_genai_environment
+from eir_shared.gemini_config import configure_genai_environment, genai_client_kwargs
 from eir_shared.memory import InMemoryEpisodeStore
 from eir_shared.observability import StructuredLogger
 
@@ -37,6 +37,7 @@ from app.integrations.enterprise.vertex_memory import build_agent_memory
 from app.integrations.enterprise.vertex_model_armor import build_content_guard
 from app.integrations.fhir.client import GoogleHealthcareFhirClient
 from app.integrations.messaging.pubsub import CompositeEventBus, GooglePubSubEventBus
+from app.integrations.video.veo import StoreBackedVideoQuota, build_video_client
 from app.integrations.voice.providers import voice_provider
 from app.repositories.access_repository import InMemoryPatientAccessSessionRepository
 from app.repositories.file_store import (
@@ -66,6 +67,7 @@ from app.repositories.supply_repository import (
     InMemorySupplyRepository,
     SupplyRepository,
 )
+from app.repositories.video_budget import build_video_budget
 from app.services.access_service import PatientAccessService
 from app.services.appointment_service import AppointmentService
 from app.services.supply_service import SupplyService
@@ -209,6 +211,15 @@ class Container:
             testing=testing,
             collection="eir_voice_callbacks",
         )
+        self.video_claims = build_scheduler_idempotency_store(
+            firestore_client=firestore_client,
+            testing=testing,
+            collection="eir_video_claims",
+        )
+        self.video_budget = build_video_budget(
+            firestore_client=firestore_client,
+            testing=testing,
+        )
         self.adk_telemetry = build_adk_runtime_telemetry_store(
             firestore_client=firestore_client,
             testing=testing,
@@ -239,6 +250,23 @@ class Container:
             logger=self.logger,
         )
         self.access_orchestrator = AccessOrchestrator()
+        self.video_client = build_video_client(
+            enabled=settings.recovery_video_enabled and not testing,
+            # Veo is not served on the global Vertex endpoint Gemini defaults to (GEMINI_LOCATION)
+            # — it needs its own regional location.
+            client_kwargs=genai_client_kwargs(location=settings.veo_location),
+            model=settings.veo_model,
+            max_wait_seconds=settings.recovery_video_max_wait_seconds,
+            bucket_name=settings.recovery_video_bucket,
+            local_dir=data_dir / "recovery_videos",
+            duration_seconds=settings.recovery_video_duration_seconds,
+            quota=StoreBackedVideoQuota(
+                claims=self.video_claims,
+                counter=self.video_budget,
+                cooldown_seconds=settings.recovery_video_cooldown_seconds,
+                daily_limit=settings.recovery_video_daily_limit,
+            ),
+        )
         self.identity = DemoIdentityProvider(settings.session_secret)
         if firestore_client is not None and not testing:
             self.access_sessions = FirestorePatientAccessSessionRepository(firestore_client)
@@ -290,6 +318,7 @@ class Container:
             gateway=AgentGateway(armor=armor),
             voice=_build_voice(testing=testing),
             supply=self.supply,
+            video_client=self.video_client,
         )
         self.supplier_voice = _build_supplier_voice(testing=testing)
         self.supply_runtime = SupplyWorkflowRuntime(
@@ -383,6 +412,7 @@ class Container:
                 "error": report.error,
             },
             "voice": getattr(self, "voice_status", {}),
+            "recovery_video": self.video_client.status(),
             "supply": {
                 "supplier_voice_provider": getattr(
                     self.supplier_voice, "provider_name", "unknown"

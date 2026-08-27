@@ -208,6 +208,22 @@ export async function triggerFollowUp(episodeId: string) {
   );
 }
 
+// Reuses the generic event endpoint — RecoveryVideoRequested is a registered event type,
+// so no dedicated backend route is needed for on-demand regeneration.
+// `force` bypasses the backend's content-addressed cache, so an explicit "Regenerate" click
+// really calls Veo instead of handing back the identical clip. First-time generation leaves it
+// off so repeat episodes with the same care tasks reuse one stored video.
+export async function requestRecoveryVideo(episodeId: string, force = false) {
+  return postJson<import("@/types").DomainEvent>(`/api/v1/recovery/${episodeId}/events`, {
+    event_type: "RecoveryVideoRequested",
+    payload: force ? { force: true } : {},
+  });
+}
+
+export function recoveryVideoUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
+}
+
 export async function listReviews(pending = true) {
   return getJson<import("@/types").HumanReview[]>(`/api/v1/reviews?pending=${pending}`);
 }

@@ -93,6 +93,22 @@ class VoiceCallFailed(DomainEvent):
     event_type: Literal["VoiceCallFailed"] = "VoiceCallFailed"
 
 
+class RecoveryVideoRequested(DomainEvent):
+    event_type: Literal["RecoveryVideoRequested"] = "RecoveryVideoRequested"
+
+
+class RecoveryVideoReady(DomainEvent):
+    """payload: video_url, duration_seconds, generated_by, model."""
+
+    event_type: Literal["RecoveryVideoReady"] = "RecoveryVideoReady"
+
+
+class RecoveryVideoFailed(DomainEvent):
+    """payload: reason."""
+
+    event_type: Literal["RecoveryVideoFailed"] = "RecoveryVideoFailed"
+
+
 class InventoryLevelLow(DomainEvent):
     """Emitted by the stock monitor when on-hand stock crosses the reorder point."""
 
@@ -158,6 +174,9 @@ EVENT_TYPE_MAP: dict[str, type[DomainEvent]] = {
     "VoiceCallConnected": VoiceCallConnected,
     "VoiceCallCompleted": VoiceCallCompleted,
     "VoiceCallFailed": VoiceCallFailed,
+    "RecoveryVideoRequested": RecoveryVideoRequested,
+    "RecoveryVideoReady": RecoveryVideoReady,
+    "RecoveryVideoFailed": RecoveryVideoFailed,
     "InventoryLevelLow": InventoryLevelLow,
     "ReplenishmentRequested": ReplenishmentRequested,
     "SupplierContacted": SupplierContacted,

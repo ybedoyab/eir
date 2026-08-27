@@ -1,6 +1,9 @@
+import asyncio
+import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Header, HTTPException
+from eir_shared.events import RecoveryVideoRequested
+from fastapi import APIRouter, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
@@ -10,6 +13,7 @@ from app.services.follow_up_scheduler import FollowUpScheduler
 from app.services.recovery_service import RecoveryService
 
 router = APIRouter()
+logger = logging.getLogger("eir.recovery_api")
 
 
 class CreateRecoveryRequest(BaseModel):
@@ -43,7 +47,19 @@ async def create_recovery(body: CreateRecoveryRequest) -> RecoveryEpisode:
     ).ensure_schedule(episode)
     # Publish and return. Do not run the multi-day workflow in this request.
     await container.event_bus.publish(event)
+    # Kick off the personalized recovery video as a background task, not awaited: Veo
+    # generation can take tens of seconds, and episode creation must stay fast (HTTP
+    # handlers publish and return; they never run a whole workflow in-request). A no-op
+    # when RECOVERY_VIDEO_ENABLED is false — the fallback client just reports "unavailable".
+    asyncio.create_task(_request_recovery_video(episode.id))
     return episode
+
+
+async def _request_recovery_video(episode_id: str) -> None:
+    try:
+        await get_container().event_bus.publish(RecoveryVideoRequested(episode_id=episode_id))
+    except Exception:
+        logger.exception("Recovery video generation failed for episode %s", episode_id)
 
 
 @router.get("", response_model=list[RecoveryEpisode])
@@ -110,3 +126,17 @@ async def append_recovery_event(episode_id: str, body: AppendEventRequest) -> di
         raise HTTPException(status_code=404, detail="Recovery episode not found")
     await container.event_bus.publish(event)
     return event.model_dump(mode="json")
+
+
+@router.get("/{episode_id}/video/{filename}")
+def get_recovery_video(episode_id: str, filename: str) -> Response:
+    """Serves a generated recovery clip from private storage (GCS or local disk).
+
+    Never a public/gs:// URL handed to the browser directly — the bucket stays private and
+    every read goes through this route.
+    """
+    container = get_container()
+    data = container.video_client.read(episode_id=episode_id, filename=filename)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Recovery video not found")
+    return Response(content=data, media_type="video/mp4")
