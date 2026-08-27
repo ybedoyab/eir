@@ -19,8 +19,8 @@
   --color-ink: #0c1622;
 
   /* accent and state */
-  --color-accent: #1a4f8f;
-  --color-accent-hover: #143f73;
+  --color-accent: #154273;
+  --color-accent-hover: #0f3158;
   --color-ok: #1f6b52;
   --color-warn: #9a5b0b;
   --color-warn-tint: #f8efe0;
@@ -41,47 +41,53 @@
   --ease-state: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-:root {
-  color-scheme: light;
-  /* the paper gap inside a focus ring; raised surfaces override it */
-  --focus-gap: var(--color-paper);
-}
+/* Unlayered CSS always outranks @layer utilities, no matter specificity —
+ * so the base reset below must live in @layer base or every text-color /
+ * bg-color utility applied to <a>/<body> descendants gets silently
+ * overridden by these resets (e.g. text-paper losing to `a { color }`). */
+@layer base {
+  :root {
+    color-scheme: light;
+    /* the paper gap inside a focus ring; raised surfaces override it */
+    --focus-gap: var(--color-paper);
+  }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: var(--color-paper);
-  color: var(--color-body);
-  font-variant-numeric: tabular-nums;
-  text-wrap: pretty;
-}
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--color-paper);
+    color: var(--color-body);
+    font-variant-numeric: tabular-nums;
+    text-wrap: pretty;
+  }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 
-::selection {
-  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
-}
+  ::selection {
+    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
 
-/* Focus is an ink ring on a paper gap — visible on every background in
- * the ramp, and never the same colour as a status. */
-.focus-ink:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--color-ink);
-}
+  /* Focus is an ink ring on a paper gap — visible on every background in
+   * the ramp, and never the same colour as a status. */
+  .focus-ink:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--color-ink);
+  }
 
-.on-raised {
-  --focus-gap: var(--color-raised);
-}
+  .on-raised {
+    --focus-gap: var(--color-raised);
+  }
 
-.on-ink {
-  --focus-gap: var(--color-ink);
-}
+  .on-ink {
+    --focus-gap: var(--color-ink);
+  }
 
-.on-ink.focus-ink:focus-visible {
-  box-shadow: 0 0 0 2px var(--color-ink), 0 0 0 4px var(--color-paper);
+  .on-ink.focus-ink:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-ink), 0 0 0 4px var(--color-paper);
+  }
 }
 
 /* ------------------------------------------------------------------ *
