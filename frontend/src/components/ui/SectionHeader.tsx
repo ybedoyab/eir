@@ -20,15 +20,19 @@ import { cn } from "@/lib/cn";
 type Level = "major" | "sub";
 
 // Three rule weights, so the eye can rank a line without reading it:
-// 2px ink (section opens) > 2px rule-strong (block opens) > 1px rule (list row).
+// 2px accent (section opens) > 2px rule-strong (block opens) > 1px rule (list row).
 // A 1px sub rule was indistinguishable from the rows underneath it.
+//
+// The major rule and its label are the accent, not ink: repeated down every
+// page they are what threads the brand blue through the composition, and they
+// are structural — so they never collide with a status colour.
 const WRAPPER: Record<Level, string> = {
-  major: "mb-6 border-t-2 border-ink pt-3.5",
+  major: "mb-6 border-t-2 border-accent pt-3.5",
   sub: "mb-5 border-b-2 border-rule-strong pb-2.5",
 };
 
 const LABEL: Record<Level, string> = {
-  major: "text-[11.5px] font-semibold tracking-[0.12em] text-ink",
+  major: "text-[11.5px] font-semibold tracking-[0.12em] text-accent",
   sub: "text-[11px] font-medium tracking-[0.1em] text-secondary",
 };
 

@@ -21,6 +21,10 @@
   /* accent and state */
   --color-accent: #154273;
   --color-accent-hover: #0f3158;
+  /* The accent at wash strength, for grouped surfaces that should read blue
+   * rather than dead grey. Same hue as --color-accent; `warn-tint` is the
+   * precedent. Dark text on it clears AA. */
+  --color-accent-tint: #dbe6f4;
   --color-ok: #1f6b52;
   --color-warn: #9a5b0b;
   --color-warn-tint: #f8efe0;
@@ -103,6 +107,20 @@
 
   .on-ink.focus-ink:focus-visible {
     box-shadow: 0 0 0 2px var(--color-ink), 0 0 0 4px var(--color-paper);
+  }
+
+  .on-tint {
+    --focus-gap: var(--color-accent-tint);
+  }
+
+  /* On a filled accent surface the ink ring would vanish into the navy, so
+   * the ring inverts to paper the way it does on ink. */
+  .on-accent {
+    --focus-gap: var(--color-accent);
+  }
+
+  .on-accent.focus-ink:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-accent), 0 0 0 4px var(--color-paper);
   }
 }
 

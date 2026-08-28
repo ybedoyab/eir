@@ -289,12 +289,12 @@ function PatientAppointmentsContent() {
                         key={slot.id}
                         type="button"
                         onClick={() => setPendingSlot(slot)}
-                        className="focus-ink inline-flex min-h-11 flex-col justify-center border border-rule-strong bg-paper px-4 py-2 text-left hover:bg-hover"
+                        className="focus-ink on-tint inline-flex min-h-11 flex-col justify-center border border-rule-strong bg-accent-tint px-4 py-2 text-left hover:border-accent hover:bg-hover"
                       >
-                        <span className="font-mono text-[0.875rem] text-ink">
+                        <span className="font-mono text-[0.875rem] font-medium text-accent">
                           {formatTime(slot.start)}
                         </span>
-                        <span className="font-mono text-[0.75rem] text-muted">
+                        <span className="font-mono text-[0.75rem] text-secondary">
                           {slot.location_name}
                         </span>
                       </button>

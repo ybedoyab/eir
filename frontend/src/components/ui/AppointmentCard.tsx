@@ -29,8 +29,9 @@ export function AppointmentCard({
         className,
       )}
     >
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[1.25rem] font-semibold leading-tight text-ink">
+      {/* The date is the column you scan, so it carries the accent. */}
+      <div className="flex flex-col gap-0.5 border-l-[3px] border-accent pl-4">
+        <span className="text-[1.25rem] font-semibold leading-tight text-accent">
           {formatDateShort(appointment.start)}
         </span>
         <span className="font-mono text-[0.8125rem] text-secondary">

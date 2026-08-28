@@ -85,8 +85,11 @@ export default function PatientHomePage() {
         <>
           {/* the one action */}
           {activeRecovery ? (
+            // The one action on the page, so it gets the accent wash. The left
+            // rule stays the state colour — the surface says "this matters",
+            // the rule says how much.
             <section
-              className={`on-raised flex flex-col gap-8 border-l-[3px] bg-raised px-9 py-8 lg:flex-row lg:items-center lg:justify-between ${
+              className={`on-tint flex flex-col gap-8 border-l-[3px] bg-accent-tint px-9 py-8 lg:flex-row lg:items-center lg:justify-between ${
                 checkInDue ? "border-warn" : "border-accent"
               }`}
             >
@@ -216,10 +219,10 @@ export default function PatientHomePage() {
               </p>
               <Link
                 href="/patient/assistant"
-                className="focus-ink mt-5 inline-flex min-h-14 items-center justify-center gap-2.5 border border-rule-strong px-6 text-[0.9375rem] font-medium text-body hover:bg-hover"
+                className="focus-ink mt-5 inline-flex min-h-14 items-center justify-center gap-2.5 border border-accent px-6 text-[0.9375rem] font-medium text-accent hover:bg-accent-tint"
               >
                 Ask a question
-                <Icon name="arrowRight" size={16} className="text-accent" />
+                <Icon name="arrowRight" size={16} />
               </Link>
               <Link
                 href="/patient/appointments?action=schedule"

@@ -25,11 +25,14 @@ export function FilterChips<T extends string>({
             className={cn(
               "focus-ink inline-flex min-h-11 items-center gap-2 px-4 text-sm",
               selected
-                ? "border border-accent font-medium text-ink"
+                ? // Filled, not outlined: a selected filter is a live constraint
+                  // on what you are looking at, so it should be the loudest
+                  // thing in the row.
+                  "on-accent border border-accent bg-accent font-medium text-paper"
                 : "border border-rule text-secondary hover:bg-hover hover:text-ink",
             )}
           >
-            {selected ? <Icon name="approve" size={14} className="text-accent" /> : null}
+            {selected ? <Icon name="approve" size={14} className="text-paper" /> : null}
             {option.label}
           </button>
         );

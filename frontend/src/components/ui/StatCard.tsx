@@ -22,7 +22,10 @@ export function StatCard({
   label,
   value,
   hint,
-  tone = "ink",
+  // Accent by default: an unremarkable figure is still the thing the reader
+  // came for, so it carries the brand. An explicit tone always wins, so a
+  // figure that means something states its own colour.
+  tone = "accent",
   className,
 }: {
   label: string;
@@ -33,7 +36,7 @@ export function StatCard({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-[5px] px-5 py-4 first:pl-0 last:pr-0", className)}>
+    <div className={cn("flex flex-col gap-[5px] px-5 py-4", className)}>
       <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
         {label}
       </span>
@@ -50,7 +53,10 @@ export function StatCard({
   );
 }
 
-/** Wraps a row of counters in the rules the Admin artboard draws around them. */
+/**
+ * The counters read as one panel rather than four loose columns — a raised
+ * surface under an accent cap, so the strip belongs to the section it opens.
+ */
 export function StatStrip({
   children,
   className,
@@ -61,7 +67,7 @@ export function StatStrip({
   return (
     <div
       className={cn(
-        "grid border-t border-rule-strong border-b border-b-rule [&>*+*]:border-l [&>*+*]:border-rule",
+        "on-raised grid border-t-2 border-accent bg-raised [&>*+*]:border-l [&>*+*]:border-rule",
         className,
       )}
     >

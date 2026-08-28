@@ -141,7 +141,7 @@ export default function PatientRecoveryPage() {
         </section>
       ) : null}
 
-      <section className="on-raised flex flex-col gap-4 border-l-[3px] border-rule-strong bg-raised px-8 py-7 sm:flex-row sm:items-center sm:justify-between">
+      <section className="on-raised flex flex-col gap-4 border-l-[3px] border-accent bg-raised px-8 py-7 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-[52ch] text-[0.9375rem] leading-relaxed text-secondary">
           The full autonomous recovery story — every event, gate and halt — can be walked through
           in the guided demo.
@@ -183,36 +183,41 @@ function RecoverySection({
       {/* Blocks inside the section sit at gap-8 — half the gap-14 that
           separates one major section from the next. */}
       <div className="flex flex-col gap-8">
-        <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-3">
-          <h3 className="font-serif text-[1.6875rem] font-medium leading-tight text-ink">
-            {context}
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            <StatusBadge status={episodeStatus(episode.status)} />
-            <StatusBadge status={riskStatus(episode.risk_level, "patient")} />
+        {/* Episode identity and its two dates are one accent-tinted panel: this
+            is the answer the page exists to give, so it is the one block that
+            is a surface rather than ruled rows. */}
+        <div className="on-tint flex flex-col bg-accent-tint">
+          <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-3 px-6 pb-5 pt-6">
+            <h3 className="font-serif text-[1.6875rem] font-medium leading-tight text-ink">
+              {context}
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              <StatusBadge status={episodeStatus(episode.status)} />
+              <StatusBadge status={riskStatus(episode.risk_level, "patient")} />
+            </div>
           </div>
-        </div>
 
-        {/* The two dates read as one inset panel rather than two more hairline
-            rows — a surface change, so it cannot be mistaken for list content. */}
-        <dl className="grid bg-raised sm:grid-cols-2">
-          <div className="flex min-h-14 flex-col justify-center gap-1 px-6 py-5">
-            <dt className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
-              Last check-in
-            </dt>
-            <dd className="text-[1.0625rem] text-body">
-              {checkin ? formatWhen(checkin.occurred_at) : "Not yet recorded"}
-            </dd>
-          </div>
-          <div className="flex min-h-14 flex-col justify-center gap-1 border-t border-rule px-6 py-5 sm:border-l sm:border-t-0 sm:border-l-rule">
-            <dt className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
-              Next check-in
-            </dt>
-            <dd className="text-[1.0625rem] text-body">
-              {episode.next_follow_up_at ? formatWhen(episode.next_follow_up_at) : "To be scheduled"}
-            </dd>
-          </div>
-        </dl>
+          <dl className="grid border-t border-rule-strong sm:grid-cols-2">
+            <div className="flex min-h-14 flex-col justify-center gap-1 px-6 py-5">
+              <dt className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-accent">
+                Last check-in
+              </dt>
+              <dd className="text-[1.0625rem] text-body">
+                {checkin ? formatWhen(checkin.occurred_at) : "Not yet recorded"}
+              </dd>
+            </div>
+            <div className="flex min-h-14 flex-col justify-center gap-1 border-t border-rule-strong px-6 py-5 sm:border-l sm:border-t-0 sm:border-l-rule-strong">
+              <dt className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-accent">
+                Next check-in
+              </dt>
+              <dd className="text-[1.0625rem] text-body">
+                {episode.next_follow_up_at
+                  ? formatWhen(episode.next_follow_up_at)
+                  : "To be scheduled"}
+              </dd>
+            </div>
+          </dl>
+        </div>
 
         <RecoveryVideoPanel episodeId={episode.id} events={events} onRefresh={onRefresh} />
 
@@ -250,10 +255,10 @@ function RecoverySection({
 
         <Link
           href={`/recovery/${episode.id}`}
-          className="focus-ink inline-flex min-h-14 w-fit items-center gap-2.5 border border-rule-strong px-6 text-[0.9375rem] font-medium text-body hover:bg-hover"
+          className="focus-ink inline-flex min-h-14 w-fit items-center gap-2.5 border border-accent px-6 text-[0.9375rem] font-medium text-accent hover:bg-accent-tint"
         >
           View recovery details
-          <Icon name="arrowRight" size={16} className="text-accent" />
+          <Icon name="arrowRight" size={16} />
         </Link>
       </div>
     </section>

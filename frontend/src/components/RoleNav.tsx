@@ -102,18 +102,21 @@ function NavRows({
               density.row,
               density.text,
               active
-                ? "border-accent bg-paper font-medium text-ink"
+                ? // Filled accent: on a raised rail a paper-on-accent row is the
+                  // clearest "you are here" the palette can draw, and it is the
+                  // one place blue appears on every screen.
+                  "on-accent border-accent bg-accent font-medium text-paper"
                 : "border-transparent text-secondary hover:bg-hover hover:text-ink",
             )}
           >
-            <Icon name={link.icon} size={18} className={active ? "text-accent" : undefined} />
+            <Icon name={link.icon} size={18} className={active ? "text-paper" : undefined} />
             <span className="flex-1">{link.label}</span>
             <Icon
               name="chevronRight"
               size={14}
               className={cn(
                 "text-muted opacity-0 group-hover:opacity-100",
-                active && "opacity-100 text-accent",
+                active && "opacity-100 text-paper",
               )}
             />
           </Link>

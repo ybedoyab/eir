@@ -10,7 +10,9 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="border-t border-rule px-0 py-10">
+    // A raised inset, so an empty section reads as a placeholder rather than
+    // as content that happens to be short.
+    <div className="on-raised bg-raised px-6 py-10">
       <p className="text-[0.9375rem] font-medium text-ink">{title}</p>
       {description ? (
         <p className="mt-2 max-w-[56ch] text-[0.875rem] leading-relaxed text-secondary">
