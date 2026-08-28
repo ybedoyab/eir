@@ -98,9 +98,74 @@ Firestore/file stores and in-memory implementations are **fallback adapters**. A
 
 ## Adapter rule
 
-External systems are reached only through interfaces: FHIR, voice, event bus, identity, observability. Adapters are labeled **REAL** vs **fallback** in `docs/hackathon-compliance.md` (e.g. `FirestoreAgentMemoryFallback`, managed Model Armor vs `RegexContentGuardFallback`, Voximplant vs `SyntheticVoiceProvider`).
+External systems are reached only through interfaces: FHIR, voice, video, event bus, identity, observability. Adapters are labeled **REAL** vs **fallback** in `docs/hackathon-compliance.md` (e.g. `FirestoreAgentMemoryFallback`, managed Model Armor vs `RegexContentGuardFallback`, Voximplant vs `SyntheticVoiceProvider`, Veo vs `UnavailableVideoClient`).
 
 Production Model Armor uses template `eir-agent-guard` in `us-central1` (separate from Gemini `global` endpoint). Managed screening status is exposed via `/api/v1/runtime/status` → `model_armor`.
+
+## Recovery video generation
+
+An optional Vertex AI Veo clip that animates already-approved recovery instructions. It is an
+ordinary fleet member, not a special case: `RecoveryVideoRequested` maps to
+`recovery.video.generate`, the registry resolves that to the `recovery_video` descriptor, and
+the orchestrator never learned a new branch.
+
+`POST /api/v1/recovery` publishes the request as a background task rather than awaiting it —
+generation takes tens of seconds, and an HTTP handler that waits for Veo is a handler that
+times out. The portal renders the text instructions immediately and picks the clip up from
+`RecoveryVideoReady` on a later poll.
+
+### The prompt is Python, not a model
+
+`build_prompt` assembles the narration from an explicit allowlist — `context` and `tasks` read
+off the episode's own `RecoveryEpisodeStarted` event, falling back to the FHIR CarePlan and
+then to a generic script. No LLM writes the wording, and no patient-identifying field (name,
+DOB, MRN, free-text note) can reach the prompt. This is the same rule as "agents never
+diagnose": the model animates approved text, it does not author clinical content.
+
+Narration is deliberately one sentence. An eight-second clip holds roughly sixteen spoken
+words, so the word budget is derived from the configured duration rather than hardcoded twice;
+asking Veo to recite a numbered care plan only makes it speed-talk or truncate mid-word. A
+task that mentions a medication is never spoken at all — the same rule the phone outreach
+channel follows, because a generative audio channel cannot be trusted with a drug name or a
+dose. The verified task list stays in the portal's text UI, which is the record.
+
+### Cost is bounded by the server, not the button
+
+Clips are content-addressed: the storage key is a digest of model + prompt, so every episode
+seeded from the same care-plan task list shares one stored object and one Veo call, however
+often the page is reloaded. Bytes scale with the number of *distinct task lists*, not with
+clicks.
+
+A deliberate "Regenerate" (`force=true`) must actually call Veo — it is the live demo control
+— and lands under a per-episode `clips/adhoc/` prefix that is pruned to a single object on
+write, so forcing cannot accumulate either.
+
+Past the cache, `StoreBackedVideoQuota` enforces a per-episode cooldown and a global daily
+ceiling behind the same durable stores the API and the worker share. The frontend's disabled
+button is not a rate limit — a second tab or a curl loop defeats it. Quota is charged only for
+work that actually reaches Veo; a cache hit is free.
+
+### Storage stays private
+
+Bytes are never handed to the browser as a `gs://` or public URL. They are written to our own
+storage (GCS when `RECOVERY_VIDEO_BUCKET` is set, else local disk) and served back through
+`GET /api/v1/recovery/{episode_id}/video/{filename}`, which re-derives the storage key from the
+untrusted path and rejects any episode id or filename this module did not mint.
+
+Local disk is laptop-only. On Cloud Run the worker that generates a clip is a different
+container from the API that serves it — and the filesystem is RAM — so a deployed environment
+must set a bucket.
+
+`RECOVERY_VIDEO_ENABLED` is false by default; the composition root then wires
+`UnavailableVideoClient`, which produces nothing and says so rather than pretending otherwise.
+A generation that *fails* is a separate path — `VeoVideoAdapter` catches everything and returns
+a labelled `VideoResult` (`timeout`, `cooldown`, `daily_limit_reached`, `no_video_bytes`,
+`vertex_returned_gcs_uri`, …) instead of raising into the workflow. Either way the handler
+emits `RecoveryVideoFailed` carrying the reason, and the text instructions remain primary.
+
+Live status — configured model, storage backend, quota consumed today, last error — is at
+`/health` → `adapters.recovery_video`. Note that `/api/v1/runtime/status` hand-picks its fields
+and does **not** currently surface it, though it does surface `voice`.
 
 ## Supply & Replenishment module
 

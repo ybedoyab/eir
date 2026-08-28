@@ -16,6 +16,7 @@ Synthetic data only. No real PHI. Voice is not verified until a paid PSTN/WebRTC
 | Agent Identity | `identity_type=AGENT_IDENTITY` STS token | Agent Identity | `last_authenticated_principal` matches engine SPIFFE / principal | VERIFIED MANAGED |
 | Agent Gateway | Google-managed `eir-agent-egress` (`AGENT_TO_ANYWHERE`) + in-process SafetyGate secondary | Agent Gateway | Live query Runtime → Gateway → eir-api → FHIR; IAP ENFORCED | VERIFIED MANAGED |
 | Model Armor | `VertexModelArmorAdapter` | Model Armor `eir-agent-guard` | `/health` → `managed_model_armor_available` | VERIFIED MANAGED |
+| Vertex AI Veo | `VeoVideoAdapter` → private GCS, proxied by `eir-api` | Vertex AI Veo (`veo-3.1-fast-generate-preview`) | Worker-generated clip stored in `RECOVERY_VIDEO_BUCKET`, served through `/api/v1/recovery/{id}/video/{file}`; `/health` → `adapters.recovery_video` | VERIFIED GCP |
 | Agent Observability / OTel | ADK OTel exporters + Cloud Run logs | Cloud Logging + Cloud Trace | Request logs + Cloud Run `/health` spans in Trace | VERIFIED GCP |
 | Cloud Trace | Cloud Run request traces ingested | Cloud Trace | Trace `c192b5f897a3cd08a8c0a8acff3331c0` GET returned spans | VERIFIED GCP |
 | Cloud Logging | Cloud Run request + worker JSON events | Cloud Logging | `eir-api` HTTP lines; worker `consumed RecoveryEpisodeStarted` | VERIFIED MANAGED |
@@ -28,7 +29,7 @@ Synthetic data only. No real PHI. Voice is not verified until a paid PSTN/WebRTC
 
 - **Patient Access** — web concierge, Firestore sessions, appointment tools (GCP FHIR)
 - **Scheduling** — FHIR Schedule/Slot/Appointment lifecycle (GCP)
-- **Recovery** — Pub/Sub worker, scheduler follow-ups (verified)
+- **Recovery** — Pub/Sub worker, scheduler follow-ups, optional Veo instruction videos (verified)
 - **Records / Risk / Human Review** — existing recovery + escalation paths
 - **Supply & Replenishment** — stock monitor, inventory + procurement agents, supplier voice,
   purchase authorization gated on a human (synthetic catalog, no real vendors)
@@ -39,6 +40,9 @@ Synthetic data only. No real PHI. Voice is not verified until a paid PSTN/WebRTC
 - No HIPAA compliance claim
 - No real patient data
 - No autonomous diagnosis
+- Recovery videos are patient-education imagery, not clinical instruction: the spoken line is
+  assembled by deterministic Python from already-approved care tasks, never names a medication
+  or dose, and the verified task list in the portal text UI remains the record
 - No autonomous purchasing: the procurement agent drafts orders, an operations admin
   authorizes every one, and no order reaches a real supplier
 - Supplier calls run on a scripted synthetic provider; no vendor is dialled and the

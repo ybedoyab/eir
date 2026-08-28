@@ -137,9 +137,11 @@ Architecture diagram source: [docs/architecture/eir-gcp.mmd](docs/architecture/e
 
 See [infra/gcp/agent_platform/README.md](infra/gcp/agent_platform/README.md).
 
-**Recovery (unchanged pipeline)**
+**Recovery**
 
 - RecoveryEpisode workflow, orchestrator, voice callback path, risk, escalation, human review
+- Personalized Veo instruction videos from already-approved care tasks — routed through the
+  capability registry like any other agent, off by default (`RECOVERY_VIDEO_ENABLED`)
 
 **Privacy**
 
