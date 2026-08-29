@@ -51,11 +51,20 @@ def _gcloud_output(args: list[str]) -> str:
     return completed.stdout.strip() if completed.returncode == 0 else ""
 
 
-def _service_url(service: str) -> str:
+def _project_number() -> str:
     number = _gcloud_output(
         ["gcloud", "projects", "describe", PROJECT, "--format=value(projectNumber)"]
     )
-    return f"https://{service}-{number or '658898892127'}.{LOCATION}.run.app"
+    return number or "658898892127"
+
+
+def _service_url(service: str) -> str:
+    return f"https://{service}-{_project_number()}.{LOCATION}.run.app"
+
+
+def _recovery_video_bucket() -> str:
+    """Must match google_storage_bucket.recovery_media and deploy.py."""
+    return f"eir-ata-recovery-media-{_project_number()}"
 
 
 def _scheduler_secret() -> str:
@@ -170,6 +179,17 @@ def main() -> int:
                 "describe",
                 f"--project={PROJECT}",
                 "--database=(default)",
+            ]
+        )
+        == 0,
+        "recovery_video_bucket": _run(
+            [
+                "gcloud",
+                "storage",
+                "buckets",
+                "describe",
+                f"gs://{_recovery_video_bucket()}",
+                f"--project={PROJECT}",
             ]
         )
         == 0,
