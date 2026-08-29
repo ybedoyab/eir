@@ -87,3 +87,13 @@ export function relativeDayLabel(value: string | Date, now = new Date()): string
   if (diff === -1) return "Yesterday";
   return formatDateLong(date);
 }
+
+/**
+ * Demo fixtures namespace every patient record as `patient-synthetic-NNN`. That
+ * namespace is a backend guard — voice callbacks and the demo controls hard-fail
+ * on an id that lacks it — not something a reader needs on screen. Strip it for
+ * display only; never round-trip this value back into an API call.
+ */
+export function displayPatientId(id: string): string {
+  return id.replace(/^patient-synthetic-/, "patient-");
+}

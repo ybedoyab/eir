@@ -9,6 +9,7 @@ import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
+import { displayPatientId } from "@/lib/format";
 import { listPatients } from "@/services/api";
 import type { Patient } from "@/types";
 
@@ -27,9 +28,9 @@ export default function PatientsPage() {
   return (
     <section className="flex flex-col">
       <PageHeader
-        eyebrow="Synthetic cohort"
+        eyebrow="Patient cohort"
         title="Patients"
-        description="Synthetic patients only. No real PHI is stored or displayed."
+        description="Demo records only. No real PHI is stored or displayed."
         density="staff"
       />
 
@@ -40,7 +41,7 @@ export default function PatientsPage() {
       ) : patients.length === 0 ? (
         <EmptyState
           title="No patients found"
-          description="Seed synthetic FHIR fixtures or start the API to populate this list."
+          description="Seed the FHIR fixtures or start the API to populate this list."
         />
       ) : (
         <div className="flex flex-col">
@@ -66,7 +67,9 @@ export default function PatientsPage() {
                 <Avatar name={patient.name} size="sm" />
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="truncate text-[0.9375rem] text-ink">{patient.name}</span>
-                  <span className="truncate font-mono text-[0.75rem] text-muted">{patient.id}</span>
+                  <span className="truncate font-mono text-[0.75rem] text-muted">
+                    {displayPatientId(patient.id)}
+                  </span>
                 </span>
               </span>
               <span className="font-mono text-[0.75rem] text-secondary">

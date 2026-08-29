@@ -8,7 +8,7 @@ export default function PatientLayout({ children }: { children: ReactNode }) {
       <RoleNav role="PATIENT" />
       {/* gap-14 separates top-level sections; blocks *inside* a section sit at
           gap-8, so the spacing itself carries the nesting. */}
-      <main className="flex flex-col gap-14 px-5 py-10 sm:px-10 sm:py-12 lg:max-w-[1060px] lg:px-14">
+      <main className="flex w-full flex-col gap-14 px-5 py-10 sm:px-10 sm:py-12 lg:mx-auto lg:max-w-[1060px] lg:px-14">
         {children}
       </main>
     </div>

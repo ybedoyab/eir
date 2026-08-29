@@ -216,6 +216,16 @@ export function armorLabel(adapter: string | null | undefined): {
   return { title: "Fallback guard", managed: false };
 }
 
+/**
+ * The voice adapter reports its own provider id, and one of them is literally
+ * `synthetic` — an implementation detail that reads as a disclaimer on screen.
+ * Map the non-PSTN providers onto what they actually mean to a viewer.
+ */
+export function voiceProviderLabel(provider: string | null | undefined): string {
+  if (provider === "synthetic" || provider === "mock") return "SIMULATED";
+  return (provider ?? "unreported").toUpperCase();
+}
+
 export function runtimeProof(runtime: RuntimeStatus): { label: string; value: string; live: boolean }[] {
   const geminiLive = runtime.fleet.vertex_probe_success;
   const adkLive = runtime.fleet.adk_mode === "adk";
@@ -237,7 +247,9 @@ export function runtimeProof(runtime: RuntimeStatus): { label: string; value: st
     { label: "Pub/Sub", value: pubsubLive ? "LIVE" : runtime.fleet.event_bus.toUpperCase(), live: pubsubLive },
     {
       label: "Voximplant PSTN",
-      value: runtime.fleet.voice?.pstn_enabled ? "LIVE" : (runtime.fleet.voice?.active_provider ?? "synthetic").toUpperCase(),
+      value: runtime.fleet.voice?.pstn_enabled
+        ? "LIVE"
+        : voiceProviderLabel(runtime.fleet.voice?.active_provider),
       live: Boolean(runtime.fleet.voice?.pstn_enabled),
     },
     {

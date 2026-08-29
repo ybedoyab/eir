@@ -37,6 +37,7 @@ import {
   isVoximplantEvent,
 } from "@/lib/demoStory";
 import { eventLabel, eventOutcome } from "@/lib/eventLabels";
+import { displayPatientId } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { episodeBadgeClass, riskBadgeClass } from "@/lib/status";
 import {
@@ -383,7 +384,7 @@ export default function DemoPage() {
     setBusy("review");
     setError(null);
     try {
-      await resolveReview(pendingReview.id, "Clinician reviewed synthetic demo episode.");
+      await resolveReview(pendingReview.id, "Clinician reviewed demo episode.");
       beginAwait("review");
       await refresh(episodeId);
     } catch (err) {
@@ -473,7 +474,10 @@ export default function DemoPage() {
         </div>
       </header>
 
-      <div className="grid flex-grow items-start gap-7 px-7 pb-10 pt-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-0 xl:px-0 xl:pt-0">
+      {/* No `items-start`: the rail is a grid item, and start-aligning it collapses
+          it to its own content height so the border and the footer note stop
+          mid-page. Stretching is what carries it to the bottom of the run. */}
+      <div className="grid flex-grow gap-7 px-7 pb-10 pt-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-0 xl:px-0 xl:pt-0">
         <main className="flex min-w-0 flex-col gap-6 xl:px-7 xl:pb-6 xl:pt-6">
           <div>
             <h1 className="font-serif text-[1.625rem] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
@@ -481,7 +485,7 @@ export default function DemoPage() {
             </h1>
             <p className="mt-1.5 max-w-[70ch] text-[13.5px] leading-[1.5] text-secondary">
               One follow-up, timed by the events themselves. Every step is a real handler result —
-              the model never produced one. ~4 minute judge flow, synthetic identities only.
+              the model never produced one. ~4 minute judge flow, demo identities only.
             </p>
           </div>
 
@@ -493,7 +497,7 @@ export default function DemoPage() {
                 Consultation just ended
               </span>
               <h2 className="mt-2 font-serif text-[1.6875rem] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
-                Start a synthetic recovery episode
+                Start a recovery episode
               </h2>
               <p className="mt-2 max-w-[62ch] text-[14.5px] leading-[1.55] text-secondary">
                 EIR will open a Recovery Episode, schedule proactive follow-up, and wait for the
@@ -625,7 +629,7 @@ export default function DemoPage() {
                         "gemini-live-2.5-flash-native-audio"}
                     </dd>
                     <dt className="text-muted">identity</dt>
-                    <dd className="text-body">synthetic patient · real phone call</dd>
+                    <dd className="text-body">demo patient · real phone call</dd>
                   </dl>
                 </section>
               ) : null}
@@ -905,18 +909,18 @@ export default function DemoPage() {
         </main>
 
         {/* run detail — the artboard's right rail */}
-        <aside className="on-raised flex flex-col border-t border-rule bg-raised xl:min-h-full xl:border-l xl:border-t-0">
+        <aside className="on-raised flex flex-col border-t border-rule bg-raised xl:border-l xl:border-t-0">
           {episodeId ? (
             <div className="flex flex-col gap-2 border-b border-rule px-6 pb-4 pt-5">
               <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
                 Episode
               </span>
               <h2 className="font-mono text-[1.0625rem] font-medium text-ink">
-                {patientName || "Synthetic patient"}
+                {patientName || "Demo patient"}
               </h2>
               <span className="font-mono text-[11.5px] text-muted">
                 {shortEpisodeId(episodeId)}
-                {episode?.patient_id ? ` · ${episode.patient_id}` : ""}
+                {episode?.patient_id ? ` · ${displayPatientId(episode.patient_id)}` : ""}
               </span>
               {episode ? (
                 <div className="mt-1 flex flex-wrap gap-2">
@@ -1010,7 +1014,7 @@ export default function DemoPage() {
               Handler results come from Python, never from the model.
             </span>
             <span className="font-mono text-[10.5px] leading-[1.55] text-muted">
-              Synthetic demo environment · no real patient data
+              Demo environment · no real patient data
             </span>
           </div>
         </aside>

@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatCard, StatStrip } from "@/components/ui/StatCard";
 import { cn } from "@/lib/cn";
+import { voiceProviderLabel } from "@/lib/demoStory";
 import { formatWait } from "@/lib/format";
 import { getRuntimeStatus, listAgents, listReviews, listTraces } from "@/services/api";
 import type { AgentDescriptor, HumanReview, RuntimeStatus, WorkflowTrace } from "@/types";
@@ -61,7 +62,7 @@ function adapterRows(runtime: RuntimeStatus | null): AdapterRow[] {
     {
       name: "voice",
       state: voice ? (voiceReal ? "real" : "fallback") : "unknown",
-      detail: voice?.active_provider ?? "unreported",
+      detail: voiceProviderLabel(voice?.active_provider).toLowerCase(),
     },
   ];
 }
@@ -143,7 +144,7 @@ export default function AdminFleetPage() {
       {loading ? (
         <CardSkeleton rows={6} />
       ) : (
-        <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-7 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col gap-6">
             <StatStrip className="sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
@@ -188,7 +189,7 @@ export default function AdminFleetPage() {
                   first match by registration order
                 </span>
               </div>
-              <div className="grid grid-cols-[168px_minmax(0,1fr)_96px_96px] gap-4 border-b border-rule-strong pb-2">
+              <div className="hidden grid-cols-[168px_minmax(0,1fr)_96px_96px] gap-4 border-b border-rule-strong pb-2 sm:grid">
                 {["Agent", "Granted capabilities", "Risk", "Version"].map((column) => (
                   <span
                     key={column}
@@ -201,15 +202,19 @@ export default function AdminFleetPage() {
               {agents.map((agent) => (
                 <div
                   key={agent.name}
-                  className="grid min-h-11 grid-cols-[168px_minmax(0,1fr)_96px_96px] items-center gap-4 border-b border-rule"
+                  className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-rule py-2 sm:grid-cols-[168px_minmax(0,1fr)_96px_96px] sm:py-0"
                   title={agent.description}
                 >
                   <span className="truncate text-[0.875rem] font-medium text-ink">{agent.name}</span>
-                  <span className="truncate font-mono text-[0.75rem] text-secondary">
+                  <span className="col-span-2 truncate font-mono text-[0.75rem] text-secondary sm:col-span-1">
                     {agent.capabilities.join(" · ")}
                   </span>
-                  <span className="font-mono text-[0.75rem] text-secondary">{agent.risk_level}</span>
-                  <span className="font-mono text-[0.75rem] text-muted">{agent.version}</span>
+                  <span className="col-start-2 row-start-1 text-right font-mono text-[0.75rem] text-secondary sm:col-start-auto sm:row-start-auto sm:text-left">
+                    {agent.risk_level}
+                  </span>
+                  <span className="hidden font-mono text-[0.75rem] text-muted sm:block">
+                    {agent.version}
+                  </span>
                 </div>
               ))}
             </section>
@@ -333,7 +338,7 @@ export default function AdminFleetPage() {
 
             <div className="mt-auto border-t border-rule px-5 py-4">
               <span className="font-mono text-[10.5px] leading-[1.5] text-muted">
-                Timestamps from the event, not the fetch · synthetic demo environment
+                Timestamps from the event, not the fetch · demo environment
               </span>
             </div>
           </aside>

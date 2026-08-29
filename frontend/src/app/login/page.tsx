@@ -65,14 +65,14 @@ export default function LoginPage() {
         </span>
         <span className="h-[15px] w-px bg-rule-strong" aria-hidden />
         <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
-          Synthetic demo identities
+          Demo identities
         </span>
       </div>
 
       <PageHeader
         eyebrow="Demo access"
         title="Sign in to EIR"
-        description="Synthetic demo identities. Choose a role to explore the hospital."
+        description="Choose a role to explore the hospital."
         density="staff"
       />
 

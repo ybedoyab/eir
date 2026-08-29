@@ -83,6 +83,9 @@ export function CascadeWaterfall({
   className?: string;
 }) {
   const { rows, totalMs } = place(steps);
+  // One tick per second of the run, capped at 6. Each label is placed at its own
+  // fraction of `totalMs` — evenly spaced flex children put "1s" wherever the
+  // column happened to divide, so the ruler disagreed with the bars beneath it.
   const ticks = Math.max(1, Math.min(6, Math.ceil(totalMs / 1000)));
 
   return (
@@ -105,9 +108,13 @@ export function CascadeWaterfall({
       {/* ruler */}
       <div className="grid grid-cols-[minmax(0,1fr)_78px] items-end gap-4 border-b border-rule-strong pb-1.5 sm:grid-cols-[280px_minmax(0,1fr)_78px]">
         <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">Step</span>
-        <div className="hidden font-mono text-[0.75rem] text-muted sm:flex">
+        <div className="relative hidden h-4 font-mono text-[0.75rem] text-muted sm:block">
           {Array.from({ length: ticks }, (_, index) => (
-            <span key={index} className="flex-1">
+            <span
+              key={index}
+              className="absolute top-0"
+              style={{ left: `${Math.min((index * 1000) / totalMs, 1) * 100}%` }}
+            >
               {index}s
             </span>
           ))}

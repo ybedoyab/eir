@@ -88,7 +88,7 @@ export function PatientDirectory({
       <PageHeader
         eyebrow={eyebrow}
         title={title}
-        description="Synthetic hospital directory — no real patient data."
+        description="Hospital directory — no real patient data."
         density="staff"
       />
 
@@ -153,7 +153,7 @@ export function PatientDirectory({
       ) : (
         <EmptyState
           title="No matching patients"
-          description="Nothing in the synthetic directory matches that name."
+          description="Nothing in the directory matches that name."
         />
       )}
     </section>

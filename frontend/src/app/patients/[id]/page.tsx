@@ -9,6 +9,7 @@ import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { displayPatientId } from "@/lib/format";
 import { episodeBadgeClass } from "@/lib/status";
 import { createRecovery, getPatient } from "@/services/api";
 import type { Patient, RecoveryEpisode } from "@/types";
@@ -57,7 +58,7 @@ export default function PatientDetailPage({
       <PageHeader
         eyebrow="Patient profile"
         title={patient?.name ?? "Patient"}
-        description="Synthetic record used for recovery workflow demos."
+        description="Demo record used for recovery workflow walkthroughs."
         density="staff"
         actions={
           patient ? (
@@ -77,7 +78,7 @@ export default function PatientDetailPage({
             <SectionHeader level="major" title="Demographics" meta="non-clinical demo metadata" />
             <dl className="grid grid-cols-[152px_minmax(0,1fr)] gap-x-5 gap-y-2.5 font-mono text-[0.8125rem]">
               <dt className="text-muted">patient_id</dt>
-              <dd className="truncate text-ink">{patient.id}</dd>
+              <dd className="truncate text-ink">{displayPatientId(patient.id)}</dd>
               <dt className="text-muted">date_of_birth</dt>
               <dd className="text-ink">{patient.date_of_birth}</dd>
               <dt className="text-muted">preferred_language</dt>
@@ -86,7 +87,7 @@ export default function PatientDetailPage({
               <dd className="text-ink">{patient.preferred_contact_channel}</dd>
             </dl>
             <p className="mt-5 inline-flex w-fit items-center bg-ink px-2.5 py-1.5 font-mono text-[0.75rem] uppercase tracking-[0.06em] text-paper">
-              Synthetic — not real patient data
+              Demo record — not real patient data
             </p>
           </section>
 

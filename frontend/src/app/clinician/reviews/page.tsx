@@ -131,7 +131,7 @@ export default function ClinicianReviewsPage() {
         <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
           {/* worklist */}
           <div className="flex min-w-0 flex-col">
-            <div className="grid grid-cols-[minmax(0,1fr)_108px_168px_92px] gap-5 border-b border-rule-strong pb-2.5">
+            <div className="hidden grid-cols-[minmax(0,1fr)_108px_168px_92px] gap-5 border-b border-rule-strong pb-2.5 md:grid">
               {["Patient", "Risk", "Asked for", "Waiting"].map((column, index) => (
                 <span
                   key={column}
@@ -158,7 +158,7 @@ export default function ClinicianReviewsPage() {
                     aria-current={active ? "true" : undefined}
                     onClick={() => setSelectedId(review.id)}
                     className={cn(
-                      "focus-ink grid w-full grid-cols-[minmax(0,1fr)_108px_168px_92px] items-center gap-5 border-b border-rule border-l-[3px] py-3 pr-1 text-left",
+                      "focus-ink grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-5 gap-y-2 border-b border-rule border-l-[3px] py-3 pr-1 text-left md:grid-cols-[minmax(0,1fr)_108px_168px_92px]",
                       active
                         ? "on-raised border-l-accent bg-raised pl-[13px]"
                         : "border-l-transparent pl-4 hover:bg-hover",
@@ -178,12 +178,12 @@ export default function ClinicianReviewsPage() {
                     ) : (
                       <span className="font-mono text-[0.75rem] text-muted">—</span>
                     )}
-                    <span className="truncate font-mono text-[12.5px] text-body">
+                    <span className="col-span-2 truncate font-mono text-[12.5px] text-body md:col-span-1">
                       {review.pending_capability ?? review.capability}
                     </span>
                     <span
                       className={cn(
-                        "text-right font-mono text-[12.5px]",
+                        "col-start-2 row-start-1 text-right font-mono text-[12.5px] md:col-start-auto md:row-start-auto",
                         episode?.risk_level === "HIGH" || episode?.risk_level === "CRITICAL"
                           ? "text-high"
                           : "text-secondary",
@@ -209,9 +209,9 @@ export default function ClinicianReviewsPage() {
             ) : null}
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-5 border-t border-rule pt-4">
-              <span className="font-mono text-[0.75rem] text-muted">↑↓ move · Enter open</span>
+              <span className="font-mono text-[0.75rem] text-muted">↑↓ move between reviews</span>
               <span className="font-mono text-[0.75rem] text-muted">
-                Synthetic demo environment · no real patient data
+                Demo environment · no real patient data
               </span>
             </div>
           </div>
@@ -311,7 +311,7 @@ function ReviewDetail({
           {busy ? "Resolving…" : "Resolve and resume"}
         </Button>
         <Link
-          href="/admin/observability"
+          href="/observability"
           className="focus-ink inline-flex min-h-11 items-center gap-2 font-mono text-[11.5px] text-accent hover:text-ink"
         >
           Open full trace in operations

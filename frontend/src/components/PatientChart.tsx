@@ -10,7 +10,7 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Timeline } from "@/components/ui/Timeline";
-import { formatWhen } from "@/lib/format";
+import { displayPatientId, formatWhen } from "@/lib/format";
 import { appointmentStatus, episodeStatus, riskStatus } from "@/lib/statusLabels";
 import { eventLabel } from "@/lib/eventLabels";
 import {
@@ -278,7 +278,7 @@ export function PatientChart({ patientId }: { patientId: string }) {
         {showSystem ? (
           <dl className="grid grid-cols-[132px_minmax(0,1fr)] gap-x-5 gap-y-2 border-t border-rule pt-4 font-mono text-[0.75rem]">
             <dt className="text-muted">patient_id</dt>
-            <dd className="truncate text-body">{patient.id}</dd>
+            <dd className="truncate text-body">{displayPatientId(patient.id)}</dd>
             <dt className="text-muted">date_of_birth</dt>
             <dd className="text-body">{patient.date_of_birth}</dd>
             <dt className="text-muted">episodes</dt>

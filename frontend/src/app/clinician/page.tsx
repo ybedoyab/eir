@@ -11,7 +11,7 @@ import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatCard, StatStrip } from "@/components/ui/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { loadSession } from "@/lib/auth";
-import { formatWait, formatWhen, greeting, shortClinicianName } from "@/lib/format";
+import { displayPatientId, formatWait, formatWhen, greeting, shortClinicianName } from "@/lib/format";
 import { episodeStatus, riskStatus } from "@/lib/statusLabels";
 import { listAppointments, listPatients, listRecovery, listReviews } from "@/services/api";
 import type { Appointment } from "@/lib/auth";
@@ -91,7 +91,7 @@ export default function ClinicianHomePage() {
             {greeting(shortClinicianName(session?.display_name ?? "Doctor"))}.
           </h1>
           <p className="mt-2 text-[14.5px] leading-[1.55] text-secondary">
-            Reviews, today’s schedule and recovery escalations, from stored synthetic data.
+            Reviews, today’s schedule and recovery escalations, from the hospital record.
           </p>
         </div>
       </header>
@@ -269,7 +269,7 @@ export default function ClinicianHomePage() {
                         {patient.name}
                       </span>
                       <span className="truncate font-mono text-[11.5px] text-muted">
-                        {patient.id}
+                        {displayPatientId(patient.id)}
                       </span>
                     </span>
                     <Icon
@@ -286,7 +286,7 @@ export default function ClinicianHomePage() {
           </section>
 
           <p className="mt-2 font-mono text-[0.75rem] text-muted">
-            Synthetic demo environment · no real patient data
+            Demo environment · no real patient data
           </p>
         </>
       )}

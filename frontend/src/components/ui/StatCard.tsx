@@ -56,6 +56,12 @@ export function StatCard({
 /**
  * The counters read as one panel rather than four loose columns — a raised
  * surface under an accent cap, so the strip belongs to the section it opens.
+ *
+ * The dividers are grid gaps showing the strip's own background through, not a
+ * border on each cell: callers set a different column count per breakpoint, and
+ * a per-child `border-l` cannot know which cell starts a row — it drew a stray
+ * rule down the left edge of the mobile stack and of every wrapped row. Gaps
+ * separate neighbours only, at any column count, with no nth-child arithmetic.
  */
 export function StatStrip({
   children,
@@ -67,7 +73,7 @@ export function StatStrip({
   return (
     <div
       className={cn(
-        "on-raised grid border-t-2 border-accent bg-raised [&>*+*]:border-l [&>*+*]:border-rule",
+        "on-raised grid gap-px border-t-2 border-accent bg-rule [&>*]:bg-raised",
         className,
       )}
     >

@@ -70,7 +70,7 @@ function PatientAppointmentsContent() {
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<Tab>(action === "cancel" ? "upcoming" : "upcoming");
+  const [tab, setTab] = useState<Tab>("upcoming");
   const [specialty, setSpecialty] = useState("Cardiology");
   const [dayPart, setDayPart] = useState<DayPart>("any");
   const [scheduling, setScheduling] = useState(action === "schedule");

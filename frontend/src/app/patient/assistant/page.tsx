@@ -41,8 +41,17 @@ export default function PatientAssistantPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Could not start assistant"));
   }, []);
 
+  // Skip the first paint. The transcript grows the page rather than scrolling
+  // inside a fixed box, so an unconditional scrollIntoView on mount dragged the
+  // window past the page header before the reader had seen it. `block: "nearest"`
+  // then keeps later scrolls to the minimum needed to reveal the new message.
+  const scrolled = useRef(false);
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!scrolled.current) {
+      scrolled.current = true;
+      return;
+    }
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, busy]);
 
   async function send(textValue?: string) {

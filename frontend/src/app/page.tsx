@@ -68,7 +68,7 @@ const platform = [
   { name: "Memory Bank", detail: "allowlisted keys only" },
   { name: "Agent Gateway", detail: "ingress inspection" },
   { name: "Model Armor", detail: "prompt-injection block" },
-  { name: "FHIR R4", detail: "synthetic records" },
+  { name: "FHIR R4", detail: "demo patient records" },
 ];
 
 export default function HomePage() {
@@ -132,7 +132,7 @@ export default function HomePage() {
             </Link>
           </div>
           <p className="mt-7 font-mono text-[0.75rem] leading-snug text-muted">
-            Every identity and record in this environment is synthetic.
+            Every identity and record in this environment is fictional.
           </p>
         </div>
 
@@ -237,7 +237,7 @@ export default function HomePage() {
 
       <footer className="mt-auto flex flex-wrap items-center justify-between gap-6 border-t border-rule bg-raised px-6 py-3 sm:px-10 lg:px-16">
         <span className="font-mono text-[11.5px] text-muted">
-          Synthetic demo environment · no real patient data
+          Demo environment · no real patient data
         </span>
         <div className="flex flex-wrap gap-6 font-mono text-[11.5px]">
           <Link

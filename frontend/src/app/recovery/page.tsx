@@ -11,6 +11,7 @@ import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
+import { displayPatientId } from "@/lib/format";
 import { episodeBadgeClass, riskBadgeClass } from "@/lib/status";
 import { listRecovery, listReviews, resolveReview } from "@/services/api";
 import type { HumanReview, RecoveryEpisode } from "@/types";
@@ -83,7 +84,7 @@ export default function RecoveryPage() {
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="truncate font-mono text-[12.5px] text-ink">{episode.id}</span>
                     <span className="truncate font-mono text-[0.75rem] text-muted">
-                      patient {episode.patient_id}
+                      patient {displayPatientId(episode.patient_id)}
                     </span>
                   </span>
                   <span className="flex flex-wrap justify-end gap-2">

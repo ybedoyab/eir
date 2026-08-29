@@ -9,6 +9,7 @@ import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard, StatStrip } from "@/components/ui/StatCard";
+import { displayPatientId } from "@/lib/format";
 import { eventLabel, eventOutcome } from "@/lib/eventLabels";
 import { episodeBadgeClass, riskBadgeClass } from "@/lib/status";
 import { getRecovery, listRecoveryEvents, listReviews, triggerFollowUp } from "@/services/api";
@@ -105,7 +106,7 @@ export default function RecoveryEpisodePage({
         title="Recovery workflow"
         description={
           episode
-            ? `Episode ${episode.id} · patient ${episode.patient_id}`
+            ? `Episode ${episode.id} · patient ${displayPatientId(episode.patient_id)}`
             : episodeId
               ? `Episode ${episodeId}`
               : "Loading episode…"

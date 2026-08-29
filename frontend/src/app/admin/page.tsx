@@ -104,7 +104,7 @@ export default function AdminHomePage() {
             Hospital operations
           </h1>
           <p className="mt-1.5 text-[13.5px] leading-[1.5] text-secondary">
-            Every figure below is computed from stored synthetic hospital data.
+            Every figure below is computed from stored hospital data.
           </p>
         </div>
         <Link
@@ -172,7 +172,7 @@ export default function AdminHomePage() {
             <StatCard
               label="Patients on file"
               value={patients.length}
-              hint="all synthetic identities"
+              hint="across every clinic"
             />
           </StatStrip>
 
@@ -188,7 +188,7 @@ export default function AdminHomePage() {
                 {activity.map((item) => (
                   <li
                     key={item.id}
-                    className="grid min-h-11 grid-cols-[220px_minmax(0,1fr)] items-center gap-4 border-b border-rule py-2"
+                    className="grid min-h-11 grid-cols-[minmax(0,1fr)] items-center gap-x-4 gap-y-1 border-b border-rule py-2 sm:grid-cols-[220px_minmax(0,1fr)]"
                   >
                     <span className={`text-[0.875rem] font-medium ${item.tone ?? "text-ink"}`}>
                       {item.title}
@@ -203,7 +203,7 @@ export default function AdminHomePage() {
           </section>
 
           <p className="font-mono text-[0.75rem] text-muted">
-            Synthetic demo environment · no real patient data
+            Demo environment · no real patient data
           </p>
         </>
       )}

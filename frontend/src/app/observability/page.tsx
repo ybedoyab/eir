@@ -193,7 +193,7 @@ export default function ObservabilityPage() {
                 Handler results come from Python, never from the model.
               </span>
               <span className="font-mono text-[10.5px] leading-[1.55] text-muted">
-                Synthetic demo environment · no real patient data
+                Demo environment · no real patient data
               </span>
             </div>
           </aside>
@@ -211,17 +211,17 @@ export default function ObservabilityPage() {
           {history.map((item) => (
             <div
               key={`${item.trace_id}-${item.timestamp}`}
-              className="grid min-h-11 grid-cols-[200px_minmax(0,1fr)_120px] items-center gap-4 border-b border-rule"
+              className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-rule py-2 sm:grid-cols-[200px_minmax(0,1fr)_120px] sm:py-0"
             >
               <span className="truncate font-mono text-[12.5px] text-ink">
                 {item.agent_name} · {item.capability}
               </span>
-              <span className="truncate font-mono text-[11.5px] text-muted">
+              <span className="col-span-2 truncate font-mono text-[11.5px] text-muted sm:col-span-1">
                 {item.tools_invoked?.join(", ") || item.security_category || "no tools"}
               </span>
               <span
                 className={cn(
-                  "text-right font-mono text-[11.5px] uppercase tracking-[0.06em]",
+                  "col-start-2 row-start-1 text-right font-mono text-[11.5px] uppercase tracking-[0.06em] sm:col-start-auto sm:row-start-auto",
                   item.success ? "text-ok" : "text-high",
                 )}
               >

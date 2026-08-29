@@ -8,6 +8,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/cn";
 import { clearSession, loadSession, roleHome, type AuthSession, type DemoRole } from "@/lib/auth";
+import { displayPatientId } from "@/lib/format";
 import { roleLabel } from "@/lib/personas";
 
 interface NavLink {
@@ -155,11 +156,13 @@ export function RoleNav({ role }: { role: DemoRole }) {
           {session?.display_name ?? roleLabel(role)}
         </span>
         <span className="font-mono text-[0.75rem] text-muted">
-          {session?.patient_id ?? roleLabel(role).toLowerCase()}
+          {session?.patient_id
+            ? displayPatientId(session.patient_id)
+            : roleLabel(role).toLowerCase()}
         </span>
       </div>
       <span className="font-mono text-[10.5px] leading-snug text-muted">
-        Synthetic demo identity
+        Demo identity
       </span>
       <div className="mt-1 flex flex-wrap items-center gap-1">
         <Link
