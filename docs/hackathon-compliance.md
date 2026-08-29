@@ -16,7 +16,7 @@ Synthetic data only. No real PHI. Voice is not verified until a paid PSTN/WebRTC
 | Agent Identity | `identity_type=AGENT_IDENTITY` STS token | Agent Identity | `last_authenticated_principal` matches engine SPIFFE / principal | VERIFIED MANAGED |
 | Agent Gateway | Google-managed `eir-agent-egress` (`AGENT_TO_ANYWHERE`) + in-process SafetyGate secondary | Agent Gateway | Live query Runtime → Gateway → eir-api → FHIR; IAP ENFORCED | VERIFIED MANAGED |
 | Model Armor | `VertexModelArmorAdapter` | Model Armor `eir-agent-guard` | `/health` → `managed_model_armor_available` | VERIFIED MANAGED |
-| Vertex AI Veo | `VeoVideoAdapter` → private GCS, proxied by `eir-api` | Vertex AI Veo (`veo-3.1-fast-generate-preview`) | Worker-generated clip stored in `RECOVERY_VIDEO_BUCKET`, served through `/api/v1/recovery/{id}/video/{file}`; `/health` + `/api/v1/runtime/status` → `recovery_video` | CONFIGURED — pending first production run |
+| Vertex AI Veo | `VeoVideoAdapter` → private GCS, proxied by `eir-api` | Vertex AI Veo (`veo-3.1-lite-generate-001`) | Worker-generated clip stored in `RECOVERY_VIDEO_BUCKET`, served through `/api/v1/recovery/{id}/video/{file}`; `/health` + `/api/v1/runtime/status` → `recovery_video` | CONFIGURED — pending first production run |
 | Agent Observability / OTel | ADK OTel exporters + Cloud Run logs | Cloud Logging + Cloud Trace | Request logs + Cloud Run `/health` spans in Trace | VERIFIED GCP |
 | Cloud Trace | Cloud Run request traces ingested | Cloud Trace | Trace `c192b5f897a3cd08a8c0a8acff3331c0` GET returned spans | VERIFIED GCP |
 | Cloud Logging | Cloud Run request + worker JSON events | Cloud Logging | `eir-api` HTTP lines; worker `consumed RecoveryEpisodeStarted` | VERIFIED MANAGED |

@@ -70,9 +70,11 @@ class Settings(BaseSettings):
     agent_runtime_audience: str = "https://eir-api-658898892127.us-central1.run.app"
     # Off by default: only fires quota-costing Veo calls when explicitly enabled.
     recovery_video_enabled: bool = False
-    # Cheapest tier at time of writing: the "fast" variant, which is also the only Veo
-    # tier with native synchronized audio narration (see VEO-RECOVERY-VIDEOS-PLAN.md §7).
-    veo_model: str = "veo-3.1-fast-generate-preview"
+    # Must be a model id this project can actually reach in `veo_location`: Vertex answers
+    # an unavailable one with 404 NOT_FOUND at generate time, not at startup, so a wrong id
+    # here surfaces as a failed clip rather than a boot error. `veo-3.1-fast-generate-preview`
+    # is not served to this project and was exactly that failure.
+    veo_model: str = "veo-3.1-lite-generate-001"
     veo_location: str = "us-central1"
     recovery_video_bucket: str = ""
     recovery_video_max_wait_seconds: int = 90

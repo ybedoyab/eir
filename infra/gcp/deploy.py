@@ -70,7 +70,7 @@ BASE_ENV = [
     # silently falls back to local disk, which on Cloud Run is RAM *and* is not shared between
     # the worker that generates a clip and the API that serves it, so every read 404s.
     "RECOVERY_VIDEO_ENABLED=true",
-    "VEO_MODEL=veo-3.1-fast-generate-preview",
+    "VEO_MODEL=veo-3.1-lite-generate-001",
     # Veo is not served on the global Vertex endpoint Gemini uses; it needs a real region.
     "VEO_LOCATION=us-central1",
     "RECOVERY_VIDEO_MAX_WAIT_SECONDS=90",

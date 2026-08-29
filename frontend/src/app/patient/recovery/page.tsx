@@ -294,6 +294,27 @@ function RecoveryVideoPanel({
       ? String(latestVideoEvent.payload.reason ?? "unknown error")
       : "";
 
+  // The worker generates the clip out of band and answers with a later event, so the panel
+  // has to come back for the result. Without this it refetches once — while the newest event
+  // is still RecoveryVideoRequested — and then settles on "Generating…" forever, for a
+  // success and a failure alike. That is what a stuck button looked like.
+  useEffect(() => {
+    if (!pending) {
+      return;
+    }
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      // Generation is capped server-side by RECOVERY_VIDEO_MAX_WAIT_SECONDS; give up well
+      // past that rather than polling a dead episode for the life of the tab.
+      if (Date.now() - startedAt > 180_000) {
+        window.clearInterval(timer);
+        return;
+      }
+      onRefresh();
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [pending, onRefresh]);
+
   const handleRegenerate = async () => {
     setRequesting(true);
     setError(null);
