@@ -25,13 +25,3 @@ def model_armor_gcloud_env(location: str = "us-central1") -> dict[str, str]:
         f"https://modelarmor.{location}.rep.googleapis.com/"
     )
     return env
-
-    redacted: list[str] = []
-    for arg in args:
-        if arg.startswith("--headers=X-Scheduler-Token="):
-            redacted.append(f"--headers=X-Scheduler-Token={_REDACTED}")
-        elif arg.startswith("X-Scheduler-Token="):
-            redacted.append(f"X-Scheduler-Token={_REDACTED}")
-        else:
-            redacted.append(arg)
-    return redacted

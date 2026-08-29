@@ -15,7 +15,7 @@ from pathlib import Path
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
-from gcloud_utils import redact_command_args
+from gcloud_utils import redact_command_args  # noqa: E402
 
 PROJECT = "eir-ata"
 LOCATION = "us-central1"
@@ -110,7 +110,11 @@ def _verify_gemini_access() -> int:
     script = """
 import os
 from google import genai
-from eir_shared.gemini_config import configure_genai_environment, resolve_gemini_model, genai_client_kwargs
+from eir_shared.gemini_config import (
+    configure_genai_environment,
+    genai_client_kwargs,
+    resolve_gemini_model,
+)
 configure_genai_environment(
     use_vertexai=True,
     use_enterprise=True,
@@ -143,7 +147,9 @@ def main() -> int:
             ["gcloud", "iam", "service-accounts", "describe", RUNTIME_SA, f"--project={PROJECT}"]
         )
         == 0,
-        "recovery_topic": _run(["gcloud", "pubsub", "topics", "describe", TOPIC, f"--project={PROJECT}"])
+        "recovery_topic": _run(
+            ["gcloud", "pubsub", "topics", "describe", TOPIC, f"--project={PROJECT}"]
+        )
         == 0,
         "recovery_subscription": _run(
             [

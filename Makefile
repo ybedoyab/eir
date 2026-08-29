@@ -24,7 +24,7 @@ test:
 	uv run --package eir-agents --group dev pytest agents/tests
 
 lint:
-	uv run ruff check shared backend agents
+	uv run ruff check shared backend agents infra/gcp
 	cd frontend && pnpm lint
 	cd frontend && pnpm typecheck
 

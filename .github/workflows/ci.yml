@@ -32,7 +32,10 @@ jobs:
       - name: Test agents
         run: uv run --package eir-agents --group dev pytest agents/tests
       - name: Lint Python
-        run: uv run ruff check shared backend agents
+        # infra/gcp is included deliberately: deploy.py runs only in the deploy job, so a
+        # module-level NameError in it is invisible until a production deploy is already
+        # underway. Linting it here fails the job the deploy depends on instead.
+        run: uv run ruff check shared backend agents infra/gcp
 
   frontend:
     runs-on: ubuntu-latest

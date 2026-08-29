@@ -13,7 +13,7 @@ from pathlib import Path
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
-from gcloud_utils import model_armor_gcloud_env, redact_command_args
+from gcloud_utils import model_armor_gcloud_env, redact_command_args  # noqa: E402
 
 PROJECT = "eir-ata"
 REGION = "us-central1"
@@ -65,12 +65,11 @@ BASE_ENV = [
     "MODEL_ARMOR_TEMPLATE=eir-agent-guard",
     "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false",
     "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=NO_CONTENT",
-    # Recovery video (Vertex AI Veo). RECOVERY_VIDEO_BUCKET is not optional here: without it
-    # the adapter silently falls back to local disk, which on Cloud Run is RAM *and* is not
-    # shared between the worker that generates a clip and the API that serves it, so every
-    # read 404s. Name must match google_storage_bucket.recovery_media in Terraform.
+    # Recovery video (Vertex AI Veo). RECOVERY_VIDEO_BUCKET is added in _shared_env, where the
+    # project number is known — it is not optional in this environment: without it the adapter
+    # silently falls back to local disk, which on Cloud Run is RAM *and* is not shared between
+    # the worker that generates a clip and the API that serves it, so every read 404s.
     "RECOVERY_VIDEO_ENABLED=true",
-    f"RECOVERY_VIDEO_BUCKET={RECOVERY_VIDEO_BUCKET}",
     "VEO_MODEL=veo-3.1-fast-generate-preview",
     # Veo is not served on the global Vertex endpoint Gemini uses; it needs a real region.
     "VEO_LOCATION=us-central1",
@@ -89,8 +88,6 @@ VOICE_SECRET_BINDINGS = (
     # which needs no Caller ID and no phone number.
     ("VOXIMPLANT_WEB_PASSWORD", "eir-voximplant-web-password"),
 )
-# Terraform: google_storage_bucket.recovery_media (infra/terraform/recovery_media_bucket.tf).
-RECOVERY_VIDEO_BUCKET = "eir-ata-recovery-media-658898892127"
 VOXIMPLANT_APPLICATION_ID = "11191282"
 VOXIMPLANT_RULE_ID = "1523546"
 
@@ -190,11 +187,17 @@ def _secret_exists(name: str) -> bool:
     return completed.returncode == 0
 
 
+def _recovery_video_bucket(project_number: str) -> str:
+    """Must match google_storage_bucket.recovery_media in infra/terraform."""
+    return f"eir-ata-recovery-media-{project_number}"
+
+
 def _shared_env(project_number: str) -> list[str]:
     ui_url = _service_url(UI_SERVICE, project_number)
     env = [
         *BASE_ENV,
         f"CORS_ORIGINS=http://localhost:3000,{ui_url}",
+        f"RECOVERY_VIDEO_BUCKET={_recovery_video_bucket(project_number)}",
     ]
     runtime_env = Path(".cursor") / "voximplant-runtime.env"
     if runtime_env.is_file():
@@ -208,7 +211,9 @@ def _shared_env(project_number: str) -> list[str]:
     elif _pstn_ready():
         merged = {item.split("=", 1)[0]: item for item in env}
         merged["VOICE_PROVIDER"] = "VOICE_PROVIDER=voximplant"
-        merged["VOXIMPLANT_APPLICATION_ID"] = f"VOXIMPLANT_APPLICATION_ID={VOXIMPLANT_APPLICATION_ID}"
+        merged["VOXIMPLANT_APPLICATION_ID"] = (
+            f"VOXIMPLANT_APPLICATION_ID={VOXIMPLANT_APPLICATION_ID}"
+        )
         merged["VOXIMPLANT_RULE_ID"] = f"VOXIMPLANT_RULE_ID={VOXIMPLANT_RULE_ID}"
         env = list(merged.values())
         print("VOICE_PROVIDER=voximplant (PSTN secrets present)", flush=True)
@@ -456,7 +461,8 @@ def _ensure_model_armor() -> int:
 
 def _ensure_scheduler_secret() -> int:
     if _run(["gcloud", "secrets", "describe", SCHEDULER_SECRET_NAME, f"--project={PROJECT}"]) != 0:
-        if _run(["gcloud", "secrets", "create", SCHEDULER_SECRET_NAME, f"--project={PROJECT}"]) != 0:
+        create = ["gcloud", "secrets", "create", SCHEDULER_SECRET_NAME, f"--project={PROJECT}"]
+        if _run(create) != 0:
             return 1
 
     versions = subprocess.run(
