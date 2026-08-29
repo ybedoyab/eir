@@ -262,6 +262,14 @@ export async function bootstrapDemo(fastForward = false) {
   });
 }
 
+export async function getDemoContext(episodeId: string) {
+  return getJson<{
+    episode_id: string;
+    patient_id: string;
+    medications: import("@/types").PatientMedication[];
+  }>(`/api/v1/demo/context/${encodeURIComponent(episodeId)}`);
+}
+
 export async function advanceDemoFollowUp(episodeId: string) {
   return postJson<import("@/types").DemoAdvanceResponse>(
     `/api/v1/demo/advance-follow-up/${episodeId}`,

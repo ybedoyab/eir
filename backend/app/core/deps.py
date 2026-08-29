@@ -460,25 +460,30 @@ def _build_voice(*, testing: bool) -> Any:
     if testing:
         return voice_provider("mock")
     name = settings.voice_provider.strip().lower() or "synthetic"
-    if name != "voximplant":
-        return voice_provider(name)
-    try:
-        return voice_provider(
-            "voximplant",
-            credentials_source=settings.voximplant_runtime_credentials,
-            rule_id=settings.voximplant_rule_id,
-            application_id=settings.voximplant_application_id or None,
-            demo_phone_e164=settings.eir_demo_phone_e164,
-            caller_id_e164=settings.voximplant_caller_id_e164,
-            gemini_live_model=settings.gemini_live_model,
-            allow_non_synthetic=settings.voice_allow_non_synthetic,
-        )
-    except Exception:
-        if settings.environment.strip().lower() == "production":
-            logger.exception("Voximplant voice provider unavailable")
-            raise
-        logger.exception("Voximplant voice provider unavailable; using synthetic fallback")
-        return voice_provider("synthetic")
+    if name == "voximplant":
+        try:
+            return voice_provider(
+                "voximplant",
+                credentials_source=settings.voximplant_runtime_credentials,
+                rule_id=settings.voximplant_rule_id,
+                application_id=settings.voximplant_application_id or None,
+                demo_phone_e164=settings.eir_demo_phone_e164,
+                caller_id_e164=settings.voximplant_caller_id_e164,
+                gemini_live_model=settings.gemini_live_model,
+                allow_non_synthetic=settings.voice_allow_non_synthetic,
+            )
+        except Exception:
+            if web_voice_enabled():
+                logger.exception("Voximplant PSTN unavailable; using in-page Gemini Live")
+                return voice_provider("browser")
+            if settings.environment.strip().lower() == "production":
+                logger.exception("Voximplant voice provider unavailable")
+                raise
+            logger.exception("Voximplant voice provider unavailable; using synthetic fallback")
+            return voice_provider("synthetic")
+    if web_voice_enabled():
+        return voice_provider("browser")
+    return voice_provider(name)
 
 
 def _build_supplier_voice(*, testing: bool) -> Any:

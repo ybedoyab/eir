@@ -9,6 +9,7 @@ import pytest
 from app.core.config import settings
 from app.core.deps import _build_voice, get_container
 from app.integrations.voice.providers import (
+    BrowserAwaitVoiceProvider,
     SyntheticVoiceProvider,
     VoximplantVoiceProvider,
     voice_provider,
@@ -51,6 +52,24 @@ def test_synthetic_voice_provider_still_sync() -> None:
     provider = SyntheticVoiceProvider()
     assert provider.mode == "sync"
     assert provider.provider_name == "synthetic"
+
+
+def test_browser_await_provider_does_not_invent_a_checkin() -> None:
+    import asyncio
+
+    provider = BrowserAwaitVoiceProvider()
+    assert provider.mode == "async"
+    result = asyncio.run(
+        handle_follow_up(
+            FollowUpDue(episode_id="ep-web"),
+            patient_id="patient-synthetic-001",
+            voice=provider,
+        )
+    )
+    types = [event.event_type for event in result.next_events]
+    assert types == ["VoiceCallStarted"]
+    assert result.next_events[0].payload["provider"] == "voximplant-web"
+    assert result.next_events[0].payload["transport"] == "webrtc"
 
 
 def test_synthetic_alex_conversation_reports_missed_medications() -> None:
@@ -239,9 +258,36 @@ def test_completed_callback_publishes_patient_responded(monkeypatch) -> None:
         assert responded["payload"]["pain_score"] == 8
         assert responded["payload"]["synthetic"] is False
         assert responded["payload"]["provider"] == "voximplant"
+        assert responded["payload"]["transport"] == "pstn"
         assert "transcript" not in responded["payload"]
         assert "transcript" not in completed_event["payload"]
         assert "issue_summary" in responded["payload"]
+
+
+def test_web_callback_marks_webrtc_transport(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "voximplant_callback_token", "voice-test-token")
+    with TestClient(app) as client:
+        boot = client.post("/api/v1/demo/bootstrap", json={"fast_forward": False})
+        episode_id = boot.json()["episode_id"]
+        completed = client.post(
+            "/api/v1/voice/voximplant/callback",
+            headers=_headers(),
+            json={
+                "episode_id": episode_id,
+                "correlation_id": f"web-{uuid4().hex[:16]}",
+                "state": "CALL_COMPLETED",
+                "pain_score": 2,
+                "reported_issue": False,
+                "medication_adherence": "no",
+                "call_outcome": "completed",
+            },
+        )
+        assert completed.status_code == 200
+        events = client.get(f"/api/v1/recovery/{episode_id}/events").json()
+        responded = next(item for item in events if item["event_type"] == "PatientResponded")
+        assert responded["payload"]["transport"] == "webrtc"
+        assert responded["payload"]["synthetic"] is False
+        assert responded["payload"]["medication_adherence"] == "no"
 
 
 def test_callback_adherence_no_on_critical_medication_escalates(monkeypatch) -> None:
@@ -438,8 +484,20 @@ def test_production_does_not_fall_back_to_synthetic_voice(monkeypatch) -> None:
     monkeypatch.setattr(settings, "environment", "production")
     monkeypatch.setattr(settings, "voximplant_runtime_credentials", "")
     monkeypatch.setattr(settings, "voximplant_rule_id", "1")
+    monkeypatch.setattr(settings, "voximplant_web_password", "")
     with pytest.raises(RuntimeError, match="VOXIMPLANT_RUNTIME_CREDENTIALS"):
         _build_voice(testing=False)
+
+
+def test_web_voice_used_when_pstn_is_not_configured(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "voice_provider", "synthetic")
+    monkeypatch.setattr(settings, "voximplant_account_name", "ysbedoya0")
+    monkeypatch.setattr(settings, "voximplant_application_name", "eir-recovery")
+    monkeypatch.setattr(settings, "voximplant_web_user", "eir-preview-user")
+    monkeypatch.setattr(settings, "voximplant_web_password", "preview-password")
+    voice = _build_voice(testing=False)
+    assert voice.provider_name == "voximplant-web"
+    assert voice.mode == "async"
 
 
 def test_non_production_falls_back_to_synthetic_voice(monkeypatch) -> None:
@@ -447,5 +505,6 @@ def test_non_production_falls_back_to_synthetic_voice(monkeypatch) -> None:
     monkeypatch.setattr(settings, "environment", "development")
     monkeypatch.setattr(settings, "voximplant_runtime_credentials", "")
     monkeypatch.setattr(settings, "voximplant_rule_id", "1")
+    monkeypatch.setattr(settings, "voximplant_web_password", "")
     voice = _build_voice(testing=False)
     assert voice.provider_name == "synthetic"

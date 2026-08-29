@@ -18,6 +18,7 @@ from app.services.demo_controls import (
     require_synthetic_episode,
 )
 from app.services.follow_up_scheduler import FollowUpScheduler
+from app.services.medications import medications_for_patient
 from app.services.recovery_service import RecoveryService
 from app.services.stock_monitor import StockMonitor
 
@@ -63,6 +64,10 @@ async def bootstrap_demo(body: DemoBootstrapRequest) -> dict:
         if follow_up is not None:
             await container.event_bus.publish(follow_up)
     episode = container.episodes.get(episode.id) or episode
+    medications = medications_for_patient(
+        container.fhir.get_medications(episode.patient_id),
+        container.supply.list_items(),
+    )
     return {
         "episode_id": episode.id,
         "patient_id": episode.patient_id,
@@ -72,12 +77,13 @@ async def bootstrap_demo(body: DemoBootstrapRequest) -> dict:
         "next_follow_up_at": episode.next_follow_up_at,
         "fast_forwarded": follow_up is not None,
         "monitoring": True,
+        "medications": [item.model_dump(mode="json") for item in medications],
         "story": [
             "Consultation finished → RecoveryEpisodeStarted",
             "Next autonomous follow-up scheduled",
             "POST /api/v1/demo/advance-follow-up/{episode_id} uses FollowUpScheduler",
             "FollowUpDue published through EventBus → worker outreach_agent",
-            "Voximplant PSTN + Gemini Live (async callback) → PatientResponded",
+            "Voximplant PSTN + Gemini Live, or in-page WebRTC check-in → PatientResponded",
             "risk_agent evaluates structured recovery check-in",
             f"POST /api/v1/security/demo/prompt-injection/{episode.id}",
             f"POST /api/v1/demo/concerning-signal/{episode.id} (backup if PSTN unavailable)",
@@ -178,6 +184,25 @@ async def retry_voice(episode_id: str) -> dict:
         "retried": True,
         "episode_id": episode_id,
         "event": event.event_type,
+    }
+
+
+@router.get("/context/{episode_id}")
+def demo_context(episode_id: str) -> dict:
+    """Medications and voice hints for the guided demo. Synthetic episodes only."""
+    container = get_container()
+    require_synthetic_episode(container.episodes, episode_id)
+    episode = container.episodes.get(episode_id)
+    if episode is None:
+        raise HTTPException(status_code=404, detail="Recovery episode not found")
+    medications = medications_for_patient(
+        container.fhir.get_medications(episode.patient_id),
+        container.supply.list_items(),
+    )
+    return {
+        "episode_id": episode.id,
+        "patient_id": episode.patient_id,
+        "medications": [item.model_dump(mode="json") for item in medications],
     }
 
 

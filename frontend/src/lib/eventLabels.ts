@@ -76,8 +76,8 @@ const EVENT_LABELS: Record<string, { title: string; description: string }> = {
     description: "The recovery workflow reached a terminal state.",
   },
   VoiceCallStarted: {
-    title: "Phone outreach started",
-    description: "The recovery fleet requested a real outbound PSTN call.",
+    title: "Voice outreach started",
+    description: "The recovery fleet requested an outbound voice check-in.",
   },
   VoiceCallConnected: {
     title: "Call connected",
@@ -190,7 +190,9 @@ export function eventOutcome(event: { event_type: string; payload: Record<string
     return "Autonomous outreach scheduled";
   }
   if (event.event_type === "VoiceCallStarted") {
-    return `Provider: ${String(event.payload.provider ?? "unknown")}`;
+    const provider = String(event.payload.provider ?? "unknown");
+    const transport = String(event.payload.transport ?? "").trim();
+    return transport ? `Provider: ${provider} · ${transport}` : `Provider: ${provider}`;
   }
   if (event.event_type === "VoiceCallCompleted") {
     const pain = event.payload.pain_score;

@@ -23,6 +23,8 @@ def test_demo_bootstrap_schedules_future_follow_up() -> None:
         assert body["patient_name"] == "Alex Rivera"
         assert body["monitoring"] is True
         assert body["fast_forwarded"] is False
+        skus = {item["sku"] for item in body["medications"]}
+        assert "MED-ENOX-40" in skus
         due = datetime.fromisoformat(body["next_follow_up_at"].replace("Z", "+00:00"))
         assert due > datetime.now(UTC)
         events = client.get(f"/api/v1/recovery/{body['episode_id']}/events").json()
@@ -56,6 +58,11 @@ def test_demo_advance_uses_scheduler_not_direct_trigger(monkeypatch) -> None:
 
         events = client.get(f"/api/v1/recovery/{episode_id}/events").json()
         assert "FollowUpDue" in [item["event_type"] for item in events]
+
+        context = client.get(f"/api/v1/demo/context/{episode_id}")
+        assert context.status_code == 200
+        skus = {item["sku"] for item in context.json()["medications"]}
+        assert "MED-ENOX-40" in skus
 
         again = client.post(f"/api/v1/demo/advance-follow-up/{episode_id}")
         assert again.status_code == 200
