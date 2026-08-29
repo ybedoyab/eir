@@ -33,6 +33,7 @@ function adapterRows(runtime: RuntimeStatus | null): AdapterRow[] {
   const voice = fleet.voice;
   const armorReal = runtime.content_guard.managed_model_armor_available === true;
   const voiceReal = voice?.active_provider === "voximplant";
+  const video = fleet.recovery_video;
   return [
     {
       name: "event_bus",
@@ -63,6 +64,17 @@ function adapterRows(runtime: RuntimeStatus | null): AdapterRow[] {
       name: "voice",
       state: voice ? (voiceReal ? "real" : "fallback") : "unknown",
       detail: voiceProviderLabel(voice?.active_provider).toLowerCase(),
+    },
+    {
+      name: "recovery_video",
+      // Off is not degraded: the feature ships behind a flag, so an unconfigured adapter is
+      // "unknown", and only a configured-but-failing Veo counts as a fallback.
+      state: !video?.configured ? "unknown" : video.last_success === false ? "fallback" : "real",
+      detail: !video?.configured
+        ? "disabled"
+        : video.last_error
+          ? `${video.storage?.backend ?? "veo"} · ${video.last_error}`
+          : `${video.adapter} · ${video.storage?.backend ?? "unknown"}`,
     },
   ];
 }

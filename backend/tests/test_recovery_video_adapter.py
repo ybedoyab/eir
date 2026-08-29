@@ -212,3 +212,119 @@ def test_disabled_build_returns_the_honest_fallback(tmp_path: Path) -> None:
     assert result.ok is False
     assert result.error == "recovery_video_disabled"
     assert client.status()["mode"] == "fallback"
+
+
+# --- Vertex vs Developer API response shapes --------------------------------
+# Veo answers with inline bytes on the Gemini Developer API and with a GCS URI on Vertex.
+# The deployed runtime sets GOOGLE_GENAI_USE_VERTEXAI=TRUE, so the adapter has to accept
+# either shape rather than betting on one.
+
+
+class _FakeBlob:
+    def __init__(self, payload: bytes | None) -> None:
+        self._payload = payload
+        self.deleted = False
+
+    def exists(self) -> bool:
+        return self._payload is not None
+
+    def download_as_bytes(self) -> bytes:
+        assert self._payload is not None
+        return self._payload
+
+    def delete(self) -> None:
+        self.deleted = True
+
+
+def test_staging_uri_is_requested_only_when_a_bucket_is_configured(tmp_path: Path) -> None:
+    with_bucket = build_video_client(
+        enabled=True,
+        client_kwargs={},
+        model="veo-test",
+        max_wait_seconds=5,
+        bucket_name="some-bucket",
+        local_dir=tmp_path,
+    )
+    assert with_bucket.status()["staging_gcs_uri"] == "gs://some-bucket/veo-staging/"
+
+    without_bucket = build_video_client(
+        enabled=True,
+        client_kwargs={},
+        model="veo-test",
+        max_wait_seconds=5,
+        bucket_name="",
+        local_dir=tmp_path,
+    )
+    assert without_bucket.status()["staging_gcs_uri"] is None
+
+
+class _FakeBucket:
+    def __init__(self, blob: _FakeBlob) -> None:
+        self._blob = blob
+        self.asked_for: str | None = None
+
+    def blob(self, name: str) -> _FakeBlob:
+        self.asked_for = name
+        return self._blob
+
+
+class _FakeStorageClient:
+    def __init__(self, bucket: _FakeBucket) -> None:
+        self._bucket = bucket
+        self.asked_for: str | None = None
+
+    def bucket(self, name: str) -> _FakeBucket:
+        self.asked_for = name
+        return self._bucket
+
+
+def _patch_storage(monkeypatch: pytest.MonkeyPatch, blob: _FakeBlob) -> _FakeStorageClient:
+    """Stand in for ``google.cloud.storage`` at the import site inside _read_staged."""
+    from google.cloud import storage as real_storage
+
+    bucket = _FakeBucket(blob)
+    client = _FakeStorageClient(bucket)
+    monkeypatch.setattr(real_storage, "Client", lambda *a, **k: client)
+    return client
+
+
+def test_gcs_staged_clip_is_downloaded_and_the_staged_object_removed(
+    storage: LocalVideoStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    adapter = VeoVideoAdapter(
+        client_kwargs={},
+        model="veo-test",
+        max_wait_seconds=5,
+        storage=storage,
+        staging_gcs_uri="gs://bucket/veo-staging/",
+    )
+    blob = _FakeBlob(b"staged-mp4")
+    client = _patch_storage(monkeypatch, blob)
+
+    assert adapter._read_staged("gs://bucket/veo-staging/clip.mp4") == b"staged-mp4"
+    assert client.asked_for == "bucket"
+    assert client._bucket.asked_for == "veo-staging/clip.mp4"
+    # The staged object is a hand-off, not the record: it must not be left behind.
+    assert blob.deleted is True
+
+
+def test_a_missing_staged_object_is_refused_with_a_label(
+    storage: LocalVideoStorage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    adapter = VeoVideoAdapter(
+        client_kwargs={}, model="veo-test", max_wait_seconds=5, storage=storage
+    )
+    _patch_storage(monkeypatch, _FakeBlob(None))
+    with pytest.raises(Exception) as excinfo:
+        adapter._read_staged("gs://bucket/veo-staging/gone.mp4")
+    assert excinfo.value.reason == "staged_video_missing"
+
+
+@pytest.mark.parametrize("uri", ["https://example.com/clip.mp4", "gs://bucket-only"])
+def test_a_non_gcs_uri_is_refused_with_a_label(storage: LocalVideoStorage, uri: str) -> None:
+    adapter = VeoVideoAdapter(
+        client_kwargs={}, model="veo-test", max_wait_seconds=5, storage=storage
+    )
+    with pytest.raises(Exception) as excinfo:
+        adapter._read_staged(uri)
+    assert excinfo.value.reason == "unexpected_video_uri"

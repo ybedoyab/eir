@@ -65,6 +65,19 @@ BASE_ENV = [
     "MODEL_ARMOR_TEMPLATE=eir-agent-guard",
     "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false",
     "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=NO_CONTENT",
+    # Recovery video (Vertex AI Veo). RECOVERY_VIDEO_BUCKET is not optional here: without it
+    # the adapter silently falls back to local disk, which on Cloud Run is RAM *and* is not
+    # shared between the worker that generates a clip and the API that serves it, so every
+    # read 404s. Name must match google_storage_bucket.recovery_media in Terraform.
+    "RECOVERY_VIDEO_ENABLED=true",
+    f"RECOVERY_VIDEO_BUCKET={RECOVERY_VIDEO_BUCKET}",
+    "VEO_MODEL=veo-3.1-fast-generate-preview",
+    # Veo is not served on the global Vertex endpoint Gemini uses; it needs a real region.
+    "VEO_LOCATION=us-central1",
+    "RECOVERY_VIDEO_MAX_WAIT_SECONDS=90",
+    "RECOVERY_VIDEO_DURATION_SECONDS=8",
+    "RECOVERY_VIDEO_COOLDOWN_SECONDS=60",
+    "RECOVERY_VIDEO_DAILY_LIMIT=25",
 ]
 
 VOICE_SECRET_BINDINGS = (
@@ -76,6 +89,8 @@ VOICE_SECRET_BINDINGS = (
     # which needs no Caller ID and no phone number.
     ("VOXIMPLANT_WEB_PASSWORD", "eir-voximplant-web-password"),
 )
+# Terraform: google_storage_bucket.recovery_media (infra/terraform/recovery_media_bucket.tf).
+RECOVERY_VIDEO_BUCKET = "eir-ata-recovery-media-658898892127"
 VOXIMPLANT_APPLICATION_ID = "11191282"
 VOXIMPLANT_RULE_ID = "1523546"
 

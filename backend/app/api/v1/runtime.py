@@ -33,6 +33,9 @@ def runtime_status() -> dict:
             "pubsub_handle": adapters["pubsub_handle"],
             "workflow_subscriber": adapters["workflow_subscriber"],
             "voice": adapters.get("voice", {}),
+            # Every adapter the fleet page draws has to reach it from here; /health alone is
+            # not enough, or a degraded Veo is invisible in the UI.
+            "recovery_video": adapters.get("recovery_video", {}),
             "platform": adapters.get("platform_verification", {}),
         },
     }

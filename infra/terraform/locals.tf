@@ -7,6 +7,7 @@ locals {
     "cloudbuild.googleapis.com",
     "pubsub.googleapis.com",
     "firestore.googleapis.com",
+    "storage.googleapis.com",
     "healthcare.googleapis.com",
     "aiplatform.googleapis.com",
     "secretmanager.googleapis.com",

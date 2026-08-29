@@ -154,6 +154,15 @@ export interface RuntimeStatus {
       gemini_live_voice: string;
       admin_credentials_used_at_runtime: boolean;
     };
+    recovery_video?: {
+      configured: boolean;
+      mode: string;
+      adapter: string;
+      model?: string;
+      storage?: { backend: string; bucket?: string };
+      last_success?: boolean | null;
+      last_error?: string | null;
+    };
     platform?: {
       managed_agent_runtime_verified?: boolean;
       managed_memory_bank_verified?: boolean;

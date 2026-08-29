@@ -38,6 +38,10 @@ output "fhir_store" {
   value = google_healthcare_fhir_store.fhir_r4.id
 }
 
+output "recovery_media_bucket" {
+  value = google_storage_bucket.recovery_media.name
+}
+
 output "recovery_topic" {
   value = google_pubsub_topic.recovery_events.id
 }

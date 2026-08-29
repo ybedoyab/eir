@@ -36,6 +36,8 @@ logger = logging.getLogger("eir.recovery_video")
 
 CACHED_PREFIX = "clips/"
 ADHOC_PREFIX = "clips/adhoc/"
+# Where Vertex drops the clip before we copy it under a content-addressed key and delete it.
+STAGING_PREFIX = "veo-staging/"
 
 # Filenames are minted by _target() below, never by a caller. The route re-derives the storage
 # key from an untrusted URL path, so both halves are matched against these before they are
@@ -270,11 +272,13 @@ class VeoVideoAdapter:
         storage: VideoStorage,
         quota: VideoQuota | None = None,
         duration_seconds: int = 8,
+        staging_gcs_uri: str = "",
     ) -> None:
         self._client_kwargs = client_kwargs
         self._model = model
         self._max_wait_seconds = max_wait_seconds
         self._storage = storage
+        self._staging_gcs_uri = staging_gcs_uri
         self._quota = quota or UnlimitedVideoQuota()
         self.duration_seconds = duration_seconds
         self._client: Any | None = None
@@ -290,6 +294,7 @@ class VeoVideoAdapter:
             "duration_seconds": self.duration_seconds,
             "max_wait_seconds": self._max_wait_seconds,
             "storage": self._storage.describe(),
+            "staging_gcs_uri": self._staging_gcs_uri or None,
             "quota": self._quota.describe(),
             "last_success": self._last_success,
             "last_error": self._last_error,
@@ -375,14 +380,21 @@ class VeoVideoAdapter:
         from google.genai import types
 
         client = self._client_instance()
+        config: dict[str, Any] = {
+            "number_of_videos": 1,
+            "duration_seconds": self.duration_seconds,
+            "aspect_ratio": "9:16",
+        }
+        # On Vertex, Veo writes the clip to GCS and answers with a URI rather than inline
+        # bytes; the Gemini Developer API answers inline. We ask for the GCS form whenever a
+        # bucket is configured (the Vertex AI service agent holds objectAdmin on it) and still
+        # accept either shape below, so the adapter does not depend on which backend answers.
+        if self._staging_gcs_uri:
+            config["output_gcs_uri"] = self._staging_gcs_uri
         operation = client.models.generate_videos(
             model=self._model,
             prompt=prompt,
-            config=types.GenerateVideosConfig(
-                number_of_videos=1,
-                duration_seconds=self.duration_seconds,
-                aspect_ratio="9:16",
-            ),
+            config=types.GenerateVideosConfig(**config),
         )
         deadline = time.monotonic() + self._max_wait_seconds
         while not operation.done:
@@ -402,12 +414,34 @@ class VeoVideoAdapter:
         data = getattr(video, "video_bytes", None)
         if data:
             return bytes(data)
-        # Vertex can answer with a GCS URI instead of inline bytes when the request carried an
-        # output_gcs_uri. Phase 2's poller takes that path deliberately; until then, refuse
-        # with a label rather than crashing on a None.
-        if getattr(video, "uri", None):
-            raise _VeoFailure("vertex_returned_gcs_uri")
+        uri = getattr(video, "uri", None)
+        if uri:
+            return self._read_staged(str(uri))
         raise _VeoFailure("no_video_bytes")
+
+    def _read_staged(self, uri: str) -> bytes:
+        """Pull the bytes Veo staged in GCS, then drop the staged object.
+
+        Our own content-addressed copy is the record the proxy route serves; the staged object
+        is a transient hand-off and would otherwise sit in the bucket until the lifecycle rule
+        swept it.
+        """
+        if not uri.startswith("gs://"):
+            raise _VeoFailure("unexpected_video_uri")
+        bucket_name, _, blob_name = uri[len("gs://") :].partition("/")
+        if not bucket_name or not blob_name:
+            raise _VeoFailure("unexpected_video_uri")
+        from google.cloud import storage
+
+        blob = storage.Client().bucket(bucket_name).blob(blob_name)
+        if not blob.exists():
+            raise _VeoFailure("staged_video_missing")
+        data = blob.download_as_bytes()
+        try:
+            blob.delete()
+        except Exception:  # noqa: BLE001 - the bucket lifecycle rule is the backstop
+            logger.warning("Could not delete staged Veo object %s", uri)
+        return bytes(data)
 
     def _record(self, success: bool, error: str | None) -> None:
         self._last_success = success
@@ -436,6 +470,9 @@ def build_video_client(
     storage: VideoStorage = (
         GcsVideoStorage(bucket_name) if bucket_name else LocalVideoStorage(local_dir)
     )
+    # Only meaningful with a bucket: it is where Vertex stages the clip before we copy it to
+    # the content-addressed key. Empty on local disk, where Veo answers with inline bytes.
+    staging_gcs_uri = f"gs://{bucket_name}/{STAGING_PREFIX}" if bucket_name else ""
     return VeoVideoAdapter(
         client_kwargs=client_kwargs,
         model=model,
@@ -443,4 +480,5 @@ def build_video_client(
         storage=storage,
         quota=quota,
         duration_seconds=duration_seconds,
+        staging_gcs_uri=staging_gcs_uri,
     )
