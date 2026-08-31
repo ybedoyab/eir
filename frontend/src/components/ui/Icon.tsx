@@ -234,6 +234,14 @@ const GLYPHS = {
       </>
     ),
   },
+  pill: {
+    path: (
+      <>
+        <rect x="2.6" y="8.4" width="18.8" height="7.2" rx="3.6" transform="rotate(-45 12 12)" />
+        <path d="M8.5 8.5 15.5 15.5" />
+      </>
+    ),
+  },
 } satisfies Record<string, Glyph>;
 
 export type IconName = keyof typeof GLYPHS;

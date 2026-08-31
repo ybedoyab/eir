@@ -23,6 +23,7 @@ import {
 import { loadSession } from "@/lib/auth";
 import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { formatWhen } from "@/lib/format";
+import { buildRecommendationGroups } from "@/lib/recommendations";
 import { episodeStatus, riskStatus } from "@/lib/statusLabels";
 import { eventLabel } from "@/lib/eventLabels";
 import {
@@ -110,6 +111,7 @@ export default function PatientRecoveryPage() {
             onRefresh={refreshQuietly}
           />
           <MedicationsSection medications={medications} events={eventsById[active.id] ?? []} />
+          <RecommendationsSection events={eventsById[active.id] ?? []} />
         </>
       ) : (
         <EmptyState
@@ -404,6 +406,66 @@ function MedicationsSection({
       ) : (
         <p className="mt-4 text-[0.9375rem] text-muted">No prescribed medications on file.</p>
       )}
+    </section>
+  );
+}
+
+/**
+ * Groups the episode's care-plan items into themed guidance.
+ *
+ * Reads the same `tasks` payload as "Care tasks" and as the Veo narration, but presents it as
+ * themes rather than a flat checklist — Care tasks answers "what am I meant to do", this
+ * answers "what should I be paying attention to". Every line is either the clinician's own
+ * wording or a fixed baseline string; nothing here is generated.
+ */
+function RecommendationsSection({ events }: { events: DomainEvent[] }) {
+  const started = events.find((item) => item.event_type === RECOVERY_EVENTS.episodeStarted);
+  const tasks = Array.isArray(started?.payload.tasks) ? (started?.payload.tasks as string[]) : [];
+  const groups = buildRecommendationGroups(tasks);
+
+  if (!groups.length) return null;
+
+  return (
+    <section className="flex flex-col">
+      <SectionHeader
+        level="major"
+        title="Recommendations"
+        description="Grouped from the care plan your clinician approved for this recovery. General guidance fills in only where your plan does not already say something."
+        meta={`${groups.length} ${groups.length === 1 ? "theme" : "themes"}`}
+      />
+      <ul className="grid gap-4 sm:grid-cols-2">
+        {groups.map((group) => (
+          <li
+            key={group.id}
+            className="eir-panel on-raised flex flex-col gap-3 border border-rule bg-raised px-6 py-5"
+          >
+            <span className="flex items-center gap-2.5">
+              <span className="text-accent" aria-hidden>
+                <Icon name={group.icon} size={16} />
+              </span>
+              <h3 className="font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-accent">
+                {group.label}
+              </h3>
+            </span>
+            <ul className="flex flex-col gap-2.5">
+              {group.items.map((item) => (
+                <li key={item.text} className="flex flex-col gap-1">
+                  <span className="text-[1.0625rem] leading-relaxed text-body">{item.text}</span>
+                  {item.source === "general" ? (
+                    <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+                      General guidance
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-6 max-w-[68ch] text-[0.875rem] leading-relaxed text-muted">
+        These reflect your approved care plan, not a diagnosis. Contact your care team about
+        anything new or worsening.
+      </p>
     </section>
   );
 }
