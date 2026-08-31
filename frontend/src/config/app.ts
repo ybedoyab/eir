@@ -78,6 +78,7 @@ export const API_ROUTES = {
   demoContext: "/api/v1/demo/context",
   demoFollowUp: "/api/v1/demo/advance-follow-up",
   demoSignal: "/api/v1/demo/concerning-signal",
+  demoMockCheckin: "/api/v1/demo/mock-checkin",
   demoVoiceRetry: "/api/v1/demo/retry-voice",
   promptInjection: "/api/v1/security/demo/prompt-injection",
   voiceWebSession: "/api/v1/voice/web-session",

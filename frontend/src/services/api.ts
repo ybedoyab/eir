@@ -291,6 +291,30 @@ export async function simulateConcerningSignal(episodeId: string) {
   }>(`${API_ROUTES.demoSignal}/${episodeId}`, {});
 }
 
+export type MockCheckinInput = {
+  pain_score: number | null;
+  reported_issue: boolean;
+  issue_summary: string;
+  symptoms_worsening?: boolean;
+  medication_adherence: "yes" | "no" | "unknown";
+  patient_requests_clinician?: boolean;
+  medications?: { sku: string; taken: boolean }[];
+};
+
+/** Typed stand-in for the spoken answers, for when a demo call ends early. */
+export async function submitMockCheckin(episodeId: string, input: MockCheckinInput) {
+  return postJson<{
+    published: string;
+    episode_id: string;
+    simulated: boolean;
+    signal: {
+      pain_score: number | null;
+      reported_issue: boolean;
+      medication_adherence: string;
+    };
+  }>(`${API_ROUTES.demoMockCheckin}/${episodeId}`, input);
+}
+
 export async function retryDemoVoice(episodeId: string) {
   return postJson<{ retried: boolean; episode_id: string; event: string }>(
     `${API_ROUTES.demoVoiceRetry}/${episodeId}`,

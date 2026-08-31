@@ -142,6 +142,8 @@ export function currentStepIndex(completed: boolean[]): number {
   return Math.max(0, firstOpen);
 }
 
+export type DemoAwait = "follow-up" | "attack" | "concerning" | "mock" | "review" | null;
+
 export type DemoActivity = {
   title: string;
   detail?: string;
@@ -151,7 +153,7 @@ export function demoActivity(input: {
   completed: boolean[];
   events: DomainEvent[];
   history: AdkWorkerTelemetry[];
-  awaiting: "follow-up" | "attack" | "concerning" | "review" | null;
+  awaiting: DemoAwait;
   pendingReview: boolean;
 }): DemoActivity | null {
   const { completed, events, history, awaiting, pendingReview } = input;
@@ -202,6 +204,12 @@ export function demoActivity(input: {
   if (awaiting === "follow-up" && completed[3] && !historyHas(history, "risk_agent") && !completed[4]) {
     return { title: "Risk agent is evaluating…" };
   }
+  if (awaiting === "mock" && !completed[3]) {
+    return {
+      title: "Recording the typed check-in…",
+      detail: "The answers go onto the same event bus the spoken call uses, flagged as simulated.",
+    };
+  }
   if (awaiting === "attack" && !completed[6]) {
     return { title: "Model Armor screening inbound message…" };
   }
@@ -212,7 +220,7 @@ export function demoActivity(input: {
 }
 
 export function demoNeedsFastPoll(input: {
-  awaiting: "follow-up" | "attack" | "concerning" | "review" | null;
+  awaiting: DemoAwait;
   activity: DemoActivity | null;
 }): boolean {
   return input.awaiting !== null || input.activity !== null;

@@ -14,6 +14,8 @@ from app.services.demo_controls import (
     CONCERNING_MESSAGE,
     claim_demo_action,
     has_concerning_signal,
+    has_recovery_checkin,
+    mock_checkin_payload,
     require_demo_sku,
     require_synthetic_episode,
 )
@@ -87,6 +89,7 @@ async def bootstrap_demo(body: DemoBootstrapRequest) -> dict:
             "risk_agent evaluates structured recovery check-in",
             f"POST /api/v1/security/demo/prompt-injection/{episode.id}",
             f"POST /api/v1/demo/concerning-signal/{episode.id} (backup if PSTN unavailable)",
+            f"POST /api/v1/demo/mock-checkin/{episode.id} (typed answers if the call ends early)",
         ],
         "malicious_prompt": DEMO_MALICIOUS_PROMPT,
     }
@@ -154,6 +157,73 @@ async def concerning_signal(episode_id: str) -> dict:
         "expected": "risk_agent escalates; clinician review may open",
         "signal": {"pain_score": 8, "reported_issue": "swelling"},
         "backup": True,
+    }
+
+
+class MockMedication(BaseModel):
+    sku: str = ""
+    taken: bool = True
+
+
+class MockCheckinRequest(BaseModel):
+    """Typed stand-in for the answers a patient would speak on the call."""
+
+    pain_score: int | None = 8
+    reported_issue: bool = True
+    issue_summary: str = "swelling near the incision"
+    symptoms_worsening: bool = False
+    medication_adherence: str = "unknown"
+    patient_requests_clinician: bool = False
+    medications: list[MockMedication] = Field(default_factory=list)
+
+
+@router.post("/mock-checkin/{episode_id}")
+async def mock_checkin(episode_id: str, body: MockCheckinRequest) -> dict:
+    """Publish a typed recovery check-in when the live call did not produce one.
+
+    A demo call that is hung up early leaves the episode with no structured
+    answers and nothing for the risk agent to assess. This puts the same event
+    on the same bus -- flagged synthetic, never dressed up as a spoken reply.
+    """
+    container = get_container()
+    require_synthetic_episode(container.episodes, episode_id)
+    events = container.episodes.list_events(episode_id)
+    if has_recovery_checkin(events):
+        raise HTTPException(
+            status_code=409,
+            detail="This episode already has a recovery check-in",
+        )
+    if not claim_demo_action(episode_id, "mock-checkin"):
+        raise HTTPException(
+            status_code=409,
+            detail="Mock check-in already submitted for this demo episode",
+        )
+    payload = mock_checkin_payload(
+        pain_score=body.pain_score,
+        reported_issue=body.reported_issue,
+        issue_summary=body.issue_summary,
+        symptoms_worsening=body.symptoms_worsening,
+        medication_adherence=body.medication_adherence,
+        medications=[item.model_dump() for item in body.medications],
+        patient_requests_clinician=body.patient_requests_clinician,
+    )
+    event = PatientResponded(
+        episode_id=episode_id,
+        channel="voice",
+        payload=payload,
+    )
+    container.episodes.append_event(episode_id, event)
+    await container.event_bus.publish(event)
+    return {
+        "published": event.event_type,
+        "episode_id": episode_id,
+        "simulated": True,
+        "signal": {
+            "pain_score": payload["pain_score"],
+            "reported_issue": payload["reported_issue"],
+            "medication_adherence": payload["medication_adherence"],
+        },
+        "expected": "risk_agent assesses the structured check-in",
     }
 
 

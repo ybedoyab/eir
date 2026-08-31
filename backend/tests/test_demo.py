@@ -95,6 +95,73 @@ def test_demo_duplicate_prompt_injection_and_concerning() -> None:
         assert second_signal.status_code == 409
 
 
+def test_mock_checkin_publishes_a_synthetic_structured_response() -> None:
+    with TestClient(app) as client:
+        boot = client.post("/api/v1/demo/bootstrap", json={"fast_forward": False})
+        episode_id = boot.json()["episode_id"]
+        response = client.post(
+            f"/api/v1/demo/mock-checkin/{episode_id}",
+            json={
+                "pain_score": 42,
+                "reported_issue": True,
+                "issue_summary": "  swelling   near the incision  ",
+                "medication_adherence": "sometimes",
+            },
+        )
+        assert response.status_code == 200
+        events = client.get(f"/api/v1/recovery/{episode_id}/events").json()
+        responded = next(item for item in events if item["event_type"] == "PatientResponded")
+        payload = responded["payload"]
+        assert payload["pain_score"] == 10  # clamped
+        assert payload["issue_summary"] == "swelling near the incision"
+        assert payload["medication_adherence"] == "unknown"  # unknown value rejected
+        assert payload["synthetic"] is True
+        assert payload["provider"] == "demo-mock"
+        assert "RiskEscalated" in [item["event_type"] for item in events]
+
+
+def test_mock_checkin_refuses_once_a_checkin_exists() -> None:
+    with TestClient(app) as client:
+        boot = client.post("/api/v1/demo/bootstrap", json={"fast_forward": False})
+        episode_id = boot.json()["episode_id"]
+        assert client.post(f"/api/v1/demo/mock-checkin/{episode_id}", json={}).status_code == 200
+        second = client.post(f"/api/v1/demo/mock-checkin/{episode_id}", json={})
+        assert second.status_code == 409
+
+
+def test_mock_checkin_marks_missed_medication() -> None:
+    with TestClient(app) as client:
+        boot = client.post("/api/v1/demo/bootstrap", json={"fast_forward": False})
+        episode_id = boot.json()["episode_id"]
+        response = client.post(
+            f"/api/v1/demo/mock-checkin/{episode_id}",
+            json={
+                "pain_score": 2,
+                "reported_issue": False,
+                "issue_summary": "",
+                "medication_adherence": "yes",
+                "medications": [{"sku": "MED-ENOX-40", "taken": False}],
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["signal"]["medication_adherence"] == "no"
+        types = [
+            item["event_type"]
+            for item in client.get(f"/api/v1/recovery/{episode_id}/events").json()
+        ]
+        assert "AdherenceConcernDetected" in types
+
+
+def test_mock_checkin_rejects_non_synthetic_episode() -> None:
+    container = get_container()
+    episode, _started = RecoveryService(container.episodes).create_episode(
+        patient_id="patient-not-synthetic",
+    )
+    with TestClient(app) as client:
+        response = client.post(f"/api/v1/demo/mock-checkin/{episode.id}", json={})
+        assert response.status_code == 403
+
+
 def test_runtime_history_filters_by_episode_id() -> None:
     store = InMemoryAdkRuntimeTelemetryStore()
     store.record(

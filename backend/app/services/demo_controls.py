@@ -14,6 +14,7 @@ from app.repositories.recovery_repository import RecoveryEpisodeRepository
 SYNTHETIC_PATIENT_PREFIX = "patient-synthetic-"
 SYNTHETIC_SKU_PREFIX = "MED-"
 CONCERNING_MESSAGE = "Pain is an 8 and I noticed swelling near the incision."
+ADHERENCE_VALUES = frozenset({"yes", "no", "unknown"})
 
 _lock = threading.Lock()
 _claimed: set[tuple[str, str]] = set()
@@ -81,3 +82,57 @@ def has_concerning_signal(events: list[DomainEvent]) -> bool:
         if str(payload.get("message") or "") == CONCERNING_MESSAGE:
             return True
     return False
+
+
+def has_recovery_checkin(events: list[DomainEvent]) -> bool:
+    """A structured check-in already reached the episode, mock or spoken."""
+    return any(event.event_type == "PatientResponded" for event in events)
+
+
+def mock_checkin_payload(
+    *,
+    pain_score: int | None,
+    reported_issue: bool,
+    issue_summary: str,
+    symptoms_worsening: bool,
+    medication_adherence: str,
+    medications: list[dict[str, object]],
+    patient_requests_clinician: bool,
+) -> dict[str, object]:
+    """Structured stand-in for a spoken check-in.
+
+    Same field names the Voximplant callback writes, so the risk agent reads one
+    shape either way -- but `synthetic` stays True, which is what marks the
+    answers as typed rather than spoken everywhere downstream.
+    """
+    pain = None if pain_score is None else max(0, min(10, int(pain_score)))
+    adherence = (
+        medication_adherence if medication_adherence in ADHERENCE_VALUES else "unknown"
+    )
+    clean_medications: list[dict[str, object]] = []
+    for item in medications:
+        sku = str(item.get("sku") or "").strip()[:24]
+        if sku:
+            clean_medications.append({"sku": sku, "taken": bool(item.get("taken", True))})
+    if any(entry["taken"] is False for entry in clean_medications):
+        adherence = "no"
+    summary = " ".join(str(issue_summary).split())[:240]
+    spoken = f"Pain is a {pain if pain is not None else 'unspecified'}"
+    if reported_issue and summary:
+        spoken = f"{spoken} and I noticed {summary}."
+    else:
+        spoken = f"{spoken} and nothing new to report."
+    return {
+        "channel": "voice",
+        "provider": "demo-mock",
+        "transport": "mock",
+        "synthetic": True,
+        "message": spoken,
+        "pain_score": pain,
+        "reported_issue": bool(reported_issue),
+        "issue_summary": summary,
+        "symptoms_worsening": bool(symptoms_worsening),
+        "medication_adherence": adherence,
+        "medications": clean_medications,
+        "patient_requests_clinician": bool(patient_requests_clinician),
+    }

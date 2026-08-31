@@ -28,6 +28,7 @@ export const ERROR_MESSAGES = {
   demoFastForward: "Could not fast-forward the demo.",
   attackSimulation: "Could not run the attack simulation.",
   concerningSignal: "Could not send the concerning signal.",
+  mockCheckin: "Could not record the mock check-in.",
   voiceRetry: "Could not retry the voice check-in.",
   voiceOpen: "Could not open the in-page voice check-in.",
   video: "Could not request a new recovery video.",
