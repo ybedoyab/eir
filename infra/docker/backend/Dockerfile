@@ -12,6 +12,11 @@ COPY mocks ./mocks
 
 RUN uv sync --all-packages --no-dev
 
+# Import the app at build time. A module missing from the build context (an
+# over-broad ignore pattern, say) otherwise produces a green build and a Cloud
+# Run revision that dies on ModuleNotFoundError after the full start timeout.
+RUN cd backend && uv run --package eir-backend python -c "import app.main"
+
 ENV PORT=8080
 
 EXPOSE 8080

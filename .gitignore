@@ -117,5 +117,7 @@ package-lock.json
 # Design canvas scratch (not part of the shipped app)
 docs/design/
 
-# Video production assets (stock footage, music, renders)
-video/
+# Video production assets (stock footage, music, renders). Anchored: an
+# unanchored `video/` also matches backend/app/integrations/video, which the API
+# imports at startup.
+/video/

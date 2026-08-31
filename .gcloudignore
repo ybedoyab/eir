@@ -1,0 +1,78 @@
+# What `gcloud builds submit .` uploads.
+#
+# Without this file gcloud derives the upload manifest from .gitignore, so a
+# pattern written for a local folder silently removes source from the image: an
+# unanchored `video/` dropped backend/app/integrations/video, and eir-api then
+# failed to start on ModuleNotFoundError at import time, after a green build.
+# Keeping the manifest here means .gitignore can never decide what ships.
+#
+# Anything the Dockerfiles COPY must survive this file:
+#   backend  -> pyproject.toml, uv.lock, shared/, backend/, agents/, mocks/
+#   frontend -> frontend/
+
+.git/
+.gcloudignore
+
+# Virtualenvs, bytecode, test and lint caches
+.venv/
+.venv-agent/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Node state and build output. The frontend image installs and builds its own.
+node_modules/
+.pnpm-store/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+package-lock.json
+# Not a workspace root inside the image; shipping it changes pnpm resolution.
+frontend/pnpm-workspace.yaml
+
+# Credentials and local state. None of this belongs in a build context.
+.env
+.env.local
+.env*.local
+.cursor/
+.gcloud/
+secrets/
+*.pem
+*.key
+!*.example.key
+*-service-account*.json
+service-account*.json
+gcloud-service-key.json
+application_default_credentials.json
+voximplant-credentials.json
+*voximplant*credentials*.json
+.voximplant-preview.env
+*_private.json
+infra/gcp/agent_platform/.runtime_src/
+infra/terraform/.terraform/
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/terraform/terraform.tfvars
+infra/terraform/tfplan
+infra/terraform/tfplan-*
+infra/terraform/*.tfplan
+
+# Local working directories, never part of a service
+data/
+artifacts/
+logs/
+*.log
+docs/design/
+/video/
+CLAUDE.md
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
