@@ -1,17 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AppointmentCard } from "@/components/ui/AppointmentCard";
-import { Button } from "@/components/ui/Button";
+import { ActionLink } from "@/components/ui/ActionLink";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { Icon } from "@/components/ui/Icon";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { APP_ROUTE_BUILDERS, APP_ROUTES } from "@/config/app";
 import { loadSession } from "@/lib/auth";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { firstName, formatWhen, greeting } from "@/lib/format";
 import { episodeStatus, riskStatus } from "@/lib/statusLabels";
 import { listAppointments, listRecovery } from "@/services/api";
@@ -19,14 +21,15 @@ import type { Appointment } from "@/lib/auth";
 import type { RecoveryEpisode } from "@/types";
 
 export default function PatientHomePage() {
-  // Read once per mount; `loadSession` hits localStorage + JSON.parse, and these
-  // pages re-render on every fetch/state tick.
-  const [session] = useState(loadSession);
+  const [session, setSession] = useState<ReturnType<typeof loadSession>>(null);
   const name = firstName(session?.display_name ?? "there");
+  const pageTitle = session ? `${greeting(name)}.` : "Welcome.";
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [episodes, setEpisodes] = useState<RecoveryEpisode[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => setSession(loadSession()), []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -39,7 +42,7 @@ export default function PatientHomePage() {
       setAppointments(nextAppointments);
       setEpisodes(allEpisodes.filter((item) => item.patient_id === session?.patient_id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load your home");
+      setError(getErrorMessage(err, ERROR_MESSAGES.patientHome));
     } finally {
       setLoading(false);
     }
@@ -63,16 +66,13 @@ export default function PatientHomePage() {
 
   return (
     <>
-      <header>
-        <h1 className="font-serif text-[2.5rem] font-medium leading-[1.15] tracking-[-0.018em] text-ink">
-          {greeting(name)}.
-        </h1>
-        <p className="mt-3 text-[1.0625rem] leading-[1.6] text-secondary">
-          {checkInDue
-            ? "One thing needs you today."
-            : "Your visits, recovery and hospital assistant in one place."}
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Your care"
+        title={pageTitle}
+        description={checkInDue ? "One thing needs you today." : "Your visits, recovery and hospital assistant in one place."}
+        density="patient"
+        icon="heart"
+      />
 
       {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
 
@@ -83,16 +83,13 @@ export default function PatientHomePage() {
         </div>
       ) : (
         <>
-          {/* the one action */}
           {activeRecovery ? (
-            // The one action on the page, so it gets the accent wash. The left
-            // rule stays the state colour — the surface says "this matters",
-            // the rule says how much.
             <section
-              className={`on-tint flex flex-col gap-8 border-l-[3px] bg-accent-tint px-9 py-8 lg:flex-row lg:items-center lg:justify-between ${
+              className={`eir-surface eir-card-hover on-tint relative flex flex-col gap-8 overflow-hidden border-l-[4px] bg-gradient-to-br from-accent-tint via-surface to-sky px-7 py-7 lg:flex-row lg:items-center lg:justify-between ${
                 checkInDue ? "border-warn" : "border-accent"
               }`}
             >
+              <span className="eir-orb eir-drift pointer-events-none absolute -right-10 -top-10 h-32 w-32 opacity-10" aria-hidden />
               <div className="flex flex-col gap-2.5">
                 <span
                   className={`font-mono text-[0.75rem] uppercase tracking-[0.1em] ${
@@ -117,22 +114,21 @@ export default function PatientHomePage() {
                   </span>
                 </p>
               </div>
-              <Link
-                href="/patient/recovery"
-                className="focus-ink inline-flex min-h-14 shrink-0 items-center gap-2.5 bg-accent px-8 text-[1rem] font-medium text-paper hover:bg-accent-hover"
+              <ActionLink
+                href={APP_ROUTES.patient.recovery}
+                className="relative min-h-14 shrink-0 px-8 text-[1rem]"
               >
                 {checkInDue ? "Start check-in" : "Open recovery"}
                 <Icon name="arrowRight" size={16} />
-              </Link>
+              </ActionLink>
             </section>
           ) : null}
 
-          {/* appointments */}
           <section className="flex flex-col">
             <SectionHeader
               level="major"
               title="Appointments"
-              actionHref="/patient/appointments"
+              actionHref={APP_ROUTES.patient.appointments}
               actionLabel="See all"
             />
             {nextTwo.length ? (
@@ -141,13 +137,14 @@ export default function PatientHomePage() {
                   key={appointment.id}
                   appointment={appointment}
                   actions={
-                    <Link
-                      href="/patient/appointments?action=reschedule"
-                      className="focus-ink inline-flex min-h-11 items-center gap-2 border border-rule-strong px-4 text-sm font-medium text-body hover:bg-hover"
+                    <ActionLink
+                      href={APP_ROUTE_BUILDERS.patientAppointments("reschedule")}
+                      variant="secondary"
+                      className="px-4"
                     >
                       Reschedule
                       <Icon name="chevronRight" size={14} className="text-muted" />
-                    </Link>
+                    </ActionLink>
                   }
                 />
               ))
@@ -156,18 +153,15 @@ export default function PatientHomePage() {
                 title="No upcoming appointments"
                 description="Schedule a visit when you are ready."
                 action={
-                  <Link href="/patient/appointments?action=schedule">
-                    <Button>
-                      Schedule appointment
-                      <Icon name="arrowRight" size={16} />
-                    </Button>
-                  </Link>
+                  <ActionLink href={APP_ROUTE_BUILDERS.patientAppointments("schedule")}>
+                    Schedule appointment
+                    <Icon name="arrowRight" size={16} />
+                  </ActionLink>
                 }
               />
             )}
           </section>
 
-          {/* recovery so far + assistant */}
           <section className="grid gap-10 lg:grid-cols-3">
             <div className="flex flex-col lg:col-span-2">
               <SectionHeader level="major" title="Your recovery so far" />
@@ -200,12 +194,10 @@ export default function PatientHomePage() {
                   title="No active recovery"
                   description="Recovery follow-up appears here after a procedure or discharge."
                   action={
-                    <Link href="/patient/recovery">
-                      <Button variant="secondary">
-                        Open recovery
-                        <Icon name="chevronRight" size={15} />
-                      </Button>
-                    </Link>
+                    <ActionLink href={APP_ROUTES.patient.recovery} variant="secondary">
+                      Open recovery
+                      <Icon name="chevronRight" size={15} />
+                    </ActionLink>
                   }
                 />
               )}
@@ -217,20 +209,22 @@ export default function PatientHomePage() {
                 Ask about appointments, transport or what to expect this week. Anything clinical
                 goes straight to a person.
               </p>
-              <Link
-                href="/patient/assistant"
-                className="focus-ink mt-5 inline-flex min-h-14 items-center justify-center gap-2.5 border border-accent px-6 text-[0.9375rem] font-medium text-accent hover:bg-accent-tint"
+              <ActionLink
+                href={APP_ROUTES.patient.assistant}
+                variant="secondary"
+                className="mt-5 min-h-14 px-6 text-[0.9375rem]"
               >
                 Ask a question
                 <Icon name="arrowRight" size={16} />
-              </Link>
-              <Link
-                href="/patient/appointments?action=schedule"
-                className="focus-ink mt-3 inline-flex min-h-14 items-center justify-center gap-2.5 border border-rule px-6 text-[0.9375rem] text-secondary hover:bg-hover hover:text-ink"
+              </ActionLink>
+              <ActionLink
+                href={APP_ROUTE_BUILDERS.patientAppointments("schedule")}
+                variant="ghost"
+                className="mt-3 min-h-14 border border-rule px-6 text-[0.9375rem]"
               >
                 <Icon name="plus" size={16} />
                 Schedule a visit
-              </Link>
+              </ActionLink>
             </div>
           </section>
         </>

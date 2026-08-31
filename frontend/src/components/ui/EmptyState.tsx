@@ -10,10 +10,11 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    // A raised inset, so an empty section reads as a placeholder rather than
-    // as content that happens to be short.
-    <div className="on-raised bg-raised px-6 py-10">
-      <p className="text-[0.9375rem] font-medium text-ink">{title}</p>
+    <div className="eir-surface-soft on-raised px-6 py-9">
+      <span className="eir-icon-shell mb-4 h-10 w-10" aria-hidden>
+        <Icon name="sparkles" size={18} />
+      </span>
+      <p className="text-[0.9375rem] font-semibold text-ink">{title}</p>
       {description ? (
         <p className="mt-2 max-w-[56ch] text-[0.875rem] leading-relaxed text-secondary">
           {description}
@@ -23,3 +24,4 @@ export function EmptyState({
     </div>
   );
 }
+import { Icon } from "@/components/ui/Icon";

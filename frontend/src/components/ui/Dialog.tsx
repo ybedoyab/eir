@@ -77,7 +77,7 @@ export function Dialog({
       <button
         type="button"
         aria-label="Close dialog"
-        className="absolute inset-0 bg-ink/45"
+        className="absolute inset-0 bg-ink/55 backdrop-blur-sm"
         onClick={onClose}
       />
       <div
@@ -87,7 +87,7 @@ export function Dialog({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         className={cn(
-          "relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto border-t-[3px] border-accent bg-paper p-6",
+          "eir-enter relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-rule bg-surface p-6 shadow-[0_28px_80px_rgb(10_23_40/0.28)]",
           className,
         )}
       >
@@ -105,7 +105,7 @@ export function Dialog({
           <button
             type="button"
             onClick={onClose}
-            className="focus-ink inline-flex h-11 w-11 shrink-0 items-center justify-center text-muted hover:bg-hover hover:text-ink"
+            className="eir-control focus-ink inline-flex h-11 w-11 shrink-0 items-center justify-center text-muted hover:bg-hover hover:text-ink"
             aria-label="Close"
           >
             <Icon name="close" size={18} />

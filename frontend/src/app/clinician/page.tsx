@@ -6,11 +6,14 @@ import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { Icon } from "@/components/ui/Icon";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatCard, StatStrip } from "@/components/ui/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { APP_ROUTE_BUILDERS, APP_ROUTES } from "@/config/app";
 import { loadSession } from "@/lib/auth";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { displayPatientId, formatWait, formatWhen, greeting, shortClinicianName } from "@/lib/format";
 import { episodeStatus, riskStatus } from "@/lib/statusLabels";
 import { listAppointments, listPatients, listRecovery, listReviews } from "@/services/api";
@@ -18,15 +21,18 @@ import type { Appointment } from "@/lib/auth";
 import type { HumanReview, Patient, RecoveryEpisode } from "@/types";
 
 export default function ClinicianHomePage() {
-  // Read once per mount; `loadSession` hits localStorage + JSON.parse, and these
-  // pages re-render on every fetch/state tick.
-  const [session] = useState(loadSession);
+  const [session, setSession] = useState<ReturnType<typeof loadSession>>(null);
   const [reviews, setReviews] = useState<HumanReview[]>([]);
   const [episodes, setEpisodes] = useState<RecoveryEpisode[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const pageTitle = session
+    ? `${greeting(shortClinicianName(session.display_name))}.`
+    : "Welcome.";
+
+  useEffect(() => setSession(loadSession()), []);
 
   async function refresh() {
     setLoading(true);
@@ -43,7 +49,7 @@ export default function ClinicianHomePage() {
       setPatients(patientItems);
       setAppointments(appointmentItems);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load clinician workspace");
+      setError(getErrorMessage(err, ERROR_MESSAGES.clinician));
     } finally {
       setLoading(false);
     }
@@ -85,16 +91,13 @@ export default function ClinicianHomePage() {
 
   return (
     <>
-      <header className="flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <h1 className="font-serif text-[1.875rem] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
-            {greeting(shortClinicianName(session?.display_name ?? "Doctor"))}.
-          </h1>
-          <p className="mt-2 text-[14.5px] leading-[1.55] text-secondary">
-            Reviews, today’s schedule and recovery escalations, from the hospital record.
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Clinical workspace"
+        title={pageTitle}
+        description="Reviews, today’s schedule and recovery escalations, from the hospital record."
+        density="staff"
+        icon="recovery"
+      />
 
       {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
 
@@ -134,7 +137,7 @@ export default function ClinicianHomePage() {
               <SectionHeader
                 level="major"
                 title="Needs attention"
-                actionHref="/clinician/reviews"
+                actionHref={APP_ROUTES.clinician.reviews}
                 actionLabel="Open review queue"
               />
               {reviews.length ? (
@@ -146,7 +149,7 @@ export default function ClinicianHomePage() {
                   return (
                     <Link
                       key={review.id}
-                      href="/clinician/reviews"
+                      href={APP_ROUTES.clinician.reviews}
                       className="focus-ink group grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-b border-rule py-3 pl-1 pr-1 hover:bg-hover"
                     >
                       <span className="flex min-w-0 flex-col gap-[3px]">
@@ -180,14 +183,14 @@ export default function ClinicianHomePage() {
               <SectionHeader
                 level="major"
                 title="Today’s schedule"
-                actionHref="/clinician/schedule"
+                actionHref={APP_ROUTES.clinician.schedule}
                 actionLabel="Full schedule"
               />
               {today.length ? (
                 today.slice(0, 5).map((appointment) => (
                   <Link
                     key={appointment.id}
-                    href={`/clinician/patients/${appointment.patient_id}`}
+                    href={APP_ROUTE_BUILDERS.clinicianPatient(appointment.patient_id)}
                     className="focus-ink group grid min-h-[60px] grid-cols-[84px_minmax(0,1fr)_auto] items-center gap-4 border-b border-rule py-3 pl-1 pr-1 hover:bg-hover"
                   >
                     <span className="font-mono text-[0.8125rem] text-secondary">
@@ -224,7 +227,7 @@ export default function ClinicianHomePage() {
               escalated.slice(0, 5).map((episode) => (
                 <Link
                   key={episode.id}
-                  href={`/clinician/patients/${episode.patient_id}`}
+                  href={APP_ROUTE_BUILDERS.clinicianPatient(episode.patient_id)}
                   className="focus-ink group grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-4 border-b border-rule py-3 pl-1 pr-1 hover:bg-hover"
                 >
                   <span className="flex min-w-0 flex-col gap-[3px]">
@@ -253,7 +256,7 @@ export default function ClinicianHomePage() {
             <SectionHeader
               level="major"
               title="Recent patients"
-              actionHref="/clinician/patients"
+              actionHref={APP_ROUTES.clinician.patients}
               actionLabel="All patients"
             />
             {patients.length ? (
@@ -261,7 +264,7 @@ export default function ClinicianHomePage() {
                 {patients.slice(0, 6).map((patient) => (
                   <Link
                     key={patient.id}
-                    href={`/clinician/patients/${patient.id}`}
+                    href={APP_ROUTE_BUILDERS.clinicianPatient(patient.id)}
                     className="focus-ink group flex min-h-[60px] items-center justify-between gap-3 border-b border-rule px-1 py-3 hover:bg-hover"
                   >
                     <span className="flex min-w-0 flex-col">

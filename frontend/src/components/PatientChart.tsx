@@ -10,6 +10,7 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Timeline } from "@/components/ui/Timeline";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { displayPatientId, formatWhen } from "@/lib/format";
 import { appointmentStatus, episodeStatus, riskStatus } from "@/lib/statusLabels";
 import { eventLabel } from "@/lib/eventLabels";
@@ -59,7 +60,7 @@ export function PatientChart({ patientId }: { patientId: string }) {
       );
       setMedications(medicationItems);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load patient");
+      setError(getErrorMessage(err, ERROR_MESSAGES.patient));
     } finally {
       setLoading(false);
     }

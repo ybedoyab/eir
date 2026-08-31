@@ -15,10 +15,6 @@ const sizes = {
   xl: "h-14 w-14 text-[0.9375rem]",
 };
 
-/**
- * Square, neutral, mono. An identity marker is structure, not state, so it
- * never carries hue — and a hashed colour per name would be decoration.
- */
 export function Avatar({
   name,
   size = "md",
@@ -32,7 +28,7 @@ export function Avatar({
     <span
       aria-hidden
       className={cn(
-        "inline-flex shrink-0 items-center justify-center border border-rule bg-raised font-mono tracking-[0.06em] text-secondary",
+        "inline-flex shrink-0 items-center justify-center rounded-full border border-accent/20 bg-gradient-to-br from-surface via-accent-tint to-sky font-mono font-semibold tracking-[0.06em] text-accent shadow-[0_6px_18px_rgb(22_75_130/0.12)]",
         sizes[size],
         className,
       )}

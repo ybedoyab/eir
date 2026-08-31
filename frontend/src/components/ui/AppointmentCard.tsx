@@ -6,10 +6,6 @@ import { formatDateShort, formatTime } from "@/lib/format";
 import { appointmentStatus } from "@/lib/statusLabels";
 import type { Appointment } from "@/lib/auth";
 
-/**
- * An appointment row, not a card: date column, what and where, status,
- * action. Hairline rule underneath, square edges, no shadow.
- */
 export function AppointmentCard({
   appointment,
   patientName,
@@ -25,11 +21,10 @@ export function AppointmentCard({
   return (
     <article
       className={cn(
-        "grid grid-cols-1 items-center gap-4 border-b border-rule py-6 sm:grid-cols-[132px_minmax(0,1fr)_auto] sm:gap-6",
+        "eir-surface eir-card-hover group grid grid-cols-1 items-center gap-4 p-5 sm:grid-cols-[132px_minmax(0,1fr)_auto] sm:gap-6",
         className,
       )}
     >
-      {/* The date is the column you scan, so it carries the accent. */}
       <div className="flex flex-col gap-0.5 border-l-[3px] border-accent pl-4">
         <span className="text-[1.25rem] font-semibold leading-tight text-accent">
           {formatDateShort(appointment.start)}

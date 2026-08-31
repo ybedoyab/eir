@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden className={cn("eir-pulse bg-hover", className)} />;
+  return <div aria-hidden className={cn("eir-pulse eir-shimmer rounded-lg bg-hover", className)} />;
 }
 
 export function SkeletonLines({ rows = 3 }: { rows?: number }) {
@@ -17,7 +17,7 @@ export function SkeletonLines({ rows = 3 }: { rows?: number }) {
 
 export function CardSkeleton({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="border-t border-rule-strong pt-4">
+    <div className="eir-surface p-5 sm:p-6">
       <Skeleton className="mb-4 h-3 w-40" />
       <SkeletonLines rows={rows} />
     </div>

@@ -2,16 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard, StatStrip } from "@/components/ui/StatCard";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { displayPatientId } from "@/lib/format";
 import { eventLabel, eventOutcome } from "@/lib/eventLabels";
-import { episodeBadgeClass, riskBadgeClass } from "@/lib/status";
+import { episodeStatus, riskStatus, STATUS_VIEWS } from "@/lib/statusLabels";
 import { getRecovery, listRecoveryEvents, listReviews, triggerFollowUp } from "@/services/api";
 import type { DomainEvent, HumanReview, RecoveryEpisode } from "@/types";
 
@@ -45,7 +46,7 @@ export default function RecoveryEpisodePage({
       setEvents(await listRecoveryEvents(id));
       setReviews(await listReviews(true));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "load failed");
+      setError(getErrorMessage(err, ERROR_MESSAGES.recovery));
     }
   }
 
@@ -93,7 +94,7 @@ export default function RecoveryEpisodePage({
       await triggerFollowUp(episode.id);
       await refresh(episode.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "follow-up failed");
+      setError(getErrorMessage(err, ERROR_MESSAGES.followUp));
     } finally {
       setRunning(false);
     }
@@ -144,8 +145,8 @@ export default function RecoveryEpisodePage({
                 </span>
               </p>
               <div className="flex flex-wrap gap-2">
-                <Badge className={episodeBadgeClass(episode.status)}>{episode.status}</Badge>
-                <Badge className={riskBadgeClass(episode.risk_level)}>{episode.risk_level}</Badge>
+                <StatusBadge status={episodeStatus(episode.status)} />
+                <StatusBadge status={riskStatus(episode.risk_level)} />
               </div>
             </div>
           </section>
@@ -277,16 +278,14 @@ export default function RecoveryEpisodePage({
             <div className="flex flex-wrap items-center gap-3">
               {pendingReview ? (
                 <>
-                  <Badge className="bg-high font-medium text-paper">Review needed</Badge>
+                  <StatusBadge status={STATUS_VIEWS.reviewNeeded} />
                   <span className="text-[0.875rem] text-secondary">{pendingReview.reason}</span>
                 </>
               ) : (
-                <Badge className="border border-ok text-ok">No pending review</Badge>
+                <StatusBadge status={STATUS_VIEWS.noPendingReview} />
               )}
               {latestSecurity ? (
-                <Badge className="border-l-[3px] border-ink bg-crit font-medium text-paper">
-                  Security block recorded
-                </Badge>
+                <StatusBadge status={STATUS_VIEWS.securityBlocked} />
               ) : null}
             </div>
           </section>

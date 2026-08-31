@@ -23,13 +23,10 @@ export function FilterChips<T extends string>({
             aria-pressed={selected}
             onClick={() => onChange(option.id)}
             className={cn(
-              "focus-ink inline-flex min-h-11 items-center gap-2 px-4 text-sm",
+              "eir-chip focus-ink inline-flex min-h-11 items-center gap-2 px-4 text-sm",
               selected
-                ? // Filled, not outlined: a selected filter is a live constraint
-                  // on what you are looking at, so it should be the loudest
-                  // thing in the row.
-                  "on-accent border border-accent bg-accent font-medium text-paper"
-                : "border border-rule text-secondary hover:bg-hover hover:text-ink",
+                ? "on-accent border border-accent bg-accent font-medium text-paper shadow-[0_7px_18px_rgb(22_75_130/0.18)]"
+                : "border border-rule bg-surface/60 text-secondary hover:border-rule-strong hover:bg-hover hover:text-ink",
             )}
           >
             {selected ? <Icon name="approve" size={14} className="text-paper" /> : null}

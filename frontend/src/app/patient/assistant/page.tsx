@@ -5,46 +5,104 @@ import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { cn } from "@/lib/cn";
 import { loadSession } from "@/lib/auth";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { createAccessSession, sendAccessMessage } from "@/services/api";
 
-type ChatMessage = { role: "user" | "assistant"; text: string };
+const CHAT_ROLE = {
+  assistant: "assistant",
+  user: "user",
+} as const;
+
+type ChatRole = (typeof CHAT_ROLE)[keyof typeof CHAT_ROLE];
+type ChatMessage = { role: ChatRole; text: string };
+
+const CHAT_COPY = {
+  intro:
+    "Hi, I'm EIR. I can help with appointments, reminders, recovery routing, or connect you with staff.",
+  typing: "EIR is typing…",
+} as const;
 
 const SUGGESTIONS = [
   "Show my appointments",
   "Find cardiology availability",
   "Reschedule my next appointment",
   "How is my recovery going?",
-];
+] as const;
+
+function MessageBubble({
+  message,
+  patientName,
+}: {
+  message: ChatMessage;
+  patientName: string;
+}) {
+  const isUser = message.role === CHAT_ROLE.user;
+
+  return (
+    <div className={cn("flex max-w-[85%] gap-3", isUser && "ml-auto flex-row-reverse")}>
+      {isUser ? (
+        <Avatar name={patientName} size="sm" />
+      ) : (
+        <span
+          aria-hidden
+          className="eir-chip inline-flex h-8 w-8 shrink-0 items-center justify-center bg-accent text-paper"
+        >
+          <Icon name="assistant" size={16} />
+        </span>
+      )}
+      <p
+        className={cn(
+          "eir-message border px-4 py-3 text-[0.9375rem] leading-[1.6] shadow-[0_6px_18px_rgb(22_75_130/0.05)]",
+          isUser
+            ? "border-rule bg-raised text-body"
+            : "border-accent/20 bg-accent-tint/45 text-body",
+        )}
+      >
+        {message.text}
+      </p>
+    </div>
+  );
+}
+
+function SuggestionChip({ label, onSelect }: { label: string; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="eir-control focus-ink inline-flex min-h-11 items-center gap-2 border border-rule-strong bg-surface/70 px-3.5 text-[0.8125rem] text-secondary hover:border-accent/30 hover:bg-accent-tint hover:text-ink"
+    >
+      <Icon name="sparkles" size={14} />
+      {label}
+    </button>
+  );
+}
 
 export default function PatientAssistantPage() {
-  // Read once per mount; `loadSession` hits localStorage + JSON.parse, and these
-  // pages re-render on every fetch/state tick.
-  const [session] = useState(loadSession);
+  const [session, setSession] = useState<ReturnType<typeof loadSession>>(null);
   const [sessionId, setSessionId] = useState("");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      role: "assistant",
-      text: "Hi, I'm EIR. I can help with appointments, reminders, recovery routing, or connect you with staff.",
+      role: CHAT_ROLE.assistant,
+      text: CHAT_COPY.intro,
     },
   ]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => setSession(loadSession()), []);
+
   useEffect(() => {
     void createAccessSession()
       .then((access) => setSessionId(access.id))
-      .catch((err) => setError(err instanceof Error ? err.message : "Could not start assistant"));
+      .catch((err) => setError(getErrorMessage(err, ERROR_MESSAGES.assistant)));
   }, []);
 
-  // Skip the first paint. The transcript grows the page rather than scrolling
-  // inside a fixed box, so an unconditional scrollIntoView on mount dragged the
-  // window past the page header before the reader had seen it. `block: "nearest"`
-  // then keeps later scrolls to the minimum needed to reveal the new message.
   const scrolled = useRef(false);
   useEffect(() => {
     if (!scrolled.current) {
@@ -58,14 +116,17 @@ export default function PatientAssistantPage() {
     const text = (textValue ?? input).trim();
     if (!text || !sessionId || busy) return;
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", text }]);
+    setMessages((prev) => [...prev, { role: CHAT_ROLE.user, text }]);
     setBusy(true);
     setError(null);
     try {
       const response = await sendAccessMessage(sessionId, text);
-      setMessages((prev) => [...prev, { role: "assistant", text: response.reply }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: CHAT_ROLE.assistant, text: response.reply },
+      ]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Message failed");
+      setError(getErrorMessage(err, ERROR_MESSAGES.message));
     } finally {
       setBusy(false);
     }
@@ -82,57 +143,31 @@ export default function PatientAssistantPage() {
 
       {error ? <ErrorAlert message={error} /> : null}
 
-      <div className="flex min-h-[28rem] flex-col border-t border-rule-strong">
+      <div className="eir-surface on-surface flex min-h-[28rem] flex-col overflow-hidden p-4 sm:p-6">
         <div
           className="flex flex-1 flex-col gap-5 overflow-y-auto py-6"
           aria-live="polite"
         >
           {messages.map((message, index) => (
-            <div
+            <MessageBubble
               key={`${message.role}-${index}`}
-              className={cn(
-                "flex max-w-[85%] gap-3",
-                message.role === "user" && "ml-auto flex-row-reverse",
-              )}
-            >
-              {message.role === "assistant" ? (
-                <span
-                  aria-hidden
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center bg-accent font-mono text-[0.75rem] tracking-[0.06em] text-paper"
-                >
-                  EIR
-                </span>
-              ) : (
-                <Avatar name={session?.display_name ?? "You"} size="sm" />
-              )}
-              <p
-                className={cn(
-                  "px-4 py-3 text-[0.9375rem] leading-[1.6]",
-                  message.role === "user"
-                    ? "on-raised bg-raised text-body"
-                    : "border-l-[3px] border-accent text-body",
-                )}
-              >
-                {message.text}
-              </p>
-            </div>
+              message={message}
+              patientName={session?.display_name ?? "You"}
+            />
           ))}
           {busy ? (
-            <p className="font-mono text-[0.75rem] text-muted">EIR is typing…</p>
+            <p className="font-mono text-[0.75rem] text-muted">{CHAT_COPY.typing}</p>
           ) : null}
           <div ref={endRef} />
         </div>
 
         <div className="flex flex-wrap gap-2 border-t border-rule pt-4">
           {SUGGESTIONS.map((suggestion) => (
-            <button
+            <SuggestionChip
               key={suggestion}
-              type="button"
-              onClick={() => void send(suggestion)}
-              className="focus-ink inline-flex min-h-11 items-center border border-rule-strong px-3.5 text-[0.8125rem] text-secondary hover:bg-hover hover:text-ink"
-            >
-              {suggestion}
-            </button>
+              label={suggestion}
+              onSelect={() => void send(suggestion)}
+            />
           ))}
         </div>
 
@@ -151,9 +186,10 @@ export default function PatientAssistantPage() {
             value={input}
             onChange={(event) => setInput(event.target.value)}
             placeholder="Ask about an appointment or recovery"
-            className="focus-ink h-11 flex-1 border border-rule-strong bg-paper px-4 text-[0.9375rem] text-ink placeholder:text-muted focus:border-accent"
+            className="eir-control focus-ink h-11 flex-1 border border-rule-strong bg-paper px-4 text-[0.9375rem] text-ink placeholder:text-muted focus:border-accent"
           />
           <Button type="submit" disabled={busy || !sessionId}>
+            <Icon name="send" size={16} />
             {busy ? "Sending…" : "Send"}
           </Button>
         </form>

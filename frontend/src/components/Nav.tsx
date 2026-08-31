@@ -3,37 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Icon, type IconName } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
+import { APP_META, APP_ROUTES } from "@/config/app";
+import { isNavigationItemActive, PUBLIC_NAVIGATION } from "@/config/navigation";
 import { cn } from "@/lib/cn";
-
-const links: Array<{ href: string; label: string; icon: IconName }> = [
-  { href: "/", label: "Home", icon: "home" },
-  { href: "/demo", label: "Demo", icon: "fleet" },
-  { href: "/patients", label: "Patients", icon: "patients" },
-  { href: "/recovery", label: "Recovery", icon: "recovery" },
-  { href: "/agents", label: "Agents", icon: "overview" },
-  { href: "/observability", label: "Observability", icon: "observe" },
-  { href: "/voice-preview", label: "Voice", icon: "voice" },
-];
-
-function isActive(pathname: string, href: string): boolean {
-  if (href === "/") {
-    return pathname === "/";
-  }
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
 
 export function Nav() {
   const pathname = usePathname();
 
   return (
-    <header className="on-raised sticky top-0 z-40 border-b border-rule bg-raised">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 sm:px-6">
-        <Link href="/" className="focus-ink inline-flex min-h-11 items-center gap-2.5">
-          <Logo size={22} />
+    <header className="eir-glass sticky top-0 z-40 border-b border-rule/80">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-2 sm:px-6">
+        <Link href={APP_ROUTES.home} className="focus-ink group inline-flex min-h-11 items-center gap-2.5 rounded-xl">
+          <span className="eir-icon-shell h-9 w-9 rounded-xl">
+            <Logo size={20} />
+          </span>
           <span className="font-serif text-[1.3125rem] font-semibold tracking-[-0.01em] text-ink">
-            EIR
+            {APP_META.name}
           </span>
           <span className="h-4 w-px bg-rule-strong" aria-hidden />
           <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
@@ -41,19 +28,19 @@ export function Nav() {
           </span>
         </Link>
 
-        <nav className="flex flex-wrap items-center" aria-label="Primary">
-          {links.map((link) => {
-            const active = isActive(pathname, link.href);
+        <nav className="flex flex-wrap items-center gap-1" aria-label="Primary">
+          {PUBLIC_NAVIGATION.map((link) => {
+            const active = isNavigationItemActive(pathname, link.href);
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "focus-ink inline-flex min-h-11 items-center gap-2 border-b-[3px] px-3 text-sm",
+                  "focus-ink group inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm",
                   active
-                    ? "border-accent font-medium text-ink"
-                    : "border-transparent text-secondary hover:text-ink",
+                    ? "border-accent/20 bg-accent-tint font-medium text-accent shadow-[0_5px_14px_rgb(22_75_130/0.08)]"
+                    : "border-transparent text-secondary hover:bg-surface/70 hover:text-ink",
                 )}
               >
                 <Icon name={link.icon} size={16} className={active ? "text-accent" : undefined} />

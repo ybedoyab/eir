@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
@@ -11,8 +10,10 @@ import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { displayPatientId } from "@/lib/format";
-import { episodeBadgeClass, riskBadgeClass } from "@/lib/status";
+import { episodeStatus, riskStatus } from "@/lib/statusLabels";
 import { listRecovery, listReviews, resolveReview } from "@/services/api";
 import type { HumanReview, RecoveryEpisode } from "@/types";
 
@@ -28,7 +29,7 @@ export default function RecoveryPage() {
       setEpisodes(await listRecovery());
       setReviews(await listReviews(true));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "load failed");
+      setError(getErrorMessage(err, ERROR_MESSAGES.recovery));
     } finally {
       setLoading(false);
     }
@@ -88,10 +89,8 @@ export default function RecoveryPage() {
                     </span>
                   </span>
                   <span className="flex flex-wrap justify-end gap-2">
-                    <Badge className={episodeBadgeClass(episode.status)}>{episode.status}</Badge>
-                    <Badge className={riskBadgeClass(episode.risk_level)}>
-                      {episode.risk_level}
-                    </Badge>
+                    <StatusBadge status={episodeStatus(episode.status)} />
+                    <StatusBadge status={riskStatus(episode.risk_level)} />
                   </span>
                 </Link>
               ))}
@@ -116,7 +115,7 @@ export default function RecoveryPage() {
               {reviews.map((review) => (
                 <div
                   key={review.id}
-                  className="flex flex-col gap-3 border-l-[3px] border-high bg-raised px-4 py-3.5"
+                  className="eir-panel flex flex-col gap-3 border-l-[3px] border-high bg-raised px-4 py-3.5"
                 >
                   <p className="text-[0.875rem] leading-[1.55] text-ink">{review.reason}</p>
                   <p className="font-mono text-[11.5px] text-muted">

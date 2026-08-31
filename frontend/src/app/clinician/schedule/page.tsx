@@ -9,6 +9,7 @@ import { FilterChips } from "@/components/ui/FilterChips";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { formatTime, formatWhen } from "@/lib/format";
 import { appointmentStatus } from "@/lib/statusLabels";
 import { listAppointments, listPatients } from "@/services/api";
@@ -35,7 +36,7 @@ export default function ClinicianSchedulePage() {
       setAppointments(appointmentItems);
       setPatients(patientItems);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load schedule");
+      setError(getErrorMessage(err, ERROR_MESSAGES.schedule));
     } finally {
       setLoading(false);
     }

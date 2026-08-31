@@ -11,6 +11,7 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/cn";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { eventLabel, eventOutcome } from "@/lib/eventLabels";
 import {
   purchaseOrderStatus,
@@ -62,7 +63,7 @@ export default function ReplenishmentCasePage({
       setSupplyCase(item);
       setEvents(eventItems);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load the case");
+      setError(getErrorMessage(err, ERROR_MESSAGES.supplyCase));
     } finally {
       setLoading(false);
     }
@@ -94,7 +95,7 @@ export default function ReplenishmentCasePage({
       await approvePurchaseOrder(supplyCase.id, "Authorized from operations command center");
       await refresh(supplyCase.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authorization failed");
+      setError(getErrorMessage(err, ERROR_MESSAGES.purchaseAuthorization));
     } finally {
       setWorking(false);
     }
@@ -107,7 +108,7 @@ export default function ReplenishmentCasePage({
       await receiveDelivery(supplyCase.id);
       await refresh(supplyCase.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not record the delivery");
+      setError(getErrorMessage(err, ERROR_MESSAGES.delivery));
     } finally {
       setWorking(false);
     }

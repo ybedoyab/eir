@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
 
 export type CounterTone = "ink" | "accent" | "ok" | "warn" | "high" | "crit";
@@ -13,36 +14,43 @@ const FIGURE_TONE: Record<CounterTone, string> = {
   crit: "text-crit",
 };
 
-/**
- * A counter in the operations strip. No icon, no tinted square, no card —
- * a mono column label, the figure in its state colour, and a required
- * "so what" line, because every number here answers "what do I do".
- */
+const FIGURE_ICON: Record<CounterTone, IconName> = {
+  ink: "activity",
+  accent: "sparkles",
+  ok: "checkCircle",
+  warn: "clock",
+  high: "alertCircle",
+  crit: "bell",
+};
+
 export function StatCard({
   label,
   value,
   hint,
-  // Accent by default: an unremarkable figure is still the thing the reader
-  // came for, so it carries the brand. An explicit tone always wins, so a
-  // figure that means something states its own colour.
   tone = "accent",
+  icon,
   className,
 }: {
   label: string;
   value: ReactNode;
-  /** Required: what this number means for the reader. */
   hint: string;
   tone?: CounterTone;
+  icon?: IconName;
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-[5px] px-5 py-4", className)}>
-      <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
-        {label}
+    <div className={cn("group flex flex-col gap-[5px] px-5 py-5", className)}>
+      <span className="flex items-center justify-between gap-3">
+        <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">
+          {label}
+        </span>
+        <span className="eir-icon-shell h-8 w-8 rounded-lg" aria-hidden>
+          <Icon name={icon ?? FIGURE_ICON[tone]} size={15} />
+        </span>
       </span>
       <span
         className={cn(
-          "font-mono text-[1.6875rem] leading-none tabular-nums",
+        "mt-1 font-mono text-[1.875rem] font-medium leading-none tabular-nums",
           FIGURE_TONE[tone],
         )}
       >
@@ -53,16 +61,6 @@ export function StatCard({
   );
 }
 
-/**
- * The counters read as one panel rather than four loose columns — a raised
- * surface under an accent cap, so the strip belongs to the section it opens.
- *
- * The dividers are grid gaps showing the strip's own background through, not a
- * border on each cell: callers set a different column count per breakpoint, and
- * a per-child `border-l` cannot know which cell starts a row — it drew a stray
- * rule down the left edge of the mobile stack and of every wrapped row. Gaps
- * separate neighbours only, at any column count, with no nth-child arithmetic.
- */
 export function StatStrip({
   children,
   className,
@@ -73,7 +71,7 @@ export function StatStrip({
   return (
     <div
       className={cn(
-        "on-raised grid gap-px border-t-2 border-accent bg-rule [&>*]:bg-raised",
+        "eir-surface eir-stagger on-surface grid overflow-hidden bg-rule/70 [&>*]:bg-surface/95",
         className,
       )}
     >

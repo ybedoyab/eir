@@ -14,6 +14,7 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatCard, StatStrip } from "@/components/ui/StatCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import {
   purchaseOrderStatus,
   replenishmentStatus,
@@ -51,7 +52,7 @@ export default function AdminInventoryPage() {
       setItems(inventoryItems);
       setCases(caseItems);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load inventory");
+      setError(getErrorMessage(err, ERROR_MESSAGES.inventory));
     } finally {
       setLoading(false);
     }
@@ -116,6 +117,9 @@ export default function AdminInventoryPage() {
         density="dense"
         actions={
           <Button variant="secondary" onClick={() => void refresh()} disabled={loading}>
+            <span className={loading ? "inline-flex motion-safe:animate-spin" : "inline-flex"}>
+              <Icon name="refresh" size={16} />
+            </span>
             {loading ? "Refreshing…" : "Refresh"}
           </Button>
         }

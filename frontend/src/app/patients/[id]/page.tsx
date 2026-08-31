@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { Icon } from "@/components/ui/Icon";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { displayPatientId } from "@/lib/format";
-import { episodeBadgeClass } from "@/lib/status";
+import { episodeStatus } from "@/lib/statusLabels";
 import { createRecovery, getPatient } from "@/services/api";
 import type { Patient, RecoveryEpisode } from "@/types";
 
@@ -47,7 +48,7 @@ export default function PatientDetailPage({
     try {
       setEpisode(await createRecovery(id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "create failed");
+      setError(getErrorMessage(err, ERROR_MESSAGES.recoveryCreate));
     } finally {
       setCreating(false);
     }
@@ -111,7 +112,7 @@ export default function PatientDetailPage({
                     <Icon name="open" size={14} />
                   </Link>
                 </div>
-                <Badge className={episodeBadgeClass(episode.status)}>{episode.status}</Badge>
+                <StatusBadge status={episodeStatus(episode.status)} />
               </div>
             ) : (
               <p className="text-[0.875rem] leading-[1.6] text-secondary">

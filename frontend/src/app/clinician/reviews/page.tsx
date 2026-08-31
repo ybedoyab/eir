@@ -11,6 +11,7 @@ import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/cn";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { formatWait } from "@/lib/format";
 import { episodeStatus, riskStatus } from "@/lib/statusLabels";
 import {
@@ -52,7 +53,7 @@ export default function ClinicianReviewsPage() {
           : (reviewItems[0]?.id ?? null),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load reviews");
+      setError(getErrorMessage(err, ERROR_MESSAGES.reviews));
     } finally {
       setLoading(false);
     }
@@ -86,7 +87,7 @@ export default function ClinicianReviewsPage() {
       toast("Review resolved — the workflow resumes from the parked event");
       await refresh();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not resolve review", "error");
+      toast(getErrorMessage(err, ERROR_MESSAGES.reviewResolve), "error");
     } finally {
       setBusyId(null);
     }

@@ -1,3 +1,5 @@
+import { APP_ROUTES, STORAGE_KEYS } from "@/config/app";
+
 export type DemoRole = "PATIENT" | "CLINICIAN" | "OPERATIONS_ADMIN";
 
 export interface AuthSession {
@@ -63,13 +65,17 @@ export interface AdminSnapshot {
   pending_purchase_approvals?: number;
 }
 
-const STORAGE_KEY = "eir.demo.session";
+const ROLE_HOME: Record<DemoRole, string> = {
+  PATIENT: APP_ROUTES.patient.home,
+  CLINICIAN: APP_ROUTES.clinician.home,
+  OPERATIONS_ADMIN: APP_ROUTES.admin.home,
+};
 
 export function loadSession(): AuthSession | null {
   if (typeof window === "undefined") {
     return null;
   }
-  const raw = window.localStorage.getItem(STORAGE_KEY);
+  const raw = window.localStorage.getItem(STORAGE_KEYS.session);
   if (!raw) {
     return null;
   }
@@ -81,19 +87,13 @@ export function loadSession(): AuthSession | null {
 }
 
 export function saveSession(session: AuthSession): void {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  window.localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
 }
 
 export function clearSession(): void {
-  window.localStorage.removeItem(STORAGE_KEY);
+  window.localStorage.removeItem(STORAGE_KEYS.session);
 }
 
 export function roleHome(role: DemoRole): string {
-  if (role === "CLINICIAN") {
-    return "/clinician";
-  }
-  if (role === "OPERATIONS_ADMIN") {
-    return "/admin";
-  }
-  return "/patient";
+  return ROLE_HOME[role];
 }

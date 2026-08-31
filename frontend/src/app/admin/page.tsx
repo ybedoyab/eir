@@ -6,9 +6,12 @@ import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { Icon } from "@/components/ui/Icon";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatCard, StatStrip } from "@/components/ui/StatCard";
+import { APP_ROUTES } from "@/config/app";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { formatWhen } from "@/lib/format";
 import type { AdminSnapshot, Appointment } from "@/lib/auth";
 import {
@@ -46,7 +49,7 @@ export default function AdminHomePage() {
       setReviews(reviewItems);
       setPatients(patientItems);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load operations");
+      setError(getErrorMessage(err, ERROR_MESSAGES.operations));
     } finally {
       setLoading(false);
     }
@@ -98,23 +101,19 @@ export default function AdminHomePage() {
 
   return (
     <>
-      <header className="flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <h1 className="font-serif text-[1.6875rem] font-medium leading-[1.2] tracking-[-0.015em] text-ink">
-            Hospital operations
-          </h1>
-          <p className="mt-1.5 text-[13.5px] leading-[1.5] text-secondary">
-            Every figure below is computed from stored hospital data.
-          </p>
-        </div>
-        <Link
-          href="/admin/fleet"
-          className="focus-ink inline-flex min-h-11 items-center gap-2 font-mono text-[0.75rem] uppercase tracking-[0.1em] text-accent hover:text-ink"
-        >
-          Fleet and adapters
-          <Icon name="arrowRight" size={14} />
-        </Link>
-      </header>
+      <PageHeader
+        eyebrow="Command center"
+        title="Hospital operations"
+        description="Every figure below is computed from stored hospital data."
+        density="dense"
+        icon="overview"
+        actions={
+          <Link href={APP_ROUTES.admin.fleet} className="focus-ink group inline-flex min-h-11 items-center gap-2 rounded-xl border border-accent/30 bg-surface/70 px-4 text-sm font-semibold text-accent shadow-[0_5px_16px_rgb(22_75_130/0.07)] hover:bg-accent-tint">
+            Fleet and adapters
+            <Icon name="arrowRight" size={14} />
+          </Link>
+        }
+      />
 
       {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
 
@@ -180,7 +179,7 @@ export default function AdminHomePage() {
             <SectionHeader
               level="major"
               title="Operational activity"
-              actionHref="/admin/appointments"
+              actionHref={APP_ROUTES.admin.appointments}
               actionLabel="Appointments"
             />
             {activity.length ? (

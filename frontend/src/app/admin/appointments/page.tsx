@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { formatWhen, LOCATIONS, SPECIALTIES } from "@/lib/format";
 import { appointmentStatus } from "@/lib/statusLabels";
 import { listAppointments, listPatients } from "@/services/api";
@@ -36,7 +37,7 @@ export default function AdminAppointmentsPage() {
       setAppointments(appointmentItems);
       setPatients(patientItems);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load appointments");
+      setError(getErrorMessage(err, ERROR_MESSAGES.appointments));
     } finally {
       setLoading(false);
     }

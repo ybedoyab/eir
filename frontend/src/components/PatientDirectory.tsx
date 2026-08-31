@@ -11,11 +11,51 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { TERMINAL_RECOVERY_STATUSES } from "@/config/recovery";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { formatWhen } from "@/lib/format";
-import { episodeStatus } from "@/lib/statusLabels";
+import { episodeStatus, STATUS_VIEWS } from "@/lib/statusLabels";
 import { listAppointments, listPatients, listRecovery, listReviews } from "@/services/api";
 import type { Appointment } from "@/lib/auth";
 import type { HumanReview, Patient, RecoveryEpisode } from "@/types";
+
+const DIRECTORY_LABELS = {
+  noEpisode: "no episode",
+} as const;
+
+const RECOVERY_TAG_CLASS = "max-w-full shrink-0 whitespace-nowrap";
+
+function RecoveryStatusCell({
+  recovery,
+  needsReview,
+}: {
+  recovery?: RecoveryEpisode;
+  needsReview: boolean;
+}) {
+  const hasStatus = Boolean(recovery) || needsReview;
+
+  return (
+    <span className="flex min-w-0 items-center gap-2 py-3 pr-1 sm:pr-0">
+      <span className="flex min-w-0 flex-col items-end gap-2 sm:items-start">
+        {recovery ? (
+          <StatusBadge
+            status={episodeStatus(recovery.status)}
+            className={RECOVERY_TAG_CLASS}
+          />
+        ) : null}
+        {needsReview ? (
+          <StatusBadge status={STATUS_VIEWS.waitingReview} className={RECOVERY_TAG_CLASS} />
+        ) : null}
+        {hasStatus ? null : (
+          <span className="font-mono text-[11.5px] text-inactive">
+            {DIRECTORY_LABELS.noEpisode}
+          </span>
+        )}
+      </span>
+      <Icon name="chevronRight" size={14} className="ml-auto shrink-0 text-muted sm:hidden" />
+    </span>
+  );
+}
 
 export function PatientDirectory({
   eyebrow,
@@ -49,7 +89,7 @@ export function PatientDirectory({
       setEpisodes(episodeItems);
       setReviews(reviewItems);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load patients");
+      setError(getErrorMessage(err, ERROR_MESSAGES.patients));
     } finally {
       setLoading(false);
     }
@@ -74,7 +114,7 @@ export function PatientDirectory({
           .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0];
         const recovery = episodes.find(
           (item) =>
-            item.patient_id === patient.id && !["COMPLETED", "CANCELLED"].includes(item.status),
+            item.patient_id === patient.id && !TERMINAL_RECOVERY_STATUSES.has(item.status),
         );
         const needsReview = reviews.some((review) =>
           episodes.some((item) => item.id === review.episode_id && item.patient_id === patient.id),
@@ -137,16 +177,7 @@ export function PatientDirectory({
                 {next ? formatWhen(next.start) : "none scheduled"}
               </span>
 
-              <span className="flex flex-wrap items-center justify-end gap-2 pr-1 sm:justify-start sm:pr-0">
-                {recovery ? <StatusBadge status={episodeStatus(recovery.status)} /> : null}
-                {needsReview ? (
-                  <StatusBadge status={{ label: "Waiting review", tone: "warning" }} />
-                ) : null}
-                {!recovery && !needsReview ? (
-                  <span className="font-mono text-[11.5px] text-inactive">no episode</span>
-                ) : null}
-                <Icon name="chevronRight" size={14} className="ml-auto text-muted sm:hidden" />
-              </span>
+              <RecoveryStatusCell recovery={recovery} needsReview={needsReview} />
             </Link>
           ))}
         </div>

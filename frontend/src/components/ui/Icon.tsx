@@ -2,20 +2,6 @@ import type { ReactElement } from "react";
 
 import { cn } from "@/lib/cn";
 
-/**
- * The drawn icon set, copied from `docs/design/canvas/System.dc.html` and the
- * nav rows of the role artboards. Stroke-only on a 24 grid, `fill="none"`,
- * `stroke="currentColor"`, so a glyph recolours with the control it sits in
- * and never carries state on its own.
- *
- * Icons are permitted in three positions only:
- *   1. leading a nav row,
- *   2. inside a control whose action is directional or destructive,
- *   3. marking a halt.
- * Never beside a headline, never inside a status chip, never in a tinted
- * rounded square.
- */
-
 const STROKE_ACTION = 1.8;
 const STROKE_DEFAULT = 1.6;
 
@@ -25,7 +11,6 @@ interface Glyph {
 }
 
 const GLYPHS = {
-  // --- surfaces, verbatim from System.dc.html -------------------------
   home: { path: <path d="M3 10.5 12 3l9 7.5V21h-6v-7H9v7H3z" /> },
   schedule: {
     path: (
@@ -88,7 +73,6 @@ const GLYPHS = {
     ),
   },
 
-  // --- actions, verbatim from System.dc.html (1.8 stroke) -------------
   open: {
     path: (
       <>
@@ -118,7 +102,6 @@ const GLYPHS = {
     stroke: STROKE_ACTION,
   },
 
-  // --- nav glyphs used on the role artboards --------------------------
   today: {
     path: (
       <>
@@ -132,7 +115,6 @@ const GLYPHS = {
     path: <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />,
   },
 
-  // --- directional affordances, drawn to the same rules ---------------
   arrowRight: { path: <path d="M5 12h13M12.5 5.5 19 12l-6.5 6.5" />, stroke: STROKE_ACTION },
   arrowLeft: { path: <path d="M19 12H6M11.5 5.5 5 12l6.5 6.5" />, stroke: STROKE_ACTION },
   chevronRight: { path: <path d="M9.5 5.5 16 12l-6.5 6.5" />, stroke: STROKE_ACTION },
@@ -158,6 +140,97 @@ const GLYPHS = {
       <>
         <path d="M14 20H5V4h9" />
         <path d="M18 12H10M15 8.5 18.5 12 15 15.5" />
+      </>
+    ),
+  },
+  swap: {
+    path: (
+      <>
+        <path d="M4 7h13M14 4l3 3-3 3" />
+        <path d="M20 17H7M10 14l-3 3 3 3" />
+      </>
+    ),
+    stroke: STROKE_ACTION,
+  },
+  send: {
+    path: (
+      <>
+        <path d="m3 3 18 9-18 9 3-9z" />
+        <path d="M6 12h15" />
+      </>
+    ),
+    stroke: STROKE_ACTION,
+  },
+  play: {
+    path: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="m10 8 6 4-6 4z" />
+      </>
+    ),
+    stroke: STROKE_ACTION,
+  },
+  activity: {
+    path: <path d="M3 12h4l2.2-5.5 4.2 11 2.2-5.5H21" />,
+    stroke: STROKE_ACTION,
+  },
+  sparkles: {
+    path: (
+      <>
+        <path d="m12 3 1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2z" />
+        <path d="m18.5 14 .7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7zM5 14l.6 1.9 1.9.6-1.9.6L5 19l-.6-1.9-1.9-.6 1.9-.6z" />
+      </>
+    ),
+  },
+  shield: {
+    path: (
+      <>
+        <path d="M12 3 20 6v5.5c0 4.8-3.2 7.8-8 9.5-4.8-1.7-8-4.7-8-9.5V6z" />
+        <path d="m8.5 12 2.2 2.2 4.8-5" />
+      </>
+    ),
+  },
+  heart: {
+    path: <path d="M20.8 5.8a5.2 5.2 0 0 0-7.4 0L12 7.2l-1.4-1.4a5.2 5.2 0 0 0-7.4 7.4L12 22l8.8-8.8a5.2 5.2 0 0 0 0-7.4z" />,
+  },
+  checkCircle: {
+    path: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="m8 12 2.6 2.6L16.5 9" />
+      </>
+    ),
+  },
+  alertCircle: {
+    path: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v6M12 17h.01" />
+      </>
+    ),
+  },
+  server: {
+    path: (
+      <>
+        <rect x="3" y="4" width="18" height="6" rx="2" />
+        <rect x="3" y="14" width="18" height="6" rx="2" />
+        <path d="M7 7h.01M7 17h.01M11 7h7M11 17h7" />
+      </>
+    ),
+  },
+  bell: {
+    path: (
+      <>
+        <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+        <path d="M10 21h4" />
+      </>
+    ),
+  },
+  clock: {
+    path: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
       </>
     ),
   },
@@ -187,7 +260,7 @@ export function Icon({
       strokeLinejoin="round"
       aria-hidden="true"
       focusable="false"
-      className={cn("shrink-0", className)}
+      className={cn("eir-icon shrink-0", className)}
     >
       {glyph.path}
     </svg>

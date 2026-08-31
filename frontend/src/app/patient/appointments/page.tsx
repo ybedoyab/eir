@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import type { Appointment, SlotOption } from "@/lib/auth";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { formatDateLong, formatTime, formatWhen, isMorning, SPECIALTIES } from "@/lib/format";
 import {
   bookAppointment,
@@ -80,7 +81,7 @@ function PatientAppointmentsContent() {
     try {
       setAppointments(await listAppointments());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load appointments");
+      setError(getErrorMessage(err, ERROR_MESSAGES.appointments));
     } finally {
       setLoading(false);
     }
@@ -150,7 +151,7 @@ function PatientAppointmentsContent() {
       setScheduling(false);
       await refresh();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not save appointment", "error");
+      toast(getErrorMessage(err, ERROR_MESSAGES.appointmentSave), "error");
     } finally {
       setBusy(false);
     }
@@ -169,7 +170,7 @@ function PatientAppointmentsContent() {
       setCancelReason("");
       await refresh();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not cancel appointment", "error");
+      toast(getErrorMessage(err, ERROR_MESSAGES.appointmentCancel), "error");
     } finally {
       setBusy(false);
     }
@@ -289,7 +290,7 @@ function PatientAppointmentsContent() {
                         key={slot.id}
                         type="button"
                         onClick={() => setPendingSlot(slot)}
-                        className="focus-ink on-tint inline-flex min-h-11 flex-col justify-center border border-rule-strong bg-accent-tint px-4 py-2 text-left hover:border-accent hover:bg-hover"
+                        className="eir-control focus-ink on-tint inline-flex min-h-11 flex-col justify-center border border-rule-strong bg-accent-tint px-4 py-2 text-left hover:border-accent hover:bg-hover"
                       >
                         <span className="font-mono text-[0.875rem] font-medium text-accent">
                           {formatTime(slot.start)}

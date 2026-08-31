@@ -1,4 +1,6 @@
 import { loadSession } from "@/lib/auth";
+import { API_CONFIG, API_ROUTES, HTTP_STATUS } from "@/config/app";
+import { ApiError, ERROR_MESSAGES } from "@/lib/errors";
 import type {
   AccessMessageResponse,
   AccessSession,
@@ -16,52 +18,56 @@ import type {
   Supplier,
 } from "@/types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+const AUTH_FAILURE_STATUSES: ReadonlySet<number> = new Set(Object.values(HTTP_STATUS));
 
 function authHeaders(): Record<string, string> {
   const session = typeof window !== "undefined" ? loadSession() : null;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    [API_CONFIG.headers.contentType]: API_CONFIG.headers.json,
+  };
   if (session?.token) {
-    headers.Authorization = `Bearer ${session.token}`;
+    headers[API_CONFIG.headers.authorization] = `${API_CONFIG.authScheme} ${session.token}`;
   }
   return headers;
 }
 
 async function getJson<T>(path: string, authenticated = false): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${API_CONFIG.baseUrl}${path}`, {
     cache: "no-store",
     headers: authenticated ? authHeaders() : undefined,
   });
   if (!response.ok) {
-    throw new Error(`${path} failed (${response.status})`);
+    throw new ApiError(path, response.status);
   }
   return response.json();
 }
 
 async function postJson<T>(path: string, body: unknown, authenticated = false): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${API_CONFIG.baseUrl}${path}`, {
     method: "POST",
-    headers: authenticated ? authHeaders() : { "Content-Type": "application/json" },
+    headers: authenticated
+      ? authHeaders()
+      : { [API_CONFIG.headers.contentType]: API_CONFIG.headers.json },
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new Error(`${path} failed (${response.status})`);
+    throw new ApiError(path, response.status);
   }
   return response.json();
 }
 
 export async function getHealth(): Promise<{ status: string }> {
-  return getJson("/health");
+  return getJson(API_ROUTES.health);
 }
 
 export async function loginDemo(username: string, password: string): Promise<AuthSession> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+  const response = await fetch(`${API_CONFIG.baseUrl}${API_ROUTES.auth.login}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { [API_CONFIG.headers.contentType]: API_CONFIG.headers.json },
     body: JSON.stringify({ username, password }),
   });
   if (!response.ok) {
-    throw new Error("Login failed");
+    throw new Error(ERROR_MESSAGES.login);
   }
   const body = await response.json();
   return {
@@ -92,15 +98,15 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   if (typeof window === "undefined" || !loadSession()?.token) {
     return null;
   }
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+  const response = await fetch(`${API_CONFIG.baseUrl}${API_ROUTES.auth.me}`, {
     cache: "no-store",
     headers: authHeaders(),
   });
-  if (response.status === 401 || response.status === 403) {
+  if (AUTH_FAILURE_STATUSES.has(response.status)) {
     return null;
   }
   if (!response.ok) {
-    throw new Error(`/api/v1/auth/me failed (${response.status})`);
+    throw new ApiError(API_ROUTES.auth.me, response.status);
   }
   return response.json();
 }
@@ -113,26 +119,26 @@ export async function listDemoUsers() {
       role: string;
       password_hint: string;
     }>
-  >("/api/v1/auth/demo-users");
+  >(API_ROUTES.auth.demoUsers);
 }
 
 export async function listPatients() {
-  return getJson<import("@/types").Patient[]>("/api/v1/patients", true);
+  return getJson<import("@/types").Patient[]>(API_ROUTES.patients, true);
 }
 
 export async function getPatient(id: string) {
-  return getJson<import("@/types").Patient>(`/api/v1/patients/${id}`, true);
+  return getJson<import("@/types").Patient>(`${API_ROUTES.patients}/${id}`, true);
 }
 
 export async function listPatientMedications(patientId: string) {
   return getJson<import("@/types").PatientMedication[]>(
-    `/api/v1/patients/${encodeURIComponent(patientId)}/medications`,
+    `${API_ROUTES.patients}/${encodeURIComponent(patientId)}/medications`,
     true,
   );
 }
 
 export async function listAppointments() {
-  return getJson<Appointment[]>("/api/v1/appointments", true);
+  return getJson<Appointment[]>(API_ROUTES.appointments, true);
 }
 
 export async function searchAvailability(params: {
@@ -144,16 +150,16 @@ export async function searchAvailability(params: {
   if (params.specialty) query.set("specialty", params.specialty);
   if (params.time_of_day) query.set("time_of_day", params.time_of_day);
   if (params.location_id) query.set("location_id", params.location_id);
-  return getJson<SlotOption[]>(`/api/v1/appointments/availability?${query.toString()}`, true);
+  return getJson<SlotOption[]>(`${API_ROUTES.appointmentAvailability}?${query.toString()}`, true);
 }
 
 export async function bookAppointment(slotId: string) {
-  return postJson<Appointment>("/api/v1/appointments", { slot_id: slotId }, true);
+  return postJson<Appointment>(API_ROUTES.appointments, { slot_id: slotId }, true);
 }
 
 export async function rescheduleAppointment(appointmentId: string, slotId: string) {
   return postJson<Appointment>(
-    `/api/v1/appointments/${appointmentId}/reschedule`,
+    `${API_ROUTES.appointments}/${appointmentId}/reschedule`,
     { slot_id: slotId },
     true,
   );
@@ -161,49 +167,49 @@ export async function rescheduleAppointment(appointmentId: string, slotId: strin
 
 export async function cancelAppointment(appointmentId: string, reason: string) {
   return postJson<Appointment>(
-    `/api/v1/appointments/${appointmentId}/cancel`,
+    `${API_ROUTES.appointments}/${appointmentId}/cancel`,
     { confirmed: true, reason },
     true,
   );
 }
 
 export async function createAccessSession() {
-  return postJson<AccessSession>("/api/v1/access/sessions", { channel: "web" }, true);
+  return postJson<AccessSession>(API_ROUTES.accessSessions, { channel: "web" }, true);
 }
 
 export async function sendAccessMessage(sessionId: string, message: string) {
   return postJson<AccessMessageResponse>(
-    `/api/v1/access/sessions/${sessionId}/message`,
+    `${API_ROUTES.accessSessions}/${sessionId}/message`,
     { message },
     true,
   );
 }
 
 export async function getAdminSnapshot() {
-  return getJson<AdminSnapshot>("/api/v1/admin/snapshot", true);
+  return getJson<AdminSnapshot>(API_ROUTES.adminSnapshot, true);
 }
 
 export async function listRecovery() {
-  return getJson<import("@/types").RecoveryEpisode[]>("/api/v1/recovery");
+  return getJson<import("@/types").RecoveryEpisode[]>(API_ROUTES.recovery);
 }
 
 export async function getRecovery(id: string) {
-  return getJson<import("@/types").RecoveryEpisode>(`/api/v1/recovery/${id}`);
+  return getJson<import("@/types").RecoveryEpisode>(`${API_ROUTES.recovery}/${id}`);
 }
 
 export async function listRecoveryEvents(id: string) {
-  return getJson<import("@/types").DomainEvent[]>(`/api/v1/recovery/${id}/events`);
+  return getJson<import("@/types").DomainEvent[]>(`${API_ROUTES.recovery}/${id}/events`);
 }
 
 export async function createRecovery(patientId: string) {
-  return postJson<import("@/types").RecoveryEpisode>("/api/v1/recovery", {
+  return postJson<import("@/types").RecoveryEpisode>(API_ROUTES.recovery, {
     patient_id: patientId,
   });
 }
 
 export async function triggerFollowUp(episodeId: string) {
   return postJson<{ episode: import("@/types").RecoveryEpisode }>(
-    `/api/v1/recovery/${episodeId}/follow-up`,
+    `${API_ROUTES.recovery}/${episodeId}/follow-up`,
     {},
   );
 }
@@ -214,36 +220,36 @@ export async function triggerFollowUp(episodeId: string) {
 // really calls Veo instead of handing back the identical clip. First-time generation leaves it
 // off so repeat episodes with the same care tasks reuse one stored video.
 export async function requestRecoveryVideo(episodeId: string, force = false) {
-  return postJson<import("@/types").DomainEvent>(`/api/v1/recovery/${episodeId}/events`, {
+  return postJson<import("@/types").DomainEvent>(`${API_ROUTES.recovery}/${episodeId}/events`, {
     event_type: "RecoveryVideoRequested",
     payload: force ? { force: true } : {},
   });
 }
 
 export function recoveryVideoUrl(path: string): string {
-  return `${API_BASE_URL}${path}`;
+  return `${API_CONFIG.baseUrl}${path}`;
 }
 
 export async function listReviews(pending = true) {
-  return getJson<import("@/types").HumanReview[]>(`/api/v1/reviews?pending=${pending}`);
+  return getJson<import("@/types").HumanReview[]>(`${API_ROUTES.reviews}?pending=${pending}`);
 }
 
 export async function resolveReview(reviewId: string, note: string) {
-  return postJson<import("@/types").HumanReview>(`/api/v1/reviews/${reviewId}/resolve`, {
+  return postJson<import("@/types").HumanReview>(`${API_ROUTES.reviews}/${reviewId}/resolve`, {
     note,
   });
 }
 
 export async function listAgents() {
-  return getJson<import("@/types").AgentDescriptor[]>("/api/v1/agents");
+  return getJson<import("@/types").AgentDescriptor[]>(API_ROUTES.agents);
 }
 
 export async function listTraces() {
-  return getJson<import("@/types").WorkflowTrace[]>("/api/v1/traces");
+  return getJson<import("@/types").WorkflowTrace[]>(API_ROUTES.traces);
 }
 
 export async function getRuntimeStatus() {
-  return getJson<import("@/types").RuntimeStatus>("/api/v1/runtime/status");
+  return getJson<import("@/types").RuntimeStatus>(API_ROUTES.runtimeStatus);
 }
 
 export async function getRuntimeHistory(limit = 25, episodeId?: string) {
@@ -252,12 +258,12 @@ export async function getRuntimeHistory(limit = 25, episodeId?: string) {
     params.set("episode_id", episodeId);
   }
   return getJson<{ items: import("@/types").AdkWorkerTelemetry[] }>(
-    `/api/v1/runtime/history?${params.toString()}`,
+    `${API_ROUTES.runtimeHistory}?${params.toString()}`,
   );
 }
 
 export async function bootstrapDemo(fastForward = false) {
-  return postJson<import("@/types").DemoBootstrapResponse>("/api/v1/demo/bootstrap", {
+  return postJson<import("@/types").DemoBootstrapResponse>(API_ROUTES.demoBootstrap, {
     fast_forward: fastForward,
   });
 }
@@ -267,12 +273,12 @@ export async function getDemoContext(episodeId: string) {
     episode_id: string;
     patient_id: string;
     medications: import("@/types").PatientMedication[];
-  }>(`/api/v1/demo/context/${encodeURIComponent(episodeId)}`);
+  }>(`${API_ROUTES.demoContext}/${encodeURIComponent(episodeId)}`);
 }
 
 export async function advanceDemoFollowUp(episodeId: string) {
   return postJson<import("@/types").DemoAdvanceResponse>(
-    `/api/v1/demo/advance-follow-up/${episodeId}`,
+    `${API_ROUTES.demoFollowUp}/${episodeId}`,
     {},
   );
 }
@@ -282,19 +288,19 @@ export async function simulateConcerningSignal(episodeId: string) {
     published: string;
     episode_id: string;
     signal?: { pain_score: number; reported_issue: string };
-  }>(`/api/v1/demo/concerning-signal/${episodeId}`, {});
+  }>(`${API_ROUTES.demoSignal}/${episodeId}`, {});
 }
 
 export async function retryDemoVoice(episodeId: string) {
   return postJson<{ retried: boolean; episode_id: string; event: string }>(
-    `/api/v1/demo/retry-voice/${episodeId}`,
+    `${API_ROUTES.demoVoiceRetry}/${episodeId}`,
     {},
   );
 }
 
 export async function simulatePromptInjection(episodeId: string) {
   return postJson<{ published: string; episode_id: string }>(
-    `/api/v1/security/demo/prompt-injection/${episodeId}`,
+    `${API_ROUTES.promptInjection}/${episodeId}`,
     {},
   );
 }
@@ -317,7 +323,7 @@ export interface VoiceWebSession {
 }
 
 export async function getVoiceWebConfig() {
-  return getJson<VoiceWebConfig>("/api/v1/voice/web-session");
+  return getJson<VoiceWebConfig>(API_ROUTES.voiceWebSession);
 }
 
 /**
@@ -326,57 +332,57 @@ export async function getVoiceWebConfig() {
  */
 export async function startVoiceWebSession(episodeId: string, oneTimeKey = "") {
   return postJson<VoiceWebSession>(
-    "/api/v1/voice/web-session",
+    API_ROUTES.voiceWebSession,
     { episode_id: episodeId, one_time_key: oneTimeKey },
     true,
   );
 }
 
 export async function listInventory() {
-  return getJson<InventoryItem[]>("/api/v1/inventory", true);
+  return getJson<InventoryItem[]>(API_ROUTES.inventory, true);
 }
 
 export async function listLowStock() {
-  return getJson<InventoryItem[]>("/api/v1/inventory/low-stock", true);
+  return getJson<InventoryItem[]>(API_ROUTES.lowStock, true);
 }
 
 export async function listSuppliers(sku?: string) {
   const query = sku ? `?sku=${encodeURIComponent(sku)}` : "";
-  return getJson<Supplier[]>(`/api/v1/inventory/suppliers${query}`, true);
+  return getJson<Supplier[]>(`${API_ROUTES.suppliers}${query}`, true);
 }
 
 export async function adjustStock(sku: string, delta: number, reason = "") {
   return postJson<InventoryItem>(
-    `/api/v1/inventory/${encodeURIComponent(sku)}/adjust`,
+    `${API_ROUTES.inventory}/${encodeURIComponent(sku)}/adjust`,
     { delta, reason },
     true,
   );
 }
 
 export async function listReplenishmentCases(openOnly = false) {
-  return getJson<ReplenishmentCase[]>(`/api/v1/supply/cases?open_only=${openOnly}`, true);
+  return getJson<ReplenishmentCase[]>(`${API_ROUTES.supplyCases}?open_only=${openOnly}`, true);
 }
 
 export async function getReplenishmentCase(caseId: string) {
-  return getJson<ReplenishmentCase>(`/api/v1/supply/cases/${caseId}`, true);
+  return getJson<ReplenishmentCase>(`${API_ROUTES.supplyCases}/${caseId}`, true);
 }
 
 export async function listReplenishmentEvents(caseId: string) {
-  return getJson<DomainEvent[]>(`/api/v1/supply/cases/${caseId}/events`, true);
+  return getJson<DomainEvent[]>(`${API_ROUTES.supplyCases}/${caseId}/events`, true);
 }
 
 export async function listPurchaseApprovals(pending = true) {
-  return getJson<HumanReview[]>(`/api/v1/supply/approvals?pending=${pending}`, true);
+  return getJson<HumanReview[]>(`${API_ROUTES.supplyApprovals}?pending=${pending}`, true);
 }
 
 export async function approvePurchaseOrder(caseId: string, note = "") {
-  return postJson<ReplenishmentCase>(`/api/v1/supply/cases/${caseId}/approve`, { note }, true);
+  return postJson<ReplenishmentCase>(`${API_ROUTES.supplyCases}/${caseId}/approve`, { note }, true);
 }
 
 export async function receiveDelivery(caseId: string) {
-  return postJson<ReplenishmentCase>(`/api/v1/supply/cases/${caseId}/receive`, {}, true);
+  return postJson<ReplenishmentCase>(`${API_ROUTES.supplyCases}/${caseId}/receive`, {}, true);
 }
 
 export async function cancelReplenishmentCase(caseId: string, reason = "") {
-  return postJson<ReplenishmentCase>(`/api/v1/supply/cases/${caseId}/cancel`, { reason }, true);
+  return postJson<ReplenishmentCase>(`${API_ROUTES.supplyCases}/${caseId}/cancel`, { reason }, true);
 }

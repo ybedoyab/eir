@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from "react";
 
+import { HaltBanner } from "@/components/cascade/CascadeWaterfall";
+import { Button } from "@/components/ui/Button";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { Icon } from "@/components/ui/Icon";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import { StatCard, StatStrip } from "@/components/ui/StatCard";
 import { cn } from "@/lib/cn";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { voiceProviderLabel } from "@/lib/demoStory";
 import { formatWait } from "@/lib/format";
 import { getRuntimeStatus, listAgents, listReviews, listTraces } from "@/services/api";
@@ -20,13 +23,37 @@ interface AdapterRow {
   detail: string;
 }
 
+const FLEET_COLUMNS = ["Agent", "Granted capabilities", "Risk", "Version"] as const;
+const RECENT_TRACE_LIMIT = 8;
+
 const ADAPTER_TONE: Record<AdapterState, string> = {
   real: "text-ok",
   fallback: "text-warn",
   unknown: "text-muted",
 };
 
-/** Reads what the runtime reports. A fallback is amber, never hidden, never green. */
+function voiceState(voiceAvailable: boolean, realProvider: boolean): AdapterState {
+  if (!voiceAvailable) return "unknown";
+  if (realProvider) return "real";
+  return "fallback";
+}
+
+function videoState(configured: boolean, lastSuccess: boolean | null | undefined): AdapterState {
+  if (!configured) return "unknown";
+  if (lastSuccess === false) return "fallback";
+  return "real";
+}
+
+function videoDetail(video: RuntimeStatus["fleet"]["recovery_video"]): string {
+  if (!video?.configured) return "disabled";
+  if (video.last_error) return `${video.storage?.backend ?? "veo"} · ${video.last_error}`;
+  return `${video.adapter} · ${video.storage?.backend ?? "unknown"}`;
+}
+
+function blockingCapability(review: HumanReview): string {
+  return review.pending_capability?.trim() || review.capability?.trim() || "Pending capability";
+}
+
 function adapterRows(runtime: RuntimeStatus | null): AdapterRow[] {
   if (!runtime) return [];
   const fleet = runtime.fleet;
@@ -62,19 +89,13 @@ function adapterRows(runtime: RuntimeStatus | null): AdapterRow[] {
     },
     {
       name: "voice",
-      state: voice ? (voiceReal ? "real" : "fallback") : "unknown",
+      state: voiceState(Boolean(voice), voiceReal),
       detail: voiceProviderLabel(voice?.active_provider).toLowerCase(),
     },
     {
       name: "recovery_video",
-      // Off is not degraded: the feature ships behind a flag, so an unconfigured adapter is
-      // "unknown", and only a configured-but-failing Veo counts as a fallback.
-      state: !video?.configured ? "unknown" : video.last_success === false ? "fallback" : "real",
-      detail: !video?.configured
-        ? "disabled"
-        : video.last_error
-          ? `${video.storage?.backend ?? "veo"} · ${video.last_error}`
-          : `${video.adapter} · ${video.storage?.backend ?? "unknown"}`,
+      state: videoState(Boolean(video?.configured), video?.last_success),
+      detail: videoDetail(video),
     },
   ];
 }
@@ -104,7 +125,7 @@ export default function AdminFleetPage() {
       setReviews(reviewItems);
       setRefreshedAt(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load fleet");
+      setError(getErrorMessage(err, ERROR_MESSAGES.fleet));
     } finally {
       setLoading(false);
     }
@@ -118,7 +139,7 @@ export default function AdminFleetPage() {
   const degraded = adapters.filter((row) => row.state === "fallback");
   const recent = [...traces]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .slice(0, 8);
+    .slice(0, RECENT_TRACE_LIMIT);
   const oldestReview = reviews.length
     ? reviews.reduce((oldest, item) =>
         new Date(item.created_at) < new Date(oldest.created_at) ? item : oldest,
@@ -139,16 +160,16 @@ export default function AdminFleetPage() {
               : "Every adapter is reporting real."}
           </p>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => void refresh()}
-          className="focus-ink inline-flex min-h-11 items-center gap-2 px-2 font-mono text-[0.75rem] text-muted hover:text-ink"
+          className="px-3 font-mono text-[0.75rem] font-normal text-muted"
         >
           <Icon name="refresh" size={14} />
           {refreshedAt
             ? `refreshed ${refreshedAt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
             : "refresh"}
-        </button>
+        </Button>
       </header>
 
       {error ? <ErrorAlert message={error} onRetry={() => void refresh()} /> : null}
@@ -191,7 +212,6 @@ export default function AdminFleetPage() {
               />
             </StatStrip>
 
-            {/* registry */}
             <section className="flex flex-col">
               <div className="flex items-baseline justify-between gap-4 pb-2">
                 <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
@@ -202,7 +222,7 @@ export default function AdminFleetPage() {
                 </span>
               </div>
               <div className="hidden grid-cols-[168px_minmax(0,1fr)_96px_96px] gap-4 border-b border-rule-strong pb-2 sm:grid">
-                {["Agent", "Granted capabilities", "Risk", "Version"].map((column) => (
+                {FLEET_COLUMNS.map((column) => (
                   <span
                     key={column}
                     className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted"
@@ -231,7 +251,6 @@ export default function AdminFleetPage() {
               ))}
             </section>
 
-            {/* adapters */}
             <section className="flex flex-col">
               <div className="flex items-baseline justify-between gap-4 pb-2">
                 <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
@@ -290,8 +309,7 @@ export default function AdminFleetPage() {
             ) : null}
           </div>
 
-          {/* live event stream */}
-          <aside className="on-raised flex flex-col border-l border-rule bg-raised">
+          <aside className="eir-surface on-raised flex h-fit flex-col self-start overflow-hidden bg-raised">
             <div className="flex items-center justify-between gap-3 border-b border-rule-strong px-5 pb-3 pt-5">
               <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-secondary">
                 Event stream
@@ -331,21 +349,13 @@ export default function AdminFleetPage() {
               <p className="px-5 py-4 text-[0.8125rem] text-muted">No traces recorded yet.</p>
             )}
 
-            {/* the halt, echoed: register change, no hue, no motion */}
             {oldestReview ? (
-              <div className="eir-halt m-5 flex flex-col gap-2 border-l-[3px] border-high bg-ink px-[18px] py-4">
-                <span className="inline-flex items-center gap-2 font-mono text-[0.75rem] font-medium tracking-[0.12em] text-paper">
-                  <Icon name="halt" size={14} />
-                  CASCADE HALTED
-                </span>
-                <span className="text-[12.5px] leading-[1.55] text-on-ink">
-                  {oldestReview.pending_capability ?? oldestReview.capability} is a blocking
-                  capability. Next events suppressed, review parked for a clinician.
-                </span>
-                <span className="font-mono text-[0.75rem] text-on-ink-muted">
-                  held {formatWait(oldestReview.created_at).replace(" waiting", "")}
-                </span>
-              </div>
+              <HaltBanner
+                className="m-5"
+                title="CASCADE HALTED"
+                detail={`${blockingCapability(oldestReview)} is a blocking capability. Next events suppressed, review parked for a clinician.`}
+                held={formatWait(oldestReview.created_at).replace(" waiting", "")}
+              />
             ) : null}
 
             <div className="mt-auto border-t border-rule px-5 py-4">

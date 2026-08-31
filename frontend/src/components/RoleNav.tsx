@@ -4,126 +4,151 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { Icon, type IconName } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
+import { APP_META, APP_ROUTES } from "@/config/app";
+import {
+  isNavigationItemActive,
+  ROLE_NAVIGATION,
+  type NavigationItem,
+  type RoleNavigation,
+} from "@/config/navigation";
+import { clearSession, loadSession, type AuthSession, type DemoRole } from "@/lib/auth";
 import { cn } from "@/lib/cn";
-import { clearSession, loadSession, roleHome, type AuthSession, type DemoRole } from "@/lib/auth";
 import { displayPatientId } from "@/lib/format";
 import { roleLabel } from "@/lib/personas";
 
-interface NavLink {
-  href: string;
-  label: string;
-  icon: IconName;
-}
-
-const NAV_BY_ROLE: Record<DemoRole, NavLink[]> = {
-  PATIENT: [
-    { href: "/patient", label: "Home", icon: "home" },
-    { href: "/patient/appointments", label: "Appointments", icon: "schedule" },
-    { href: "/patient/recovery", label: "Recovery", icon: "recovery" },
-    { href: "/patient/assistant", label: "Ask EIR", icon: "assistant" },
-  ],
-  CLINICIAN: [
-    { href: "/clinician", label: "Today", icon: "today" },
-    { href: "/clinician/schedule", label: "Schedule", icon: "schedule" },
-    { href: "/clinician/reviews", label: "Reviews", icon: "reviews" },
-    { href: "/clinician/patients", label: "Patients", icon: "patients" },
-  ],
-  OPERATIONS_ADMIN: [
-    { href: "/admin", label: "Overview", icon: "overview" },
-    { href: "/admin/fleet", label: "Fleet", icon: "fleet" },
-    { href: "/admin/observability", label: "Observability", icon: "observe" },
-    { href: "/admin/appointments", label: "Appointments", icon: "schedule" },
-    { href: "/admin/patients", label: "Patients", icon: "patients" },
-    { href: "/admin/inventory", label: "Inventory", icon: "inventory" },
-  ],
-};
-
-/** Density is the same dials at three settings; targets never shrink. */
-const RAIL: Record<DemoRole, { pad: string; row: string; text: string; kicker: string }> = {
-  PATIENT: { pad: "px-5 py-6", row: "min-h-12 px-3", text: "text-[0.9375rem]", kicker: "Patient" },
-  CLINICIAN: {
-    pad: "px-4 py-5",
-    row: "min-h-11 px-2.5",
-    text: "text-[14.5px]",
-    kicker: "Clinician",
-  },
-  OPERATIONS_ADMIN: {
-    pad: "px-3.5 py-4.5",
-    row: "min-h-11 px-2.5",
-    text: "text-[0.875rem]",
-    kicker: "Operations",
-  },
-};
-
-function isActive(pathname: string, href: string): boolean {
-  if (href === "/patient" || href === "/clinician" || href === "/admin") {
-    return pathname === href;
-  }
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function Wordmark({ kicker, size, logoSize = 20 }: { kicker: string; size: string; logoSize?: number }) {
+function Wordmark({ label }: { label: string }) {
   return (
     <span className="flex items-center gap-2.5">
-      <Logo size={logoSize} />
-      <span className={cn("font-serif font-semibold tracking-[-0.01em] text-ink", size)}>EIR</span>
-      <span className="h-4 w-px bg-rule-strong" aria-hidden />
-      <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
-        {kicker}
+      <span className="eir-icon-shell h-10 w-10 rounded-xl">
+        <Logo size={23} />
+      </span>
+      <span className="flex flex-col">
+        <span className="font-serif text-[1.25rem] font-semibold leading-none tracking-[-0.01em] text-ink">
+          {APP_META.name}
+        </span>
+        <span className="mt-1 font-mono text-[9.5px] uppercase tracking-[0.13em] text-muted">
+          {label}
+        </span>
       </span>
     </span>
   );
 }
 
-function NavRows({
-  links,
+function NavItem({
+  item,
   pathname,
-  density,
+  config,
   onNavigate,
 }: {
-  links: NavLink[];
+  item: NavigationItem;
   pathname: string;
-  density: (typeof RAIL)[DemoRole];
+  config: RoleNavigation;
   onNavigate?: () => void;
 }) {
+  const active = isNavigationItemActive(pathname, item.href);
+
   return (
-    <>
-      {links.map((link) => {
-        const active = isActive(pathname, link.href);
-        return (
-          <Link
-            key={link.href}
-            href={link.href}
-            aria-current={active ? "page" : undefined}
-            onClick={onNavigate}
-            className={cn(
-              "focus-ink group flex items-center gap-3 border-l-[3px]",
-              density.row,
-              density.text,
-              active
-                ? // Filled accent: on a raised rail a paper-on-accent row is the
-                  // clearest "you are here" the palette can draw, and it is the
-                  // one place blue appears on every screen.
-                  "on-accent border-accent bg-accent font-medium text-paper"
-                : "border-transparent text-secondary hover:bg-hover hover:text-ink",
-            )}
-          >
-            <Icon name={link.icon} size={18} className={active ? "text-paper" : undefined} />
-            <span className="flex-1">{link.label}</span>
-            <Icon
-              name="chevronRight"
-              size={14}
-              className={cn(
-                "text-muted opacity-0 group-hover:opacity-100",
-                active && "opacity-100 text-paper",
-              )}
-            />
-          </Link>
-        );
-      })}
-    </>
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      onClick={onNavigate}
+      className={cn(
+        "focus-ink group relative flex items-center gap-3 rounded-xl border",
+        config.shell.navRow,
+        config.shell.density,
+        active
+          ? "on-accent border-accent/70 bg-gradient-to-r from-accent to-accent-hover font-medium text-paper shadow-[0_10px_24px_rgb(22_75_130/0.2)]"
+          : "border-transparent text-secondary hover:border-rule hover:bg-surface/80 hover:text-ink hover:shadow-[0_8px_22px_rgb(22_75_130/0.07)]",
+      )}
+    >
+      <span
+        className={cn(
+          "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+          active ? "bg-white/14 text-paper" : "bg-accent-tint/60 text-accent",
+        )}
+      >
+        <Icon name={item.icon} size={17} />
+      </span>
+      <span className="flex-1">{item.label}</span>
+      <Icon
+        name="chevronRight"
+        size={14}
+        className={cn(
+          "opacity-0 group-hover:opacity-100",
+          active ? "translate-x-0 text-paper opacity-100" : "-translate-x-1 text-muted",
+        )}
+      />
+    </Link>
+  );
+}
+
+function NavRows({
+  config,
+  pathname,
+  onNavigate,
+}: {
+  config: RoleNavigation;
+  pathname: string;
+  onNavigate?: () => void;
+}) {
+  return config.navigation.map((item) => (
+    <NavItem
+      key={item.href}
+      item={item}
+      pathname={pathname}
+      config={config}
+      onNavigate={onNavigate}
+    />
+  ));
+}
+
+function IdentityPanel({
+  role,
+  session,
+  onSignOut,
+}: {
+  role: DemoRole;
+  session: AuthSession | null;
+  onSignOut: () => void;
+}) {
+  const identityLabel = session?.patient_id
+    ? displayPatientId(session.patient_id)
+    : roleLabel(role).toLowerCase();
+
+  return (
+    <div className="eir-surface-soft flex flex-col gap-3 p-3.5">
+      <div className="flex items-center gap-3">
+        <span className="eir-status-dot" aria-hidden />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[0.875rem] font-semibold text-ink">
+            {session?.display_name ?? roleLabel(role)}
+          </span>
+          <span className="block truncate font-mono text-[0.6875rem] text-muted">
+            {identityLabel}
+          </span>
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-1 border-t border-rule/70 pt-2">
+        <Link
+          href={APP_ROUTES.login}
+          onClick={clearSession}
+          className="eir-control focus-ink inline-flex min-h-9 items-center justify-center gap-1.5 px-2 text-[0.75rem] text-secondary hover:bg-hover hover:text-ink"
+        >
+          <Icon name="swap" size={14} />
+          Switch role
+        </Link>
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="eir-control focus-ink inline-flex min-h-9 items-center justify-center gap-1.5 px-2 text-[0.75rem] text-secondary hover:bg-hover hover:text-ink"
+        >
+          <Icon name="signOut" size={14} />
+          Sign out
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -132,69 +157,28 @@ export function RoleNav({ role }: { role: DemoRole }) {
   const router = useRouter();
   const [session, setSession] = useState<AuthSession | null>(null);
   const [open, setOpen] = useState(false);
+  const config = ROLE_NAVIGATION[role];
 
-  useEffect(() => {
-    setSession(loadSession());
-  }, []);
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
-  const links = NAV_BY_ROLE[role];
-  const density = RAIL[role];
+  useEffect(() => setSession(loadSession()), []);
+  useEffect(() => setOpen(false), [pathname]);
 
   function signOut() {
     clearSession();
-    router.push("/login");
+    router.push(APP_ROUTES.login);
   }
 
-  const identity = (
-    <div className="flex flex-col gap-2 border-t border-rule pt-4">
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[0.875rem] font-medium text-ink">
-          {session?.display_name ?? roleLabel(role)}
-        </span>
-        <span className="font-mono text-[0.75rem] text-muted">
-          {session?.patient_id
-            ? displayPatientId(session.patient_id)
-            : roleLabel(role).toLowerCase()}
-        </span>
-      </div>
-      <span className="font-mono text-[10.5px] leading-snug text-muted">
-        Demo identity
-      </span>
-      <div className="mt-1 flex flex-wrap items-center gap-1">
-        <Link
-          href="/login"
-          onClick={() => clearSession()}
-          className="focus-ink inline-flex min-h-11 items-center px-2 text-[0.8125rem] text-secondary hover:text-ink"
-        >
-          Switch role
-        </Link>
-        <button
-          type="button"
-          onClick={signOut}
-          className="focus-ink inline-flex min-h-11 items-center gap-2 px-2 text-[0.8125rem] text-secondary hover:text-ink"
-        >
-          <Icon name="signOut" size={15} />
-          Sign out
-        </button>
-      </div>
-    </div>
-  );
+  const identity = <IdentityPanel role={role} session={session} onSignOut={signOut} />;
 
   return (
     <>
-      {/* Mobile: a top bar that opens the same rows. */}
-      <header className="on-raised sticky top-0 z-40 border-b border-rule bg-raised lg:hidden">
+      <header className="eir-glass sticky top-0 z-40 border-b border-rule/80 lg:hidden">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <Link href={roleHome(role)} className="focus-ink inline-flex min-h-11 items-center">
-            <Wordmark kicker={density.kicker} size="text-[1.1875rem]" logoSize={19} />
+          <Link href={config.home} className="focus-ink inline-flex min-h-11 items-center rounded-xl">
+            <Wordmark label={config.label} />
           </Link>
           <button
             type="button"
-            className="focus-ink inline-flex h-11 w-11 items-center justify-center text-body hover:bg-hover"
+            className="focus-ink inline-flex h-11 w-11 items-center justify-center rounded-xl border border-rule bg-surface/70 text-body hover:bg-hover"
             aria-expanded={open}
             aria-controls="role-nav-mobile"
             onClick={() => setOpen((value) => !value)}
@@ -204,37 +188,29 @@ export function RoleNav({ role }: { role: DemoRole }) {
           </button>
         </div>
         {open ? (
-          <div id="role-nav-mobile" className="border-t border-rule px-4 pb-4">
-            <nav className="flex flex-col py-2" aria-label="Primary">
-              <NavRows
-                links={links}
-                pathname={pathname}
-                density={density}
-                onNavigate={() => setOpen(false)}
-              />
+          <div id="role-nav-mobile" className="eir-enter border-t border-rule px-4 pb-4">
+            <nav className="flex flex-col gap-1.5 py-3" aria-label="Primary">
+              <NavRows config={config} pathname={pathname} onNavigate={() => setOpen(false)} />
             </nav>
             {identity}
           </div>
         ) : null}
       </header>
 
-      {/* Desktop: the rail. */}
       <aside
         className={cn(
-          "on-raised sticky top-0 hidden h-screen flex-col gap-0.5 overflow-y-auto border-r border-rule bg-raised lg:flex",
-          density.pad,
+          "eir-glass sticky top-0 z-30 hidden h-screen flex-col gap-0.5 overflow-x-hidden overflow-y-auto border-r border-rule/80 lg:flex",
+          config.shell.navPadding,
         )}
       >
-        <Link
-          href={roleHome(role)}
-          className="focus-ink mb-4 inline-flex min-h-11 items-center px-3"
-        >
-          <Wordmark kicker={density.kicker} size="text-[1.3125rem]" logoSize={22} />
+        <span className="eir-orb eir-drift pointer-events-none absolute -right-10 -top-10 h-24 w-24 opacity-20" aria-hidden />
+        <Link href={config.home} className="focus-ink relative mb-5 inline-flex min-h-11 items-center rounded-xl px-2">
+          <Wordmark label={config.label} />
         </Link>
-        <nav className="flex flex-col gap-0.5" aria-label="Primary">
-          <NavRows links={links} pathname={pathname} density={density} />
+        <nav className="relative flex flex-col gap-1.5" aria-label="Primary">
+          <NavRows config={config} pathname={pathname} />
         </nav>
-        <div className="mt-auto pt-6">{identity}</div>
+        <div className="relative mt-auto pt-6">{identity}</div>
       </aside>
     </>
   );

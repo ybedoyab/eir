@@ -7,19 +7,19 @@ export type CascadeKind = "agent" | "runtime" | "external" | "suppressed";
 
 export interface CascadeStep {
   id: string;
-  /** Event name, or `agent · capability`. */
   label: string;
   detail?: string;
-  /** ISO timestamp from the event itself, never the fetch. */
   at: string;
-  /** Known duration; otherwise the gap to the next step is used. */
   durationMs?: number;
   kind: CascadeKind;
   outcome?: string;
   outcomeTone?: "ok" | "warn" | "high" | "muted";
-  /** True on the step where a blocking capability parked the workflow. */
   halted?: boolean;
 }
+
+const MAX_INDENT_STEPS = 5;
+const MAX_TIMELINE_TICKS = 6;
+const MILLISECONDS_PER_SECOND = 1000;
 
 const BAR: Record<CascadeKind, string> = {
   agent: "bg-accent",
@@ -36,8 +36,8 @@ const OUTCOME: Record<NonNullable<CascadeStep["outcomeTone"]>, string> = {
 };
 
 function formatDuration(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(ms < 10_000 ? 2 : 1)}s`;
+  if (ms < MILLISECONDS_PER_SECOND) return `${Math.round(ms)}ms`;
+  return `${(ms / MILLISECONDS_PER_SECOND).toFixed(ms < 10_000 ? 2 : 1)}s`;
 }
 
 interface Placed extends CascadeStep {
@@ -46,7 +46,6 @@ interface Placed extends CascadeStep {
   indent: number;
 }
 
-/** Lays the run out against event timestamps — the poll boundary never shows. */
 function place(steps: CascadeStep[]): { rows: Placed[]; totalMs: number } {
   const timed = steps.filter((step) => step.kind !== "suppressed");
   const times = timed.map((step) => new Date(step.at).getTime()).filter((n) => !Number.isNaN(n));
@@ -61,7 +60,7 @@ function place(steps: CascadeStep[]): { rows: Placed[]; totalMs: number } {
       .find((item) => item.kind !== "suppressed" && !Number.isNaN(new Date(item.at).getTime()));
     const gap = nextTimed ? new Date(nextTimed.at).getTime() - at : 0;
     const spanMs = step.durationMs ?? Math.max(gap, 0);
-    return { ...step, offsetMs, spanMs, indent: Math.min(index, 5) * 22 };
+    return { ...step, offsetMs, spanMs, indent: Math.min(index, MAX_INDENT_STEPS) * 22 };
   });
 
   const totalMs = Math.max(
@@ -69,6 +68,12 @@ function place(steps: CascadeStep[]): { rows: Placed[]; totalMs: number } {
     1,
   );
   return { rows, totalMs };
+}
+
+function outcomeToneClass(row: Placed, suppressed: boolean): string {
+  if (suppressed) return "text-inactive";
+  if (row.outcomeTone) return OUTCOME[row.outcomeTone];
+  return "text-secondary";
 }
 
 export function CascadeWaterfall({
@@ -83,10 +88,10 @@ export function CascadeWaterfall({
   className?: string;
 }) {
   const { rows, totalMs } = place(steps);
-  // One tick per second of the run, capped at 6. Each label is placed at its own
-  // fraction of `totalMs` — evenly spaced flex children put "1s" wherever the
-  // column happened to divide, so the ruler disagreed with the bars beneath it.
-  const ticks = Math.max(1, Math.min(6, Math.ceil(totalMs / 1000)));
+  const ticks = Math.max(
+    1,
+    Math.min(MAX_TIMELINE_TICKS, Math.ceil(totalMs / MILLISECONDS_PER_SECOND)),
+  );
 
   return (
     <div className={cn("flex min-w-0 flex-col", className)}>
@@ -105,7 +110,6 @@ export function CascadeWaterfall({
         </span>
       </div>
 
-      {/* ruler */}
       <div className="grid grid-cols-[minmax(0,1fr)_78px] items-end gap-4 border-b border-rule-strong pb-1.5 sm:grid-cols-[280px_minmax(0,1fr)_78px]">
         <span className="font-mono text-[0.75rem] uppercase tracking-[0.1em] text-muted">Step</span>
         <div className="relative hidden h-4 font-mono text-[0.75rem] text-muted sm:block">
@@ -113,7 +117,9 @@ export function CascadeWaterfall({
             <span
               key={index}
               className="absolute top-0"
-              style={{ left: `${Math.min((index * 1000) / totalMs, 1) * 100}%` }}
+              style={{
+                left: `${Math.min((index * MILLISECONDS_PER_SECOND) / totalMs, 1) * 100}%`,
+              }}
             >
               {index}s
             </span>
@@ -189,11 +195,7 @@ export function CascadeWaterfall({
             <span
               className={cn(
                 "text-right font-mono text-[11.5px]",
-                suppressed
-                  ? "text-inactive"
-                  : row.outcomeTone
-                    ? OUTCOME[row.outcomeTone]
-                    : "text-secondary",
+                outcomeToneClass(row, suppressed),
               )}
             >
               {suppressed ? "suppressed" : (row.outcome ?? formatDuration(row.spanMs))}
@@ -205,7 +207,6 @@ export function CascadeWaterfall({
   );
 }
 
-/** 0ms, no easing. Everything stops, hard. */
 export function HaltBanner({
   title,
   detail,
@@ -220,7 +221,7 @@ export function HaltBanner({
   return (
     <div
       className={cn(
-        "eir-halt flex flex-col gap-2 border-l-[3px] border-high bg-ink px-[18px] py-4 sm:flex-row sm:items-center sm:gap-4",
+        "eir-panel eir-halt flex flex-col gap-2 border-l-[3px] border-high bg-ink px-[18px] py-4",
         className,
       )}
     >
@@ -230,7 +231,7 @@ export function HaltBanner({
       </span>
       <span className="text-[0.8125rem] leading-snug text-on-ink">{detail}</span>
       {held ? (
-        <span className="font-mono text-[0.75rem] text-on-ink-muted sm:ml-auto">held {held}</span>
+        <span className="font-mono text-[0.75rem] text-on-ink-muted">held {held}</span>
       ) : null}
     </div>
   );

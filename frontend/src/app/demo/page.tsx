@@ -9,10 +9,12 @@ import {
   HaltBanner,
   type CascadeStep,
 } from "@/components/cascade/CascadeWaterfall";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { Icon } from "@/components/ui/Icon";
+import { Logo } from "@/components/ui/Logo";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { APP_META, APP_ROUTES } from "@/config/app";
 import { loadSession, saveSession } from "@/lib/auth";
 import {
   agentChain,
@@ -40,9 +42,10 @@ import {
   isWebVoiceEvent,
 } from "@/lib/demoStory";
 import { eventLabel, eventOutcome } from "@/lib/eventLabels";
+import { ERROR_MESSAGES, getErrorMessage } from "@/lib/errors";
 import { displayPatientId } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { episodeBadgeClass, riskBadgeClass } from "@/lib/status";
+import { episodeStatus, riskStatus, STATUS_VIEWS } from "@/lib/statusLabels";
 import {
   advanceDemoFollowUp,
   bootstrapDemo,
@@ -113,7 +116,7 @@ const EVENT_KIND: Record<string, CascadeStep["kind"]> = {
 
 function ActivityBanner({ title, detail }: { title: string; detail?: string }) {
   return (
-    <div className="on-raised flex items-start gap-3 border-l-[3px] border-accent bg-raised px-5 py-4">
+    <div className="eir-panel on-raised flex items-start gap-3 border-l-[3px] border-accent bg-raised px-5 py-4">
       <span className="eir-pulse mt-2 h-1.5 w-1.5 shrink-0 bg-accent" aria-hidden />
       <div>
         <p className="text-[1rem] font-medium text-ink">{title}</p>
@@ -268,7 +271,7 @@ export default function DemoPage() {
     const intervalMs = waiting ? DEMO_POLL_MS : 4000;
     const timer = window.setInterval(() => {
       void refresh(episodeId).catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "refresh failed");
+        setError(getErrorMessage(err, ERROR_MESSAGES.demoRefresh));
       });
       if (waiting && awaitingSince.current && Date.now() - awaitingSince.current > DEMO_STALL_MS) {
         setStalled(true);
@@ -330,7 +333,7 @@ export default function DemoPage() {
       setMedications(boot.medications ?? []);
       await refresh(boot.episode_id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start demo");
+      setError(getErrorMessage(err, ERROR_MESSAGES.demoStart));
     } finally {
       setBusy(null);
     }
@@ -347,7 +350,7 @@ export default function DemoPage() {
       beginAwait("follow-up");
       await refresh(episodeId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fast-forward failed");
+      setError(getErrorMessage(err, ERROR_MESSAGES.demoFastForward));
     } finally {
       setBusy(null);
     }
@@ -368,7 +371,7 @@ export default function DemoPage() {
         beginAwait("attack");
         await refresh(episodeId);
       } else {
-        setError(err instanceof Error ? err.message : "Attack simulation failed");
+        setError(getErrorMessage(err, ERROR_MESSAGES.attackSimulation));
       }
     } finally {
       setBusy(null);
@@ -390,7 +393,7 @@ export default function DemoPage() {
         beginAwait("concerning");
         await refresh(episodeId);
       } else {
-        setError(err instanceof Error ? err.message : "Concerning signal failed");
+        setError(getErrorMessage(err, ERROR_MESSAGES.concerningSignal));
       }
     } finally {
       setBusy(null);
@@ -409,7 +412,7 @@ export default function DemoPage() {
       await refresh(episodeId);
     } catch (err) {
       setBusy(null);
-      setError(err instanceof Error ? err.message : "Review resolve failed");
+      setError(getErrorMessage(err, ERROR_MESSAGES.reviewResolve));
     }
   }
 
@@ -424,7 +427,7 @@ export default function DemoPage() {
       beginAwait("follow-up");
       await refresh(episodeId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Voice retry failed");
+      setError(getErrorMessage(err, ERROR_MESSAGES.voiceRetry));
     } finally {
       setBusy(null);
     }
@@ -477,7 +480,7 @@ export default function DemoPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Could not open the in-page voice check-in");
+          setError(getErrorMessage(err, ERROR_MESSAGES.voiceOpen));
         }
       }
     }
@@ -494,12 +497,19 @@ export default function DemoPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
-      {/* top bar — Cascade.dc.html */}
       <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-b border-rule px-7 py-4">
         <div className="flex flex-wrap items-center gap-4">
-          <span className="font-serif text-[1.25rem] font-semibold tracking-[-0.01em] text-ink">
-            EIR
-          </span>
+          <Link
+            href={APP_ROUTES.home}
+            className="focus-ink inline-flex min-h-11 items-center gap-2.5 rounded-xl"
+          >
+            <span className="eir-icon-shell h-9 w-9">
+              <Logo size={21} />
+            </span>
+            <span className="font-serif text-[1.25rem] font-semibold tracking-[-0.01em] text-ink">
+              {APP_META.name}
+            </span>
+          </Link>
           <span className="hidden h-[15px] w-px bg-rule-strong sm:block" aria-hidden />
           <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
             Live run
@@ -522,13 +532,13 @@ export default function DemoPage() {
             elapsed <span className="text-ink">{formatElapsed(runElapsed)}</span>
           </span>
           {halted ? (
-            <span className="eir-halt inline-flex h-[26px] items-center gap-[7px] bg-ink px-2.5 font-mono text-[0.75rem] tracking-[0.08em] text-paper">
+            <span className="eir-chip eir-halt inline-flex h-[26px] items-center gap-[7px] bg-ink px-2.5 font-mono text-[0.75rem] tracking-[0.08em] text-paper">
               <Icon name="halt" size={14} />
               HALTED
             </span>
           ) : null}
           <Link
-            href="/login"
+            href={APP_ROUTES.login}
             className="focus-ink -my-3 inline-flex min-h-11 items-center gap-1.5 font-mono text-[11.5px] text-accent hover:text-ink"
           >
             Role portal
@@ -651,7 +661,7 @@ export default function DemoPage() {
               {activity ? <ActivityBanner title={activity.title} detail={activity.detail} /> : null}
 
               {stalled ? (
-                <p className="border-l-[3px] border-warn bg-warn-tint px-4 py-3 text-[13.5px] text-warn">
+                <p className="eir-panel border-l-[3px] border-warn bg-warn-tint px-4 py-3 text-[13.5px] text-warn">
                   Still processing — check Observability.
                 </p>
               ) : null}
@@ -674,7 +684,7 @@ export default function DemoPage() {
               ) : null}
 
               {inPstnCall ? (
-                <section className="on-raised flex flex-col border-l-[3px] border-accent bg-raised px-5 py-4">
+                <section className="eir-panel on-raised flex flex-col border-l-[3px] border-accent bg-raised px-5 py-4">
                   <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
                     Real voice outreach
                   </span>
@@ -698,7 +708,7 @@ export default function DemoPage() {
               ) : null}
 
               {webWaiting ? (
-                <section className="on-tint flex flex-col border-l-[3px] border-accent bg-accent-tint px-5 py-4">
+                <section className="eir-panel on-tint flex flex-col border-l-[3px] border-accent bg-accent-tint px-5 py-4">
                   <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-accent">
                     Live Gemini check-in
                   </span>
@@ -784,7 +794,7 @@ export default function DemoPage() {
                           </span>
                         </span>
                         {medication.critical ? (
-                          <Badge className="bg-crit font-medium text-paper">Critical</Badge>
+                          <StatusBadge status={STATUS_VIEWS.criticalMedication} />
                         ) : (
                           <span className="font-mono text-[11.5px] text-inactive">routine</span>
                         )}
@@ -804,7 +814,7 @@ export default function DemoPage() {
               ) : null}
 
               {callFailed ? (
-                <section className="flex flex-col border-l-[3px] border-warn bg-warn-tint px-5 py-4">
+                <section className="eir-panel flex flex-col border-l-[3px] border-warn bg-warn-tint px-5 py-4">
                   <h2 className="text-[1rem] font-medium text-ink">
                     Voice outreach did not complete
                   </h2>
@@ -828,7 +838,7 @@ export default function DemoPage() {
                   <h2 className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-secondary">
                     Adversarial input
                   </h2>
-                  <p className="mt-3 border-l-[3px] border-rule-strong bg-raised px-4 py-3 font-mono text-[0.8125rem] text-body">
+                  <p className="eir-panel mt-3 border-l-[3px] border-rule-strong bg-raised px-4 py-3 font-mono text-[0.8125rem] text-body">
                     {DEMO_ATTACK_PROMPT}
                   </p>
                   <div className="mt-4 flex">
@@ -844,7 +854,7 @@ export default function DemoPage() {
               ) : null}
 
               {securityEvent ? (
-                <section className="eir-halt on-ink flex flex-col border-l-[3px] border-high bg-ink px-5 py-4">
+                <section className="eir-panel eir-halt on-ink flex flex-col border-l-[3px] border-high bg-ink px-5 py-4">
                   <span className="inline-flex items-center gap-2 font-mono text-[0.75rem] font-medium tracking-[0.12em] text-paper">
                     <Icon name="halt" size={14} />
                     BLOCKED BY MODEL ARMOR
@@ -894,7 +904,7 @@ export default function DemoPage() {
               ) : null}
 
               {(preparingReview || pendingReview || awaiting === "review") && completed[5] ? (
-                <p className="border-l-[3px] border-accent bg-raised px-5 py-4 text-[0.875rem] leading-[1.6] text-secondary">
+                <p className="eir-panel border-l-[3px] border-accent bg-raised px-5 py-4 text-[0.875rem] leading-[1.6] text-secondary">
                   <span className="font-medium text-ink">EIR escalated instead of guessing.</span>{" "}
                   The agent detected a concerning recovery signal and routed the case to a clinician
                   rather than acting on it.
@@ -1053,7 +1063,6 @@ export default function DemoPage() {
           )}
         </main>
 
-        {/* run detail — the artboard's right rail */}
         <aside className="on-raised flex flex-col border-t border-rule bg-raised xl:border-l xl:border-t-0">
           {episodeId ? (
             <div className="flex flex-col gap-2 border-b border-rule px-6 pb-4 pt-5">
@@ -1069,8 +1078,8 @@ export default function DemoPage() {
               </span>
               {episode ? (
                 <div className="mt-1 flex flex-wrap gap-2">
-                  <Badge className={episodeBadgeClass(episode.status)}>{episode.status}</Badge>
-                  <Badge className={riskBadgeClass(episode.risk_level)}>{episode.risk_level}</Badge>
+                  <StatusBadge status={episodeStatus(episode.status)} />
+                  <StatusBadge status={riskStatus(episode.risk_level)} />
                 </div>
               ) : null}
             </div>

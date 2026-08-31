@@ -27,6 +27,14 @@ export interface StatusView {
   tone: StatusTone;
 }
 
+export const STATUS_VIEWS = {
+  criticalMedication: { label: "Critical", tone: "critical" },
+  noPendingReview: { label: "No pending review", tone: "success" },
+  reviewNeeded: { label: "Review needed", tone: "danger" },
+  securityBlocked: { label: "Security block recorded", tone: "critical" },
+  waitingReview: { label: "Waiting review", tone: "warning" },
+} as const satisfies Record<string, StatusView>;
+
 const APPOINTMENT_STATUS: Record<string, StatusView> = {
   booked: { label: "Confirmed", tone: "success" },
   proposed: { label: "Proposed", tone: "info" },

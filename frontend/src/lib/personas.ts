@@ -27,9 +27,13 @@ export const DEMO_PERSONAS: Record<string, DemoPersonaCopy> = {
   },
 };
 
+const ROLE_LABELS: Record<DemoRole, string> = {
+  PATIENT: "Patient",
+  CLINICIAN: "Clinician",
+  OPERATIONS_ADMIN: "Administrator",
+};
+
 export function roleLabel(role: string): string {
-  if (role === "PATIENT") return "Patient";
-  if (role === "CLINICIAN") return "Clinician";
-  if (role === "OPERATIONS_ADMIN") return "Administrator";
-  return role;
+  return ROLE_LABELS[role as DemoRole] ?? role;
 }
+import type { DemoRole } from "@/lib/auth";

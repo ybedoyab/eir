@@ -1,65 +1,69 @@
 @import "tailwindcss";
 
-/* ------------------------------------------------------------------ *
- * Blue paper — one neutral ramp carries structure, hue is spent only
- * on state (risk, health, approval, adapter degradation, agent work).
- * Tailwind v4 is CSS-first; these tokens are the whole config.
- * ------------------------------------------------------------------ */
 @theme {
-  /* neutrals — blue-tinted, warm-to-cool at identical tonal values */
-  --color-paper: #f7fafd;
-  --color-raised: #eff3f9;
-  --color-hover: #e2eaf3;
-  --color-rule: #d5e0ed;
-  --color-rule-strong: #b7c7da;
-  --color-inactive: #7b8ca3;
-  --color-muted: #58687f;
-  --color-secondary: #48566b;
-  --color-body: #1f2a3a;
-  --color-ink: #0c1622;
-
-  /* accent and state */
-  --color-accent: #154273;
-  --color-accent-hover: #0f3158;
-  /* The accent at wash strength, for grouped surfaces that should read blue
-   * rather than dead grey. Same hue as --color-accent; `warn-tint` is the
-   * precedent. Dark text on it clears AA. */
-  --color-accent-tint: #dbe6f4;
-  --color-ok: #1f6b52;
+  --color-paper: #f4f7fb;
+  --color-raised: #edf3fa;
+  --color-surface: #ffffff;
+  --color-hover: #e1ebf6;
+  --color-rule: #d4e0ee;
+  --color-rule-strong: #b5c7dc;
+  --color-inactive: #7a8ca4;
+  --color-muted: #5c6d84;
+  --color-secondary: #45566d;
+  --color-body: #1e2b3d;
+  --color-ink: #0a1728;
+  --color-accent: #164b82;
+  --color-accent-hover: #0d3765;
+  --color-accent-bright: #2879c7;
+  --color-accent-tint: #dceaf8;
+  --color-sky: #dff3fb;
+  --color-teal: #147d7e;
+  --color-ok: #1f7256;
+  --color-ok-tint: #e0f3eb;
   --color-warn: #9a5b0b;
-  --color-warn-tint: #f8efe0;
+  --color-warn-tint: #fbefdc;
   --color-high: #b23a22;
+  --color-high-tint: #fae7e2;
   --color-crit: #8c1c10;
-  --color-on-ink: #c3cedc;
-  --color-on-ink-muted: #93a5bc;
-  --color-on-ink-rule: #2c3b4d;
+  --color-on-ink: #c9d6e6;
+  --color-on-ink-muted: #95a9c2;
+  --color-on-ink-rule: #2c4057;
 
-  /* type — IBM Plex superfamily, three jobs */
   --font-sans: var(--font-plex-sans), "IBM Plex Sans", "Segoe UI", -apple-system,
     system-ui, sans-serif;
   --font-serif: var(--font-plex-serif), "IBM Plex Serif", Georgia, serif;
   --font-mono: var(--font-plex-mono), "IBM Plex Mono", Consolas, monospace;
 
-  /* motion budget */
-  --ease-micro: ease-out;
-  --ease-state: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-micro: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-state: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Unlayered CSS always outranks @layer utilities, no matter specificity —
- * so the base reset below must live in @layer base or every text-color /
- * bg-color utility applied to <a>/<body> descendants gets silently
- * overridden by these resets (e.g. text-paper losing to `a { color }`). */
 @layer base {
   :root {
     color-scheme: light;
-    /* the paper gap inside a focus ring; raised surfaces override it */
     --focus-gap: var(--color-paper);
+    --radius-panel: 1.25rem;
+    --radius-control: 0.75rem;
+    --radius-message: 1rem;
+    --radius-chip: 999px;
+  }
+
+  * {
+    scrollbar-color: var(--color-rule-strong) transparent;
+    scrollbar-width: thin;
+  }
+
+  html {
+    background: var(--color-paper);
   }
 
   body {
     margin: 0;
     min-height: 100vh;
-    background: var(--color-paper);
+    background:
+      radial-gradient(circle at 8% -8%, rgb(40 121 199 / 14%), transparent 28rem),
+      radial-gradient(circle at 96% 8%, rgb(20 125 126 / 9%), transparent 30rem),
+      var(--color-paper);
     color: var(--color-body);
     font-variant-numeric: tabular-nums;
     text-wrap: pretty;
@@ -70,11 +74,6 @@
     text-decoration: none;
   }
 
-  /* Tailwind v4's preflight dropped v3's `button { cursor: pointer }`, so every
-   * control in the app silently fell back to the arrow cursor while only <a
-   * href> kept the hand. Restore it for everything actually actionable. The
-   * `:not(:disabled)` guard keeps the Button variants' `disabled:cursor-not-
-   * allowed` intact, and `a` without an href stays an arrow, as it should. */
   button:not(:disabled),
   summary,
   select:not(:disabled),
@@ -87,52 +86,57 @@
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+    background: color-mix(in srgb, var(--color-accent-bright) 26%, transparent);
   }
 
-  /* Focus is an ink ring on a paper gap — visible on every background in
-   * the ramp, and never the same colour as a status. */
   .focus-ink:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--color-ink);
+    box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--color-accent-bright);
   }
 
   .on-raised {
     --focus-gap: var(--color-raised);
   }
 
-  .on-ink {
-    --focus-gap: var(--color-ink);
+  .on-surface {
+    --focus-gap: var(--color-surface);
   }
 
-  .on-ink.focus-ink:focus-visible {
-    box-shadow: 0 0 0 2px var(--color-ink), 0 0 0 4px var(--color-paper);
+  .on-ink {
+    --focus-gap: var(--color-ink);
   }
 
   .on-tint {
     --focus-gap: var(--color-accent-tint);
   }
 
-  /* On a filled accent surface the ink ring would vanish into the navy, so
-   * the ring inverts to paper the way it does on ink. */
   .on-accent {
     --focus-gap: var(--color-accent);
   }
 
+  .on-ink.focus-ink:focus-visible,
   .on-accent.focus-ink:focus-visible {
-    box-shadow: 0 0 0 2px var(--color-accent), 0 0 0 4px var(--color-paper);
+    box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--color-paper);
   }
 }
 
-/* ------------------------------------------------------------------ *
- * Motion. Every animated element's BASE state is its finished state,
- * so reduced motion — or a browser without animation-timeline — gets
- * the complete page instantly rather than a page with pieces missing.
- * ------------------------------------------------------------------ */
 @keyframes eir-enter {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(18px) scale(0.985);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes eir-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.82) rotate(-5deg);
   }
   to {
     opacity: 1;
@@ -140,12 +144,27 @@
   }
 }
 
-@keyframes eir-cut {
-  from {
-    opacity: 0;
+@keyframes eir-drift {
+  50% {
+    transform: translate3d(0, -10px, 0) rotate(2deg);
   }
+}
+
+@keyframes eir-pulse {
+  50% {
+    opacity: 0.48;
+  }
+}
+
+@keyframes eir-status-pulse {
+  50% {
+    box-shadow: 0 0 0 7px rgb(31 114 86 / 0%);
+  }
+}
+
+@keyframes eir-shimmer {
   to {
-    opacity: 1;
+    transform: translateX(120%);
   }
 }
 
@@ -158,51 +177,223 @@
   }
 }
 
+@keyframes eir-cut {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.eir-page {
+  position: relative;
+  isolation: isolate;
+}
+
+.eir-page::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background-image:
+    linear-gradient(rgb(21 66 115 / 3%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(21 66 115 / 3%) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, black, transparent 52rem);
+}
+
+.eir-surface {
+  border: 1px solid color-mix(in srgb, var(--color-rule) 82%, white);
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  box-shadow:
+    0 1px 2px rgb(10 23 40 / 4%),
+    0 14px 36px rgb(22 75 130 / 7%);
+}
+
+.eir-surface-soft {
+  border: 1px solid color-mix(in srgb, var(--color-rule) 72%, white);
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--color-raised) 82%, white);
+}
+
+.eir-panel {
+  border-radius: var(--radius-panel);
+}
+
+.eir-control {
+  border-radius: var(--radius-control);
+}
+
+.eir-message {
+  border-radius: var(--radius-message);
+}
+
+.eir-chip {
+  border-radius: var(--radius-chip);
+}
+
+.eir-glass {
+  background: color-mix(in srgb, var(--color-paper) 80%, transparent);
+  box-shadow: 0 10px 30px rgb(10 23 40 / 6%);
+  backdrop-filter: blur(18px) saturate(1.3);
+}
+
+.eir-icon-shell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-radius: var(--radius-control);
+  background: linear-gradient(145deg, rgb(255 255 255 / 86%), var(--color-accent-tint));
+  color: var(--color-accent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 70%);
+}
+
+.eir-orb {
+  border-radius: 999px;
+  background: radial-gradient(circle at 32% 30%, #fff 0 5%, #70b7e8 16%, #2879c7 48%, #164b82 100%);
+  box-shadow:
+    inset -8px -10px 18px rgb(10 23 40 / 18%),
+    0 20px 55px rgb(40 121 199 / 24%);
+}
+
 .eir-progress {
   position: fixed;
   inset: 0 0 auto 0;
+  z-index: 60;
   height: 3px;
-  background: var(--color-accent);
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-bright), var(--color-teal));
   transform-origin: 0 50%;
-  z-index: 20;
 }
 
-/* micro-feedback: 140ms ease-out, per the motion budget */
+.eir-list-row {
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+}
+
+.eir-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--color-ok);
+  box-shadow: 0 0 0 0 rgb(31 114 86 / 32%);
+}
+
+.eir-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.eir-shimmer::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 72%) 45%, transparent 70%);
+  transform: translateX(-120%);
+}
+
+.eir-halt,
+.eir-halt * {
+  transition: none !important;
+  animation: none !important;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   a,
   button,
   summary,
+  input,
+  select,
   [role="button"] {
     transition:
-      background-color 140ms ease-out,
-      color 140ms ease-out,
-      border-color 140ms ease-out,
-      box-shadow 140ms ease-out;
+      color 180ms var(--ease-micro),
+      background-color 180ms var(--ease-micro),
+      border-color 180ms var(--ease-micro),
+      box-shadow 180ms var(--ease-micro),
+      opacity 180ms var(--ease-micro),
+      transform 180ms var(--ease-micro);
   }
 
-  /* state transition: 260ms, staggered by reading order */
+  .eir-icon-shell {
+    transition: transform 220ms var(--ease-state), box-shadow 220ms var(--ease-state);
+  }
+
+  .group:hover .eir-icon-shell {
+    transform: translateY(-1px) rotate(-2deg) scale(1.04);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 70%),
+      0 8px 20px rgb(22 75 130 / 12%);
+  }
+
   .eir-enter {
-    animation: eir-enter 260ms var(--ease-state) both;
+    animation: eir-enter 520ms var(--ease-state) both;
   }
 
-  /* the halt does not animate. it is absent, then it is simply there. */
+  .eir-pop {
+    animation: eir-pop 460ms var(--ease-state) both;
+  }
+
   .eir-cut {
     animation: eir-cut 1ms steps(1, end) 880ms both;
   }
 
-  /* risk rise / row update */
+  .eir-drift {
+    animation: eir-drift 7s ease-in-out infinite;
+  }
+
+  .eir-pulse {
+    animation: eir-pulse 2s ease-in-out infinite;
+  }
+
+  .eir-status-dot {
+    animation: eir-status-pulse 2.2s ease-out infinite;
+  }
+
+  .eir-shimmer::after {
+    animation: eir-shimmer 2.4s ease-in-out infinite;
+  }
+
+  .eir-card-hover:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--color-accent) 22%, var(--color-rule));
+    box-shadow:
+      0 2px 5px rgb(10 23 40 / 5%),
+      0 22px 44px rgb(22 75 130 / 12%);
+  }
+
+  .eir-list-row:hover {
+    border-color: var(--color-rule);
+    background: color-mix(in srgb, var(--color-surface) 76%, transparent);
+    transform: translateX(3px);
+  }
+
+  .eir-stagger > * {
+    animation: eir-enter 500ms var(--ease-state) both;
+  }
+
+  .eir-stagger > :nth-child(2) { animation-delay: 70ms; }
+  .eir-stagger > :nth-child(3) { animation-delay: 140ms; }
+  .eir-stagger > :nth-child(4) { animation-delay: 210ms; }
+  .eir-stagger > :nth-child(5) { animation-delay: 280ms; }
+  .eir-stagger > :nth-child(6) { animation-delay: 350ms; }
+
   .eir-state {
     transition:
       background-color 240ms var(--ease-state),
       color 240ms var(--ease-state),
-      border-color 240ms var(--ease-state);
+      border-color 240ms var(--ease-state),
+      transform 240ms var(--ease-state);
   }
 
   @supports (animation-timeline: view()) {
     .eir-reveal {
       animation: eir-enter linear both;
       animation-timeline: view();
-      animation-range: entry 2% cover 24%;
+      animation-range: entry 3% cover 26%;
     }
 
     .eir-progress {
@@ -212,35 +403,13 @@
   }
 }
 
-@keyframes eir-pulse {
-  50% {
-    opacity: 0.45;
-  }
-}
-
-/* Loading placeholders breathe only when motion is welcome. */
-@media (prefers-reduced-motion: no-preference) {
-  .eir-pulse {
-    animation: eir-pulse 2s ease-in-out infinite;
-  }
-}
-
-/* Halts are instant and static — 0ms, no easing, at every setting. */
-.eir-halt,
-.eir-halt * {
-  transition: none !important;
-  animation: none !important;
-}
-
-/* Route / view change — degrades silently where unsupported. */
-@view-transition {
-  navigation: auto;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation: none !important;
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
