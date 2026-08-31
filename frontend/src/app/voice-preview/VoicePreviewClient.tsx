@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import type * as VoxSdk from "voximplant-websdk";
 
 import { Button } from "@/components/ui/Button";
@@ -154,12 +154,32 @@ function audioLabel(state: AudioState): string {
   return "Audio idle";
 }
 
+/** What the page around this widget needs to know about the live call. */
+export type VoiceCallState = {
+  status: Status;
+  phase: Phase;
+  audioState: AudioState;
+  elapsed: number;
+  micReady: boolean;
+  micSending: boolean;
+  /** Connected and talking. */
+  live: boolean;
+  /** Dialling or connected — a call the patient can still hang up. */
+  active: boolean;
+};
+
 export default function VoicePreviewClient({
   episodeId: forcedEpisodeId,
   compact = false,
+  onCallState,
+  hangupRef,
 }: {
   episodeId?: string;
   compact?: boolean;
+  /** Called whenever the call state changes. Pass a stable (useCallback) fn. */
+  onCallState?: (state: VoiceCallState) => void;
+  /** Filled with a hang-up handle so an outer control can end the call. */
+  hangupRef?: MutableRefObject<(() => void) | null>;
 } = {}) {
   const sdkRef = useRef<ReturnType<typeof VoxSdk.getInstance> | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
@@ -734,6 +754,22 @@ export default function VoicePreviewClient({
           : "listening";
   const idle = status === "idle" || status === "ended";
   const disabled = busy || !episodeId || !signedInAsPatient || config?.enabled === false;
+  const active = status === "connecting" || status === "dialing" || status === "in_call";
+
+  // `hangup` only touches refs and setters, so a render-stale closure is safe.
+  useEffect(() => {
+    if (!hangupRef) {
+      return undefined;
+    }
+    hangupRef.current = hangup;
+    return () => {
+      hangupRef.current = null;
+    };
+  }, [hangupRef]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    onCallState?.({ status, phase, audioState, elapsed, micReady, micSending, live, active });
+  }, [onCallState, status, phase, audioState, elapsed, micReady, micSending, live, active]);
 
   return (
     <div className="flex flex-col gap-6">

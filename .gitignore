@@ -116,3 +116,6 @@ package-lock.json
 
 # Design canvas scratch (not part of the shipped app)
 docs/design/
+
+# Video production assets (stock footage, music, renders)
+video/

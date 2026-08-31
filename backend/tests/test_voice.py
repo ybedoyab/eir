@@ -290,6 +290,49 @@ def test_web_callback_marks_webrtc_transport(monkeypatch) -> None:
         assert responded["payload"]["medication_adherence"] == "no"
 
 
+def test_web_call_started_is_tagged_webrtc(monkeypatch) -> None:
+    """The demo panel keys off transport: an untagged start reads as a PSTN dial."""
+    monkeypatch.setattr(settings, "voximplant_callback_token", "voice-test-token")
+    with TestClient(app) as client:
+        boot = client.post("/api/v1/demo/bootstrap", json={"fast_forward": False})
+        episode_id = boot.json()["episode_id"]
+        started = client.post(
+            "/api/v1/voice/voximplant/callback",
+            headers=_headers(),
+            json={
+                "episode_id": episode_id,
+                "correlation_id": f"web-{uuid4().hex[:16]}",
+                "state": "CALL_STARTED",
+            },
+        )
+        assert started.status_code == 200
+        events = client.get(f"/api/v1/recovery/{episode_id}/events").json()
+        event = next(item for item in events if item["event_type"] == "VoiceCallStarted")
+        assert event["payload"]["transport"] == "webrtc"
+        assert event["payload"]["provider"] == "voximplant-web"
+
+
+def test_pstn_call_started_stays_pstn(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "voximplant_callback_token", "voice-test-token")
+    with TestClient(app) as client:
+        boot = client.post("/api/v1/demo/bootstrap", json={"fast_forward": False})
+        episode_id = boot.json()["episode_id"]
+        started = client.post(
+            "/api/v1/voice/voximplant/callback",
+            headers=_headers(),
+            json={
+                "episode_id": episode_id,
+                "correlation_id": f"call-{uuid4().hex[:16]}",
+                "state": "CALL_STARTED",
+            },
+        )
+        assert started.status_code == 200
+        events = client.get(f"/api/v1/recovery/{episode_id}/events").json()
+        event = next(item for item in events if item["event_type"] == "VoiceCallStarted")
+        assert event["payload"]["transport"] == "pstn"
+        assert event["payload"]["provider"] == "voximplant"
+
+
 def test_callback_adherence_no_on_critical_medication_escalates(monkeypatch) -> None:
     monkeypatch.setattr(settings, "voximplant_callback_token", "voice-test-token")
     with TestClient(app) as client:

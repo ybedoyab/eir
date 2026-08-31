@@ -46,6 +46,16 @@ class VoiceCallbackRequest(BaseModel):
     failure_reason: str = ""
 
 
+def _transport_for(correlation_id: str) -> str:
+    """Web check-ins carry a `web-` correlation id; everything else is a phone leg.
+
+    The UI keys the in-page call panel off this, so a missing transport made a
+    browser check-in look like an outbound PSTN call and closed the panel
+    mid-conversation.
+    """
+    return "webrtc" if str(correlation_id).startswith("web-") else "pstn"
+
+
 def _sanitize_summary(value: str) -> str:
     text = " ".join(value.split())
     return text[:240]
@@ -73,10 +83,10 @@ def _structured_payload(body: VoiceCallbackRequest) -> dict[str, Any]:
     )
     if any(not item["taken"] for item in medications):
         adherence = "no"
-    transport = "webrtc" if str(body.correlation_id).startswith("web-") else "pstn"
+    transport = _transport_for(body.correlation_id)
     return {
         "channel": "voice",
-        "provider": "voximplant",
+        "provider": "voximplant-web" if transport == "webrtc" else "voximplant",
         "synthetic": False,
         "transport": transport,
         "correlation_id": body.correlation_id,
@@ -149,8 +159,10 @@ class VoiceCallbackService:
         }
 
     def _voice_event(self, body: VoiceCallbackRequest, state: str):
+        transport = _transport_for(body.correlation_id)
         payload = {
-            "provider": "voximplant",
+            "provider": "voximplant-web" if transport == "webrtc" else "voximplant",
+            "transport": transport,
             "correlation_id": body.correlation_id,
             "call_id": body.call_id,
             "state": state,

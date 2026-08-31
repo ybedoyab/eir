@@ -70,6 +70,8 @@ import type {
   RuntimeStatus,
 } from "@/types";
 
+import type { VoiceCallState } from "../voice-preview/VoicePreviewClient";
+
 const VoicePreviewClient = dynamic(() => import("../voice-preview/VoicePreviewClient"), {
   ssr: false,
   loading: () => <p className="text-sm text-slate-600">Loading live check-in…</p>,
@@ -123,6 +125,97 @@ function ActivityBanner({ title, detail }: { title: string; detail?: string }) {
         {detail ? (
           <p className="mt-1 max-w-[74ch] text-[13.5px] leading-[1.6] text-secondary">{detail}</p>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function callTimer(seconds: number): string {
+  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function callPhaseLabel(state: VoiceCallState): string {
+  if (state.status === "connecting") {
+    return "Connecting…";
+  }
+  if (state.status === "dialing") {
+    return "Dialling Gemini Live…";
+  }
+  if (state.phase === "hearing") {
+    return "Listening to you";
+  }
+  if (state.phase === "thinking") {
+    return "EIR is thinking";
+  }
+  if (state.phase === "speaking") {
+    return "EIR is speaking";
+  }
+  return "Go ahead — EIR is listening";
+}
+
+/**
+ * A call outlives whichever panel started it: the page keeps polling, sections
+ * appear and reflow, and the widget can scroll far out of view. The dock is the
+ * one thing that stays put — it says a call is up and can always end it.
+ */
+function CallDock({
+  transport,
+  headline,
+  detail,
+  timer,
+  onEnd,
+  onReveal,
+}: {
+  transport: string;
+  headline: string;
+  detail: string;
+  timer?: string;
+  onEnd?: () => void;
+  onReveal?: () => void;
+}) {
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4">
+      <div
+        role="status"
+        aria-live="polite"
+        className="eir-enter eir-panel on-ink pointer-events-auto flex w-full max-w-[46rem] flex-wrap items-center gap-x-5 gap-y-3 border border-accent/40 bg-ink px-5 py-3.5 shadow-[0_18px_44px_rgb(10_23_40/0.34)]"
+      >
+        <span className="flex min-w-0 flex-1 items-center gap-3">
+          <span className="eir-pulse h-2 w-2 shrink-0 rounded-full bg-accent-bright" aria-hidden />
+          <span className="flex min-w-0 flex-col">
+            <span className="flex items-baseline gap-2.5">
+              <span className="truncate text-[0.9375rem] font-medium text-paper">{headline}</span>
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-on-ink-muted">
+                {transport}
+              </span>
+            </span>
+            <span className="truncate font-mono text-[11.5px] text-on-ink-muted">{detail}</span>
+          </span>
+        </span>
+
+        {timer ? (
+          <span className="font-mono text-[1.125rem] leading-none tabular-nums text-paper">
+            {timer}
+          </span>
+        ) : null}
+
+        <span className="flex items-center gap-2">
+          {onReveal ? (
+            <button
+              type="button"
+              onClick={onReveal}
+              className="focus-ink eir-control inline-flex min-h-9 items-center px-3 font-mono text-[11.5px] text-on-ink hover:text-paper"
+            >
+              Show check-in
+            </button>
+          ) : null}
+          {onEnd ? (
+            <Button variant="destructive" onClick={onEnd} className="min-h-9 px-4 text-[13px]">
+              <Icon name="halt" size={14} />
+              End call
+            </Button>
+          ) : null}
+        </span>
       </div>
     </div>
   );
@@ -183,7 +276,26 @@ export default function DemoPage() {
   const [hydrated, setHydrated] = useState(false);
   const [medications, setMedications] = useState<PatientMedication[]>([]);
   const [alexReady, setAlexReady] = useState(false);
+  const [voiceCall, setVoiceCall] = useState<VoiceCallState | null>(null);
   const awaitingSince = useRef<number | null>(null);
+  // Filled by the in-page check-in widget so the dock can hang up from outside it.
+  const hangupRef = useRef<(() => void) | null>(null);
+  const checkinPanelRef = useRef<HTMLElement | null>(null);
+
+  const onCallState = useCallback((state: VoiceCallState) => {
+    // The widget reports on every tick of its call timer; only keep changes.
+    setVoiceCall((prev) =>
+      prev &&
+      prev.status === state.status &&
+      prev.phase === state.phase &&
+      prev.elapsed === state.elapsed &&
+      prev.audioState === state.audioState &&
+      prev.micReady === state.micReady &&
+      prev.micSending === state.micSending
+        ? prev
+        : state,
+    );
+  }, []);
 
   const completed = useMemo(
     () => deriveDemoSteps({ episode, events, history, reviews }),
@@ -317,6 +429,8 @@ export default function DemoPage() {
     setPatientName(null);
     setMedications([]);
     setAlexReady(false);
+    setVoiceCall(null);
+    hangupRef.current = null;
   }
 
   async function startDemo() {
@@ -436,20 +550,26 @@ export default function DemoPage() {
   const actionLocked = busy !== null || reviewLocked;
   const showFastForward = Boolean(episodeId) && !completed[2] && awaiting !== "follow-up";
   const voiceStarted = latestEvent(events, "VoiceCallStarted");
+  // A call in this tab pins the check-in panel open. Without this the arrival of
+  // a VoiceCallStarted (or of the check-in itself) unmounted the widget
+  // mid-call, taking the only hang-up control with it.
+  const callActive = Boolean(voiceCall?.active);
   const inPstnCall =
+    !callActive &&
     isVoximplantEvent(voiceStarted) &&
     !hasEvent(events, "VoiceCallCompleted") &&
     !callFailed &&
     !completed[3];
   const webWaiting =
-    Boolean(episodeId) &&
+    callActive ||
+    (Boolean(episodeId) &&
     !completed[3] &&
     !callFailed &&
     (isWebVoiceEvent(voiceStarted) ||
       (awaiting === "follow-up" &&
         Boolean(runtime?.fleet.voice?.browser_voice_enabled) &&
         !isVoximplantEvent(voiceStarted) &&
-        !isScriptedVoice(voiceStarted)));
+        !isScriptedVoice(voiceStarted))));
   const pstnCheckin = Boolean(checkin) && isVoximplantEvent(checkin) && !isScriptedVoice(checkin);
   const webCheckin = Boolean(checkin) && isWebVoiceEvent(checkin) && !isScriptedVoice(checkin);
   const showAttack = completed[3] && !completed[6] && awaiting !== "attack";
@@ -489,6 +609,11 @@ export default function DemoPage() {
       cancelled = true;
     };
   }, [webWaiting]);
+
+  const dockCall = callActive || inPstnCall;
+  const revealCheckin = useCallback(() => {
+    checkinPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
 
   const cascade = toCascade(events, Boolean(pendingReview) && !clinicianResolved);
   const halted = Boolean(pendingReview) && !clinicianResolved;
@@ -684,7 +809,10 @@ export default function DemoPage() {
               ) : null}
 
               {inPstnCall ? (
-                <section className="eir-panel on-raised flex flex-col border-l-[3px] border-accent bg-raised px-5 py-4">
+                <section
+                  ref={checkinPanelRef}
+                  className="eir-panel on-raised flex flex-col border-l-[3px] border-accent bg-raised px-5 py-4"
+                >
                   <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted">
                     Real voice outreach
                   </span>
@@ -708,20 +836,34 @@ export default function DemoPage() {
               ) : null}
 
               {webWaiting ? (
-                <section className="eir-panel on-tint flex flex-col border-l-[3px] border-accent bg-accent-tint px-5 py-4">
-                  <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-accent">
-                    Live Gemini check-in
+                <section
+                  ref={checkinPanelRef}
+                  className="eir-panel on-tint flex flex-col border-l-[3px] border-accent bg-accent-tint px-5 py-4"
+                >
+                  <span className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.1em] text-accent">
+                    {callActive ? (
+                      <span className="eir-pulse h-1.5 w-1.5 shrink-0 bg-accent" aria-hidden />
+                    ) : null}
+                    {callActive ? "Check-in in progress" : "Live Gemini check-in"}
                   </span>
                   <h2 className="mt-1.5 text-[1rem] font-medium text-ink">
-                    Answer as {patientName || "the patient"} in this tab
+                    {callActive
+                      ? `On a live check-in with ${patientName || "the patient"}`
+                      : `Answer as ${patientName || "the patient"} in this tab`}
                   </h2>
                   <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-[1.6] text-secondary">
-                    WebRTC to Gemini Live — close any other Voximplant softphone first. Say your
-                    pain level, symptoms, and whether you took your medications.
+                    {callActive
+                      ? "The call bar at the bottom of the page stays with you — it shows what the agent is doing and ends the call whenever you want."
+                      : "WebRTC to Gemini Live — close any other Voximplant softphone first. Say your pain level, symptoms, and whether you took your medications."}
                   </p>
                   <div className="mt-4">
                     {alexReady && episodeId ? (
-                      <VoicePreviewClient episodeId={episodeId} compact />
+                      <VoicePreviewClient
+                        episodeId={episodeId}
+                        compact
+                        onCallState={onCallState}
+                        hangupRef={hangupRef}
+                      />
                     ) : (
                       <p className="font-mono text-[11.5px] text-muted">
                         Preparing the in-page check-in…
@@ -1173,6 +1315,39 @@ export default function DemoPage() {
           </div>
         </aside>
       </div>
+
+      {/* Clears the fixed dock so it never sits on top of the last row. */}
+      {dockCall ? <div className="h-24 shrink-0" aria-hidden /> : null}
+
+      {callActive && voiceCall ? (
+        <CallDock
+          transport="webrtc · in-page"
+          headline={
+            voiceCall.live
+              ? `Live check-in · ${patientName || "patient"}`
+              : "Starting the check-in…"
+          }
+          detail={`${callPhaseLabel(voiceCall)}${
+            voiceCall.audioState === "blocked" ? " · tap Unlock sound in the panel" : ""
+          }`}
+          timer={voiceCall.live ? callTimer(voiceCall.elapsed) : undefined}
+          onEnd={() => hangupRef.current?.()}
+          onReveal={revealCheckin}
+        />
+      ) : null}
+
+      {inPstnCall ? (
+        <CallDock
+          transport="voximplant · pstn"
+          headline={
+            hasEvent(events, "VoiceCallConnected")
+              ? "Gemini Live conversation active"
+              : "Calling the patient…"
+          }
+          detail="Real outbound phone call — it ends when the patient hangs up."
+          onReveal={revealCheckin}
+        />
+      ) : null}
     </div>
   );
 }
